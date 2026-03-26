@@ -12,7 +12,7 @@ export default function App() {
   const [userRole, setUserRole] = useState(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const [activeMenu, setActiveMenu] = useState('vestiaire');
+  const [activeMenu, setActiveMenu] = useState(() => localStorage.getItem('basket_active_menu_v3') || 'vestiaire');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [view, setView] = useState(() => localStorage.getItem('basket_view_v3') || 'dashboard');
@@ -68,8 +68,20 @@ export default function App() {
       const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
       if (!error && data) {
         setUserRole(data.role);
-        if (data.role === 'ADMIN' || data.role === 'ORGANIZER') setActiveMenu('dashboard_orga');
-        else setActiveMenu('vestiaire');
+        
+        // On vérifie si l'utilisateur avait déjà un menu d'ouvert
+        const savedMenu = localStorage.getItem('basket_active_menu_v3');
+        
+        if (!savedMenu) {
+          // 1ère connexion : on envoie les orgas vers le dashboard, et les autres au vestiaire
+          if (data.role === 'ADMIN' || data.role === 'ORGANIZER') setActiveMenu('dashboard_orga');
+          else setActiveMenu('vestiaire');
+        } 
+        else if (savedMenu === 'dashboard_orga' && data.role !== 'ADMIN' && data.role !== 'ORGANIZER') {
+          // Sécurité : si un joueur normal a "dashboard_orga" en mémoire, on le renvoie au vestiaire
+          setActiveMenu('vestiaire');
+        }
+        // Si c'est un orga et qu'il était sur "explorer", on ne touche à rien !
       }
     } catch (error) {
       console.error("Erreur récupération rôle :", error);
@@ -105,6 +117,8 @@ export default function App() {
   }, [activeMatch]);
   useEffect(() => { localStorage.setItem('basket_active_id_v3', activeTourneyId || ""); }, [activeTourneyId]);
 
+  useEffect(() => { localStorage.setItem('basket_active_menu_v3', activeMenu); }, [activeMenu]);
+
   const currentTourney = tournaments.find(t => t.id === activeTourneyId);
 
   const launchMatch = (matchId) => {
@@ -120,40 +134,46 @@ export default function App() {
   };
 
   const finishMatch = async (scoreA, scoreB, playersA, playersB) => {
-    if (activeMatch) {
-      let updatedTournaments = [];
-      
-      setTournaments(prev => {
-        updatedTournaments = prev.map(t => {
-          if (t.id === activeMatch.tourneyId) {
-            const isPoolMatch = t.schedule.some(m => m.id === activeMatch.id);
-            if (isPoolMatch) {
-              const newSchedule = t.schedule.map(m => 
-                m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
-              );
-              return { ...t, schedule: newSchedule };
-            } 
-            if (t.playoffs) {
-              const newPlayoffMatches = t.playoffs.matches.map(m => 
-                m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
-              );
-              return { ...t, playoffs: { ...t.playoffs, matches: newPlayoffMatches } };
-            }
-          }
-          return t;
-        });
-        return updatedTournaments;
-      });
+    if (!activeMatch) return;
 
-      const tourneyToUpdate = updatedTournaments.find(t => t.id === activeMatch.tourneyId);
-      if (tourneyToUpdate) {
-        await supabase.from('tournaments').update({
-          schedule: tourneyToUpdate.schedule,
-          playoffs: tourneyToUpdate.playoffs
-        }).eq('id', tourneyToUpdate.id);
-      }
-      localStorage.removeItem(`basketMatchSave_${activeMatch.id}`);
+    const currentTourney = tournaments.find(t => t.id === activeMatch.tourneyId);
+    if (!currentTourney) return;
+
+    // 1. On détermine si c'est un match de poule
+    const isPoolMatch = currentTourney.schedule && currentTourney.schedule.some(m => m.id === activeMatch.id);
+
+    // 2. On prépare les copies propres
+    let newSchedule = currentTourney.schedule ? [...currentTourney.schedule] : [];
+    let newPlayoffs = currentTourney.playoffs ? JSON.parse(JSON.stringify(currentTourney.playoffs)) : null;
+
+    // 3. On injecte les stats dans le bon match
+    if (isPoolMatch) {
+      newSchedule = newSchedule.map(m => 
+        m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
+      );
+    } else if (newPlayoffs && newPlayoffs.matches) {
+      newPlayoffs.matches = newPlayoffs.matches.map(m => 
+        m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
+      );
     }
+
+    const updatedTourney = { ...currentTourney, schedule: newSchedule, playoffs: newPlayoffs };
+
+    // 4. ON SAUVEGARDE SUR SUPABASE EN PREMIER
+    const { error } = await supabase.from('tournaments').update({
+      schedule: newSchedule,
+      playoffs: newPlayoffs
+    }).eq('id', updatedTourney.id);
+
+    if (error) {
+      console.error("Erreur de sauvegarde Supabase :", error);
+      alert("Erreur réseau lors de la sauvegarde du match !");
+      return;
+    }
+
+    // 5. On met à jour l'écran et on nettoie le cache
+    setTournaments(prev => prev.map(t => t.id === updatedTourney.id ? updatedTourney : t));
+    localStorage.removeItem(`basketMatchSave_${activeMatch.id}`);
     setActiveMatch(null);
     setView('tournament');
   };
@@ -162,10 +182,23 @@ export default function App() {
     if (!activeMatch) return;
     const tourneyToUpdate = tournaments.find(t => t.id === activeMatch.tourneyId);
     if (!tourneyToUpdate) return;
-    const newSchedule = tourneyToUpdate.schedule.map(m => 
-      m.id === activeMatch.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB } : m
-    );
-    await supabase.from('tournaments').update({ schedule: newSchedule }).eq('id', tourneyToUpdate.id);
+    
+    const isPoolMatch = tourneyToUpdate.schedule && tourneyToUpdate.schedule.some(m => m.id === activeMatch.id);
+    
+    if (isPoolMatch) {
+      const newSchedule = tourneyToUpdate.schedule.map(m => 
+        m.id === activeMatch.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB } : m
+      );
+      await supabase.from('tournaments').update({ schedule: newSchedule }).eq('id', tourneyToUpdate.id);
+    } else if (tourneyToUpdate.playoffs && tourneyToUpdate.playoffs.matches) {
+      // Magie pour que les playoffs se mettent aussi à jour en direct !
+      const newPlayoffMatches = tourneyToUpdate.playoffs.matches.map(m => 
+        m.id === activeMatch.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB } : m
+      );
+      await supabase.from('tournaments').update({ 
+        playoffs: { ...tourneyToUpdate.playoffs, matches: newPlayoffMatches } 
+      }).eq('id', tourneyToUpdate.id);
+    }
   };
 
   const handleMenuClick = (menuId) => {
@@ -246,7 +279,12 @@ export default function App() {
             
             {/* NOUVEAU : On passe l'onglet actif (currentTab) au PlayerDashboard ! */}
             {view === 'dashboard' && ['vestiaire', 'mercato', 'carriere', 'explorer'].includes(activeMenu) && (
-              <PlayerDashboard session={session} currentTab={activeMenu} />
+              <PlayerDashboard 
+                 session={session} 
+                 currentTab={activeMenu} 
+                 setActiveTourneyId={setActiveTourneyId} 
+                 setView={setView} 
+              />
             )}
             
             {view === 'dashboard' && activeMenu === 'dashboard_orga' && (

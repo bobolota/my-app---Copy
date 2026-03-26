@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 
 // --- COMPOSANTS INTERNES ---
@@ -26,6 +26,8 @@ const BoxscoreTable = ({ title, players, color }) => {
             <th>LF</th>
             <th>+/-</th>
             <th>AST</th>
+            <th>OREB</th>
+            <th>DREB</th>
             <th>REB</th>
             <th>STL</th>
             <th>BLK</th>
@@ -69,6 +71,8 @@ const BoxscoreTable = ({ title, players, color }) => {
                 <td>{ftm}/{fta}</td>
                 <td style={{ color: pmColor, fontWeight: 'bold' }}>{pm > 0 ? `+${pm}` : pm}</td>
                 <td>{ast}</td>
+                <td>{oreb}</td>
+                <td>{dreb}</td>
                 <td className="stat-highlight">{reb}</td>
                 <td>{stl}</td>
                 <td>{blk}</td>
@@ -83,7 +87,6 @@ const BoxscoreTable = ({ title, players, color }) => {
     </div>
   );
 };
-
 const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit }) => {
   const isSubSelected = pendingSubs && pendingSubs.includes(player.id);
   const isPendingScore = pendingAction?.playerId === player.id;
@@ -198,6 +201,10 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
 
   const safeSave = getSafeSave();
 
+  // NOUVEAU : On gère l'état de validation du 5 majeur pour ne pas le redemander
+  const initialStartersValidated = isFinished || (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false);
+  const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
+
   const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : initPlayers(teamA)));
   const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : initPlayers(teamB)));
   const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : settings.periodDuration * 60));
@@ -210,10 +217,9 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const [currentView, setCurrentView] = useState(isFinished ? 'boxscore' : 'court');
 
   const [activeAction, setActiveAction] = useState(() => {
-    const loadedHistory = safeSave ? safeSave.history : [];
     // Si pas connecté ou pas autorisé, on ne force pas le panneau STARTERS
     if (!canEdit) return null; 
-    return (loadedHistory.length === 0 && !isFinished) ? { type: 'STARTERS' } : null;
+    return (!initialStartersValidated) ? { type: 'STARTERS' } : null;
   });
   const [pendingSubs, setPendingSubs] = useState([]);
   const [pendingAction, setPendingAction] = useState(null);
@@ -289,10 +295,10 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   // Sauvegarde locale (Le Cloud est appelé par App.jsx)
   useEffect(() => {
     if (!isFinished && canEdit) { // Un spectateur n'écrase pas le cache
-      const gameState = { playersA, playersB, time, period, history, isMatchOver, possession };
+      const gameState = { playersA, playersB, time, period, history, isMatchOver, possession, startersValidated };
       localStorage.setItem(saveKey, JSON.stringify(gameState));
     }
-  }, [playersA, playersB, time, period, history, isMatchOver, possession, isFinished, saveKey, canEdit]);
+  }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
   const handleFinishMatch = () => {
     if (!canEdit) return; // Sécurité
@@ -393,45 +399,68 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  // ==========================================================
-  // 📡 MAGIE DU DIRECT : SYNCHRONISATION OTM -> SPECTATEURS
-  // ==========================================================
-  
-  // 1. Connexion au canal du match
+  // --- NOUVEAU : MODE COLLABORATIF MULTI-OTM ---
+  const stateRef = useRef({ playersA, playersB, time, period, history, isRunning });
+  const isRemoteUpdate = useRef(false);
+
+  // On garde toujours une trace fraîche de l'état pour l'envoyer aux nouveaux arrivants
+  useEffect(() => {
+    stateRef.current = { playersA, playersB, time, period, history, isRunning };
+  }, [playersA, playersB, time, period, history, isRunning]);
+
   useEffect(() => {
     const channel = supabase.channel(`match_live_${matchId}`);
+    
+    // 1. TOUT LE MONDE (Spectateurs ET Éditeurs) écoute les changements
+    channel.on('broadcast', { event: 'sync' }, ({ payload }) => {
+      if (canEdit) isRemoteUpdate.current = true; // Empêche l'effet miroir (boucle infinie)
+      setPlayersA(payload.playersA);
+      setPlayersB(payload.playersB);
+      setTime(payload.time);
+      setPeriod(payload.period);
+      setHistory(payload.history);
+      setIsRunning(payload.isRunning);
+    });
 
-    if (!canEdit) {
-      // LE SPECTATEUR ÉCOUTE : À chaque fois que l'OTM fait un truc, on met à jour l'écran
-      channel.on('broadcast', { event: 'sync' }, ({ payload }) => {
-        setPlayersA(payload.playersA);
-        setPlayersB(payload.playersB);
-        setTime(payload.time);
-        setPeriod(payload.period);
-        setHistory(payload.history);
-        setIsRunning(payload.isRunning);
-      }).subscribe();
-    } else {
-      // L'OTM OUVRE LE CANAL
-      channel.subscribe();
+    if (canEdit) {
+      // 2. Si un nouvel appareil se connecte, il demande le score actuel
+      channel.on('broadcast', { event: 'request_sync' }, () => {
+        // L'OTM déjà présent envoie son état actuel au nouvel arrivant
+        const hasStarted = stateRef.current.history.length > 0 || stateRef.current.playersA.some(p => p.points > 0);
+        if (hasStarted) {
+            channel.send({
+              type: 'broadcast', event: 'sync',
+              payload: stateRef.current
+            });
+        }
+      });
     }
 
-    return () => { supabase.removeChannel(channel); };
-  }, [canEdit, matchId]);
+    channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED' && canEdit) {
+            // 3. Je viens de me connecter, je demande le score aux autres OTMs
+            channel.send({ type: 'broadcast', event: 'request_sync' });
+        }
+    });
 
-  // 2. Diffusion en continu
+    return () => { supabase.removeChannel(channel); };
+  }, [matchId, canEdit]);
+
+  // 4. L'éditeur diffuse ses actions à chaque clic
   useEffect(() => {
     if (canEdit) {
-      // L'OTM PARLE : Dès qu'une donnée change sur son écran (un point, une faute, ou le chrono qui perd 1 seconde), 
-      // il l'envoie instantanément dans le canal, sans écrire dans la base de données !
+      // Si la mise à jour vient d'un autre OTM, on ne la renvoie pas !
+      if (isRemoteUpdate.current) {
+         isRemoteUpdate.current = false;
+         return;
+      }
       supabase.channel(`match_live_${matchId}`).send({
-        type: 'broadcast',
-        event: 'sync',
+        type: 'broadcast', event: 'sync',
         payload: { playersA, playersB, time, period, history, isRunning }
       });
     }
   }, [canEdit, matchId, playersA, playersB, time, period, history, isRunning]);
-  // ==========================================================
+  // ----------------------------------------------
 
   const handleAction = (incomingType, team, pid, incomingValue) => {
     if (!canEdit || isMatchOver) return; // Sécurité maximale
@@ -741,6 +770,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                               return;
                           }
                           setActiveAction(null);
+                          setStartersValidated(true); // <--- NOUVEAU : On enregistre la validation
                       }}>
                           VALIDER LE 5 MAJEUR
                       </button>

@@ -22,11 +22,29 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const [draggedPlayerId, setDraggedPlayerId] = useState(null);
   const [draggedMatchId, setDraggedMatchId] = useState(null);
 
-  // --- NOUVEAU : ÉTATS POUR L'IMPORTATION ---
   const [globalTeams, setGlobalTeams] = useState([]);
   const [selectedGlobalTeamId, setSelectedGlobalTeamId] = useState("");
 
-  // On charge toutes les équipes globales disponibles au démarrage
+  // --- NOUVEAU : ÉTATS POUR LA MODALE OTM ---
+  const [otmProfiles, setOtmProfiles] = useState([]);
+  const [otmModal, setOtmModal] = useState(null);
+  const [selectedOtmInput, setSelectedOtmInput] = useState("");
+
+  // On récupère les profils de ceux qui ont débloqué le mode OTM
+  useEffect(() => {
+    if (!canEdit) return;
+    const fetchOtms = async () => {
+      if (!tourney.otm_ids || tourney.otm_ids.length === 0) {
+        setOtmProfiles([]);
+        return;
+      }
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', tourney.otm_ids);
+      if (data) setOtmProfiles(data);
+    };
+    fetchOtms();
+  }, [tourney.otm_ids, canEdit]);
+  // -----------------------------------------
+
   useEffect(() => {
     if (!canEdit) return;
     const fetchGlobalTeams = async () => {
@@ -35,16 +53,26 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     };
     fetchGlobalTeams();
   }, [canEdit]);
-  // -------------------------------------------
 
   const update = async (data) => {
     if (!canEdit) return; 
 
+    // 1. Mise à jour instantanée de l'écran local
     setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...data } : t));
+
+    // 2. 🛡️ BOUCLIER ANTI-TOAST POSTGRES : 
+    // On force la présence des gros objets JSON (s'ils ne sont pas déjà dans "data")
+    // pour éviter que le flux en direct de Supabase ne les omette et efface l'écran.
+    const safePayload = {
+      ...data,
+      teams: data.teams !== undefined ? data.teams : tourney.teams,
+      schedule: data.schedule !== undefined ? data.schedule : tourney.schedule,
+      playoffs: data.playoffs !== undefined ? data.playoffs : tourney.playoffs
+    };
 
     const { error } = await supabase
       .from('tournaments')
-      .update(data)
+      .update(safePayload)
       .eq('id', tourney.id);
 
     if (error) {
@@ -52,6 +80,35 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       alert("Erreur de synchronisation avec le cloud.");
     }
   };
+
+  // --- 🛡️ BOUCLIERS ANTI-CRASH ---
+  const getGroupLimit = (t, gNum) => {
+    const val = t?.qualifiedSettings?.[gNum];
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) ? 2 : Math.max(0, parsed);
+  };
+
+  const getGroupStandings = (gNum) => {
+    const groupTeams = (tourney.teams || []).filter(t => t.groupId === gNum);
+    return groupTeams.map(team => {
+      let points = 0, diff = 0;
+      (tourney.schedule || []).filter(m => m.group === gNum && (m.status === 'finished' || m.status === 'forfeit') && (m.teamA?.id === team.id || m.teamB?.id === team.id)).forEach(m => {
+        const isA = m.teamA?.id === team.id;
+        const s = isA ? m.scoreA : m.scoreB; 
+        const o = isA ? m.scoreB : m.scoreA;
+        
+        if (m.status === 'forfeit') {
+          if (s > o) points += 2; 
+          else points += 0;       
+        } else {
+          if (s > o) points += 2; else points += 1; 
+        }
+        diff += (s - o);
+      });
+      return { ...team, points, diff };
+    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
+  };
+  // ---------------------------------
 
   useEffect(() => {
     if (!canEdit) return; 
@@ -61,7 +118,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     const newMatches = [...tourney.playoffs.matches];
 
     newMatches.forEach(m => {
-      if (m.status === 'finished' && m.nextMatchId) {
+      if ((m.status === 'finished' || m.status === 'forfeit') && m.nextMatchId) {
         let winner = null;
         if (m.teamB?.isBye) winner = m.teamA;
         else if (m.teamA?.isBye) winner = m.teamB;
@@ -84,10 +141,10 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     if (updated) {
       update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
     }
-  }, [tourney.playoffs]); 
+  }, [tourney.playoffs]);
 
   const handleLaunchMatch = (matchId) => {
-    let match = tourney.schedule.find(m => m.id === matchId);
+    let match = (tourney.schedule || []).find(m => m.id === matchId);
     if (!match && tourney.playoffs) {
       match = tourney.playoffs.matches.find(m => m.id === matchId);
     }
@@ -95,6 +152,46 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       onLaunchMatch(matchId);
     }
   };
+
+  const handleMatchException = (matchId, actionType, isPlayoff = false) => {
+    if (!canEdit) return;
+    const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
+    
+    if (actionType === 'cancel') {
+       if (!window.confirm("Annuler ce match ? Il sera considéré comme nul (0-0) et ne rapportera aucun point.")) return;
+       updateMatchState(matchId, isPlayoff, 'canceled', 0, 0);
+    } else if (actionType === 'forfeit') {
+       const res = window.prompt(`Qui déclare FORFAIT ?\n\nTapez 1 pour : ${match.teamA?.name}\nTapez 2 pour : ${match.teamB?.name}`);
+       if (res === '1') {
+         updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
+       } else if (res === '2') {
+         updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
+       }
+    }
+  };
+
+  const updateMatchState = (matchId, isPlayoff, status, scoreA, scoreB) => {
+    if (isPlayoff) {
+      const newMatches = tourney.playoffs.matches.map(m => 
+        m.id === matchId ? { ...m, status, scoreA, scoreB } : m
+      );
+      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+    } else {
+      const newSchedule = tourney.schedule.map(m => 
+        m.id === matchId ? { ...m, status, scoreA, scoreB } : m
+      );
+      update({ schedule: newSchedule });
+    }
+  };
+
+  // --- MODIFIÉ : UTILISATION DE LA MODALE POUR L'OTM ---
+  const handleAssignOtm = (matchId, isPlayoff) => {
+    if (!canEdit) return;
+    const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
+    setOtmModal({ matchId, isPlayoff });
+    setSelectedOtmInput(match.otm || "");
+  };
+  // -----------------------------------------------------
 
   const generateDrawAndSchedule = () => {
     if (!canEdit) return;
@@ -131,19 +228,37 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const generatePlayoffs = () => {
     if (!canEdit) return;
+
+    if (!tourney.schedule || tourney.schedule.length === 0) {
+      alert("Impossible : Aucun match de poule n'a été généré. Veuillez d'abord créer le planning des poules.");
+      return;
+    }
+
+    // On compte tous les matchs résolus (terminés, forfaits ou annulés)
+    const resolvedMatches = tourney.schedule.filter(m => ['finished', 'forfeit', 'canceled'].includes(m.status)).length;
+    const totalMatches = tourney.schedule.length;
+
+    // BLOCAGE STRICT : Tous les matchs doivent être joués (ou traités)
+    if (resolvedMatches < totalMatches) {
+      const remaining = totalMatches - resolvedMatches;
+      alert(`Impossible de générer la phase finale 🛑\n\nTous les matchs de poule doivent être terminés (ou annulés/forfaits).\nIl reste actuellement ${remaining} match(s) en attente.`);
+      return;
+    }
+
     if (tourney.playoffs && !window.confirm("Écraser la phase finale existante ?")) return;
+    
     const qualifiedTeams = [];
-    const savedGroupIds = [...new Set(tourney.teams.map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
+    const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
     
     let maxLimit = 0;
     savedGroupIds.forEach(gNum => {
-      const limit = tourney.qualifiedSettings?.[gNum] || 2;
+      const limit = getGroupLimit(tourney, gNum);
       if(limit > maxLimit) maxLimit = limit;
     });
 
     for(let rank = 0; rank < maxLimit; rank++) {
       savedGroupIds.forEach(gNum => {
-        const limit = tourney.qualifiedSettings?.[gNum] || 2;
+        const limit = getGroupLimit(tourney, gNum);
         if (rank < limit) {
           const standings = getGroupStandings(gNum);
           if (standings[rank]) qualifiedTeams.push(standings[rank]);
@@ -155,7 +270,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     if (totalTeams < 2) { alert("Il faut au moins 2 équipes qualifiées."); return; }
 
     let size = 2;
-    while (size < totalTeams) size *= 2;
+    while (size < totalTeams && size <= 1024) size *= 2;
 
     const seeded = new Array(size).fill(null);
     for(let i=0; i<totalTeams; i++) seeded[i] = qualifiedTeams[i];
@@ -215,28 +330,23 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     setActiveTab("finale");
   };
 
-  // Ajout manuel classique
   const addTeam = () => {
     if (!canEdit || !teamName.trim()) return;
     update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), name: teamName, players: [], groupId: null }] });
     setTeamName("");
   };
 
-  // --- NOUVEAU : IMPORTATION MAGIQUE D'UNE ÉQUIPE ---
   const importGlobalTeam = async () => {
     if (!canEdit || !selectedGlobalTeamId) return;
-
     const gTeam = globalTeams.find(t => t.id === selectedGlobalTeamId);
     if (!gTeam) return;
 
-    // Sécurité : vérifier si on n'a pas déjà importé cette équipe
     if (tourney.teams.some(t => t.global_id === gTeam.id)) {
       alert("Cette équipe a déjà été importée dans le tournoi !");
       return;
     }
 
     try {
-      // 1. On va chercher les membres "acceptés" de cette équipe
       const { data: members, error: membersError } = await supabase
         .from('team_members')
         .select('player_id')
@@ -246,8 +356,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       if (membersError) throw membersError;
 
       let newPlayers = [];
-      
-      // 2. S'il y a des membres, on va chercher leurs vrais noms
       if (members && members.length > 0) {
         const playerIds = members.map(m => m.player_id);
         const { data: profiles, error: profilesError } = await supabase
@@ -257,24 +365,22 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
         if (profilesError) throw profilesError;
 
-        // On crée les "fiches joueurs" pour le tournoi
         newPlayers = members.map((m, i) => {
           const prof = profiles.find(p => p.id === m.player_id);
           return {
-            id: m.player_id, // On garde le VRAI ID du joueur pour l'historique !
+            id: m.player_id, 
             name: prof?.full_name || "Joueur Inconnu",
-            number: String(i + 4), // Numéros par défaut (4, 5, 6...)
-            licenseStatus: 'to_check', // L'orga devra vérifier s'ils ont payé
+            number: String(i + 4), 
+            licenseStatus: 'to_check', 
             paid: 0,
             totalDue: 20
           };
         });
       }
 
-      // 3. On crée l'équipe dans le tournoi
       const newTeam = {
         id: "tm_" + Date.now(),
-        global_id: gTeam.id, // On garde une trace de son origine
+        global_id: gTeam.id, 
         name: gTeam.name,
         players: newPlayers,
         groupId: null
@@ -283,12 +389,10 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       update({ teams: [...tourney.teams, newTeam] });
       setSelectedGlobalTeamId("");
       alert(`L'équipe ${gTeam.name} et ses ${newPlayers.length} joueurs ont été importés avec succès ! ✅`);
-
     } catch (error) {
       alert("Erreur lors de l'importation : " + error.message);
     }
   };
-  // ----------------------------------------------------
 
   const addPlayer = (tid) => {
     if (!canEdit || !pName.trim() || !pNum.trim()) return;
@@ -360,18 +464,13 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const deleteTeam = (teamId) => {
     if (!canEdit) return;
     if(window.confirm("Supprimer définitivement cette équipe du tournoi ?")) {
-      
-      // 1. On retire l'équipe de la liste
       const newTeams = tourney.teams.filter(t => t.id !== teamId);
-
-      // 2. On nettoie les matchs de poule (Sécurisé contre les valeurs nulles)
       const newSchedule = (tourney.schedule || []).filter(match => {
         const aId = match.teamA?.id || null;
         const bId = match.teamB?.id || null;
         return aId !== teamId && bId !== teamId;
       });
 
-      // 3. On nettoie l'arbre des playoffs (On remplace l'équipe par "null" / place vacante)
       let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
       if (newPlayoffs && newPlayoffs.matches) {
         newPlayoffs.matches = newPlayoffs.matches.map(m => {
@@ -381,14 +480,36 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         });
       }
 
-      // 4. On utilise ta propre fonction "update" pour la sauvegarde Supabase
-      update({
-        teams: newTeams,
-        schedule: newSchedule,
-        playoffs: newPlayoffs
-      });
+      update({ teams: newTeams, schedule: newSchedule, playoffs: newPlayoffs });
     }
   };
+
+  // --- NOUVEAU : DÉBLOQUER LE MODE OTM DEPUIS LE TOURNOI ---
+  const handleUnlockOtm = async () => {
+    const pin = window.prompt("Entrez le code PIN fourni par l'organisateur pour débloquer la Table de Marque :");
+    if (!pin) return;
+
+    try {
+      // 1. On vérifie le code avec la base de données
+      const { error } = await supabase.rpc('join_as_otm', { pin: pin.trim().toUpperCase() });
+      
+      if (error) throw error;
+      
+      alert("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
+      
+      // 2. On met à jour l'écran localement pour faire apparaître les boutons instantanément !
+      setTournaments(prev => prev.map(t => {
+        if (t.id === tourney.id) {
+          return { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] };
+        }
+        return t;
+      }));
+
+    } catch (err) {
+      alert("Code PIN invalide ou erreur réseau.");
+    }
+  };
+  // ---------------------------------------------------------
 
   const renderPlayerColumn = (title, status, color, team) => {
     const filteredPlayers = team.players.filter(p => p.licenseStatus === status || (!p.licenseStatus && status === 'to_check'));
@@ -406,7 +527,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         <div className="dashboard-scroll-area">
           {filteredPlayers.map(p => {
             const remaining = (p.totalDue || 0) - (p.paid || 0);
-            
             return (
               <div 
                 key={p.id} 
@@ -437,7 +557,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                     <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>⚠️ Reste : {remaining} €</span>
                   )}
                 </div>
-
                 {canEdit && <div className="dashboard-drag-handle" style={{ marginTop: '4px' }}>⠿ GLISSER POUR CHANGER DE STATUT</div>}
               </div>
             );
@@ -445,20 +564,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         </div>
       </div>
     );
-  };
-
-  const getGroupStandings = (gNum) => {
-    const groupTeams = tourney.teams.filter(t => t.groupId === gNum);
-    return groupTeams.map(team => {
-      let points = 0, diff = 0;
-      tourney.schedule.filter(m => m.group === gNum && m.status === 'finished' && (m.teamA.id === team.id || m.teamB.id === team.id)).forEach(m => {
-        const isA = m.teamA.id === team.id;
-        const s = isA ? m.scoreA : m.scoreB; const o = isA ? m.scoreB : m.scoreA;
-        if (s > o) points += 2; else points += 1;
-        diff += (s - o);
-      });
-      return { ...team, points, diff };
-    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
   };
 
   const validateAllPlayers = (teamId) => {
@@ -472,7 +577,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const getPlayerStats = () => {
     const statsMap = {};
-    
     const allMatches = [
       ...(tourney.schedule || []),
       ...(tourney.playoffs?.matches || [])
@@ -481,7 +585,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     const processTeam = (players, teamName) => {
       if (!players) return;
       players.forEach(p => {
-        if ((p.timePlayed > 0) || p.points > 0 || p.fouls > 0) {
+        const hasPlayed = p.timePlayed > 0 || p.points > 0 || p.fouls > 0 || p.ast > 0 || p.oreb > 0 || p.dreb > 0 || p.stl > 0 || p.blk > 0 || p.fg2a > 0 || p.fg3a > 0 || p.fta > 0 || p.tov > 0;
+        
+        if (hasPlayed) {
           if (!statsMap[p.id]) {
             statsMap[p.id] = {
               id: p.id, name: p.name, number: p.number, teamName: teamName,
@@ -524,6 +630,18 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       s.astAvg = (s.ast / s.gamesPlayed).toFixed(1);
       s.effAvg = (s.eff / s.gamesPlayed).toFixed(1);
 
+      s.fgPct = fga > 0 ? parseFloat(((fgm / fga) * 100).toFixed(1)) : 0;
+      s.fg2Pct = s.fg2a > 0 ? parseFloat(((s.fg2m / s.fg2a) * 100).toFixed(1)) : 0;
+      s.fg3Pct = s.fg3a > 0 ? parseFloat(((s.fg3m / s.fg3a) * 100).toFixed(1)) : 0;
+      s.ftPct = s.fta > 0 ? parseFloat(((s.ftm / s.fta) * 100).toFixed(1)) : 0;
+
+      s.fgPctDisplay = s.fgPct > 0 ? `${s.fgPct}%` : '0%';
+      s.fg2PctDisplay = s.fg2Pct > 0 ? `${s.fg2Pct}%` : '0%';
+      s.fg3PctDisplay = s.fg3Pct > 0 ? `${s.fg3Pct}%` : '0%';
+      s.ftPctDisplay = s.ftPct > 0 ? `${s.ftPct}%` : '0%';
+
+      s.fga = fga;
+
       return s;
     });
   };
@@ -555,7 +673,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   };
 
   if (editId) {
-    const team = tourney.teams.find(t => t.id === editId);
+    const team = (tourney.teams || []).find(t => t.id === editId);
     return (
       <div style={{ padding: '20px' }}>
         <button onClick={() => setEditId(null)} className="btn-tab">⬅ RETOUR</button>
@@ -572,7 +690,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
               </div>
             )}
         </div>
-        
         <div className="dashboard-pipeline" style={{ height: '65vh' }}>
           {renderPlayerColumn("À VÉRIFIER", "to_check", "#ff4444", team)}
           {renderPlayerColumn("EN ATTENTE", "pending", "var(--accent-orange)", team)}
@@ -582,13 +699,15 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     );
   }
 
- const savedGroupIds = [...new Set(tourney.teams.map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
+  const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
 
-  const totalQualified = savedGroupIds.reduce((sum, gNum) => sum + (tourney.qualifiedSettings?.[gNum] || 2), 0);
+  const totalQualified = savedGroupIds.reduce((sum, gNum) => sum + getGroupLimit(tourney, gNum), 0);
   
   let bracketSize = 2;
-  while (bracketSize < totalQualified) bracketSize *= 2;
-  const numByes = bracketSize - totalQualified;
+  while (bracketSize < totalQualified && bracketSize <= 1024) { 
+    bracketSize *= 2; 
+  }
+  const numByes = Math.max(0, bracketSize - totalQualified);
 
   const getStartRoundName = (size) => {
       if (size === 2) return "LA FINALE";
@@ -610,8 +729,10 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   return (
     <div className="tm-container">
       <div className="tm-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
             <h1 className="tm-title" style={{ margin: 0 }}>{tourney.name}</h1>
+            
+            {/* Affichage du code pour les organisateurs */}
             {canEdit && tourney.pin_code && (
               <span style={{ 
                   background: 'rgba(0, 102, 204, 0.1)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', 
@@ -619,6 +740,21 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
               }}>
                 🔑 CODE OTM : {tourney.pin_code}
               </span>
+            )}
+
+            {/* NOUVEAU : Bouton de déblocage pour les spectateurs/joueurs */}
+            {!canManageMatch && session && (
+              <button 
+                onClick={handleUnlockOtm} 
+                style={{ 
+                  background: '#1a1a1a', border: '1px dashed var(--accent-blue)', color: 'var(--accent-blue)', 
+                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' 
+                }}
+                onMouseOver={(e) => e.target.style.background = 'rgba(0, 102, 204, 0.2)'}
+                onMouseOut={(e) => e.target.style.background = '#1a1a1a'}
+              >
+                🔓 Débloquer la Table de Marque
+              </button>
             )}
         </div>
         <div className="tm-tabs" style={{ marginTop: '10px' }}>
@@ -634,14 +770,11 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
             <h3>1. Équipes et Licences</h3>
             {canEdit && (
               <div style={{ display: 'flex', gap: '40px', marginBottom: '20px', flexWrap: 'wrap' }}>
-                
-                {/* CRÉATION MANUELLE */}
                 <div style={{ flex: 1, minWidth: '300px', display: 'flex', gap: '10px', background: '#1a1a1a', padding: '15px', borderRadius: '8px', border: '1px dashed #444' }}>
                   <input className="tm-input" style={{ flex: 1 }} placeholder="Créer manuellement..." value={teamName} onChange={(e) => setTeamName(e.target.value)} />
                   <button onClick={addTeam} className="tm-btn-success">AJOUTER</button>
                 </div>
 
-                {/* NOUVEAU : IMPORTATION MAGIQUE */}
                 <div style={{ flex: 1, minWidth: '300px', display: 'flex', gap: '10px', background: 'rgba(0, 102, 204, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-blue)' }}>
                   <select 
                     value={selectedGlobalTeamId} 
@@ -658,12 +791,11 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                     ⬇️ IMPORTER
                   </button>
                 </div>
-
               </div>
             )}
             
             <div className="tm-grid-teams">
-              {tourney.teams.map(t => (
+              {(tourney.teams || []).map(t => (
                 <div key={t.id} className="tm-card" style={{ position: 'relative' }}>
                   {t.global_id && <div style={{ position: 'absolute', top: '-10px', right: '-10px', background: 'var(--accent-blue)', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.6rem' }} title="Équipe du réseau">🌐</div>}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -695,14 +827,25 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           <div style={{ display: 'flex', overflowX: 'auto', gap: '20px' }}>
             {savedGroupIds.map(gNum => {
                 const standings = getGroupStandings(gNum);
-                const limit = tourney.qualifiedSettings?.[gNum] || 2;
+                const limit = getGroupLimit(tourney, gNum);
                 return (
                   <div key={gNum} className="tm-group-col">
                     <div className="tm-flex-between" style={{ marginBottom: '10px' }}>
                       <h4 style={{ margin: 0 }}>POULE {gNum}</h4>
                       <div style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
                         <span>Qualifiés:</span>
-                        <input type="number" disabled={!canEdit} value={limit} onChange={(e) => update({ qualifiedSettings: { ...tourney.qualifiedSettings, [gNum]: parseInt(e.target.value) || 0 } })} className="tm-mini-input" style={{ width: '35px' }} />
+                        <input 
+                          type="number" 
+                          disabled={!canEdit} 
+                          value={tourney.qualifiedSettings?.[gNum] ?? 2} 
+                          onChange={(e) => {
+                            let val = parseInt(e.target.value, 10);
+                            if (isNaN(val)) val = 0;
+                            update({ qualifiedSettings: { ...(tourney.qualifiedSettings || {}), [gNum]: val } });
+                          }}
+                          className="tm-mini-input" 
+                          style={{ width: '45px' }} 
+                        />
                       </div>
                     </div>
                     <table style={{ width: '100%', fontSize: '0.75rem', marginBottom: '15px' }}>
@@ -717,10 +860,12 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                         ))}
                       </tbody>
                     </table>
-                    {tourney.schedule.filter(m => m.group === gNum).map(m => {
+                    {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
                       const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
                       const isFinished = m.status === 'finished';
-                      const isOngoing = !isFinished && !!localStorage.getItem(`basketMatchSave_${m.id}`);
+                      const isCanceled = m.status === 'canceled';
+                      const isForfeit = m.status === 'forfeit';
+                      const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
                       const canClick = isReady || isFinished;
                       
                       return (
@@ -768,9 +913,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                           }}
                           className="tm-match-row"
                           style={{
-                            borderLeft: `3px solid ${isOngoing ? 'var(--accent-blue)' : (canClick ? 'var(--success)' : 'var(--danger)')}`,
+                            borderLeft: `3px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--success)' : 'var(--danger)'))}`,
                             cursor: canEdit ? (draggedMatchId === m.id ? 'grabbing' : 'grab') : 'default',
-                            opacity: draggedMatchId === m.id ? 0.4 : 1,
+                            opacity: draggedMatchId === m.id ? 0.4 : (isCanceled ? 0.6 : 1),
                             position: 'relative',
                             transition: 'all 0.2s ease'
                           }}
@@ -779,29 +924,44 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                            
                            {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
                            {isFinished && <div className="tm-ribbon-finished">TERMINÉ</div>}
+                           {isCanceled && <div className="tm-ribbon-finished" style={{background: '#555'}}>ANNULÉ</div>}
+                           {isForfeit && <div className="tm-ribbon-finished" style={{background: 'var(--danger)'}}>FORFAIT</div>}
                            
                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', paddingRight: '40px' }}>
                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                               <span style={{ fontSize: '0.8rem', color: isFinished ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: isFinished && m.scoreA > m.scoreB ? 'bold' : 'normal' }}>{m.teamA?.name || 'Équipe A'}</span>
-                               {isFinished && <b style={{ color: m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)' }}>{m.scoreA}</b>}
+                               <span style={{ fontSize: '0.8rem', color: (isFinished || isForfeit) ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white', textDecoration: isCanceled ? 'line-through' : 'none' }}>{m.teamA?.name || 'Équipe A'}</span>
+                               {(isFinished || isCanceled || isForfeit) && <b>{m.scoreA}</b>}
                              </div>
                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                               <span style={{ fontSize: '0.8rem', color: isFinished ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: isFinished && m.scoreB > m.scoreA ? 'bold' : 'normal' }}>{m.teamB?.name || 'Équipe B'}</span>
-                               {isFinished && <b style={{ color: m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)' }}>{m.scoreB}</b>}
+                               <span style={{ fontSize: '0.8rem', color: (isFinished || isForfeit) ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white', textDecoration: isCanceled ? 'line-through' : 'none' }}>{m.teamB?.name || 'Équipe B'}</span>
+                               {(isFinished || isCanceled || isForfeit) && <b>{m.scoreB}</b>}
                              </div>
+                             {/* AFFICHAGE DE L'OTM */}
+                             {m.otm && <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '2px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                            </div>
                            
-                           <button onClick={(e) => {
-                                e.stopPropagation();
-                                if (!canClick) { alert(`Le match n'est pas prêt.`); return; }
-                                handleLaunchMatch(m.id);
-                           }} 
-                           className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                           style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : '' }}
-                           >
-                                {isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴")}
-                           </button>
-
+                           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                             <button onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!canClick && !isCanceled && !isForfeit) { alert(`Le match n'est pas prêt.`); return; }
+                                  if (!isCanceled && !isForfeit) handleLaunchMatch(m.id);
+                             }} 
+                             className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
+                             style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), flex: 1, margin: 0 }}
+                             disabled={isCanceled || isForfeit}
+                             >
+                                  {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                             </button>
+                             
+                             {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                               <div style={{ display: 'flex', gap: '8px' }}>
+                                 {/* NOUVEAU BOUTON OTM */}
+                                 <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Annuler le match">❌</button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Déclarer un forfait">🏳️</button>
+                               </div>
+                             )}
+                           </div>
                         </div>
                       );
                     })}
@@ -862,7 +1022,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                 {roundMatches.map(m => {
                                     const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
                                     const isFinished = m.status === 'finished';
-                                    const isOngoing = !isFinished && !!localStorage.getItem(`basketMatchSave_${m.id}`);
+                                    const isCanceled = m.status === 'canceled';
+                                    const isForfeit = m.status === 'forfeit';
+                                    const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
                                     const canClick = isReady || isFinished;
                                     
                                     return (
@@ -872,42 +1034,59 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                           style={{ 
                                               padding: '15px', 
                                               background: isFinished ? '#1a1a1a' : '#111', 
-                                              borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : (canClick ? 'var(--accent-orange)' : 'var(--danger)')}`,
+                                              borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--accent-orange)' : 'var(--danger)'))}`,
                                               position: 'relative'
                                           }}
                                         >
                                             {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
                                             {isFinished && <div className="tm-ribbon-finished">TERMINÉ</div>}
+                                            {isCanceled && <div className="tm-ribbon-finished" style={{background: '#555'}}>ANNULÉ</div>}
+                                            {isForfeit && <div className="tm-ribbon-finished" style={{background: 'var(--danger)'}}>FORFAIT</div>}
                                             <div style={{ fontSize: '0.7rem', color: 'var(--accent-orange)', fontWeight: 'bold', marginBottom: '10px' }}>{m.label}</div>
                                             
                                             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ color: isFinished ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: isFinished && m.scoreA > m.scoreB ? 'bold' : 'normal' }}>
+                                                <span style={{ color: (isFinished || isForfeit) ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: (isFinished || isForfeit) && m.scoreA > m.scoreB ? 'bold' : 'normal', textDecoration: isCanceled ? 'line-through' : 'none' }}>
                                                     {m.teamA?.name || <span style={{color: '#555', fontStyle: 'italic'}}>À déterminer...</span>}
                                                 </span>
-                                                {isFinished && <b>{m.scoreA}</b>}
+                                                {(isFinished || isCanceled || isForfeit) && <b>{m.scoreA}</b>}
                                             </div>
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '15px' }}>
-                                                <span style={{ color: isFinished ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: isFinished && m.scoreB > m.scoreA ? 'bold' : 'normal' }}>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
+                                                <span style={{ color: (isFinished || isForfeit) ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: (isFinished || isForfeit) && m.scoreB > m.scoreA ? 'bold' : 'normal', textDecoration: isCanceled ? 'line-through' : 'none' }}>
                                                     {m.teamB?.name || <span style={{color: '#555', fontStyle: 'italic'}}>À déterminer...</span>}
                                                 </span>
-                                                {isFinished && <b>{m.scoreB}</b>}
+                                                {(isFinished || isCanceled || isForfeit) && <b>{m.scoreB}</b>}
                                             </div>
+                                            
+                                            {/* AFFICHAGE DE L'OTM */}
+                                            {m.otm && <div style={{ fontSize: '0.7rem', color: '#aaa', marginBottom: '10px' }}>📋 OTM : <span style={{color: 'var(--accent-orange)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                                             
                                             {(m.teamA?.isBye || m.teamB?.isBye) ? (
                                                 <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#888', marginTop: '10px', padding: '6px', background: '#222', borderRadius: '4px', border: '1px dashed #444' }}>
                                                     ⏩ QUALIFICATION DIRECTE
                                                 </div>
                                             ) : (
+                                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                                                   <button onClick={(e) => {
                                                     e.stopPropagation();
-                                                    if (!canClick) { alert(`Impossible de lancer : il manque des joueurs à une équipe.`); return; }
-                                                    handleLaunchMatch(m.id);
+                                                    if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
+                                                    if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id);
                                                   }} 
                                                   className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                                                  style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : '' }}
-                                                >
-                                                  {isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴")}
-                                                </button>
+                                                  style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : (['canceled', 'forfeit'].includes(m.status) ? '#333' : ''), flex: 1, margin: 0 }}
+                                                  disabled={['canceled', 'forfeit'].includes(m.status)}
+                                                  >
+                                                    {m.status === 'canceled' ? "ANNULÉ" : m.status === 'forfeit' ? "FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                                                  </button>
+
+                                                  {(!isFinished && !['canceled', 'forfeit'].includes(m.status) && canEdit) && (
+                                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                                      {/* NOUVEAU BOUTON OTM */}
+                                                      <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
+                                                      <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Annuler">❌</button>
+                                                      <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Forfait">🏳️</button>
+                                                    </div>
+                                                  )}
+                                                </div>
                                             )}
                                         </div>
                                     );
@@ -929,12 +1108,65 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-            {renderTop5("🌟 MVP (Meilleure Évaluation Totale)", getPlayerStats(), "eff", "eff", "var(--accent-orange)")}
-            {renderTop5("🎯 Top Marqueurs (Total PTS)", getPlayerStats(), "points", "points", "#ff4444", "pts")}
-            {renderTop5("🔥 Moyenne PTS / Match", getPlayerStats().filter(p => p.gamesPlayed > 0), "ptsAvg", "ptsAvg", "#ff8844", "pts/m")}
+            {renderTop5("🌟 MVP (Meilleure Évaluation)", getPlayerStats(), "eff", "eff", "var(--accent-orange)")}
+            {renderTop5("🎯 Top Marqueurs (PTS)", getPlayerStats(), "points", "points", "#ff4444", "pts")}
             {renderTop5("🛡️ Top Rebondeurs", getPlayerStats(), "reb", "reb", "var(--accent-blue)", "reb")}
             {renderTop5("🤝 Top Passeurs", getPlayerStats(), "ast", "ast", "var(--success)", "ast")}
+            {renderTop5("🥷 Top Intercepteurs", getPlayerStats(), "stl", "stl", "#f1c40f", "stl")}
             {renderTop5("🧱 Top Contreurs", getPlayerStats(), "blk", "blk", "var(--accent-purple)", "blk")}
+            
+            {/* Nouveaux : Adresse au tir (avec minimum de tentatives pour être classé) */}
+            {renderTop5("🔥 Plus Adroit (Général)", getPlayerStats().filter(p => p.fga >= 5), "fgPct", "fgPctDisplay", "#e74c3c")}
+            {renderTop5("🎯 Sniper 2 Pts", getPlayerStats().filter(p => p.fg2a >= 3), "fg2Pct", "fg2PctDisplay", "#2ecc71")}
+            {renderTop5("🏹 Sniper 3 Pts", getPlayerStats().filter(p => p.fg3a >= 3), "fg3Pct", "fg3PctDisplay", "#3498db")}
+            {renderTop5("⚖️ Métronome Lancers Francs", getPlayerStats().filter(p => p.fta >= 3), "ftPct", "ftPctDisplay", "#95a5a6")}
+          </div>
+        </div>
+      )}
+
+      {/* --- MODALE D'ASSIGNATION D'OTM --- */}
+      {otmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+          <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-blue)', width: '90%', maxWidth: '400px' }}>
+            <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👤 Assigner un OTM</h3>
+            
+            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Sélectionner un OTM connecté :</label>
+            <select 
+              value={selectedOtmInput}
+              onChange={(e) => setSelectedOtmInput(e.target.value)}
+              className="tm-input"
+              style={{ width: '100%', marginBottom: '15px' }}
+            >
+              <option value="">-- Choisir dans la liste --</option>
+              {otmProfiles.map(prof => (
+                <option key={prof.id} value={prof.full_name}>{prof.full_name}</option>
+              ))}
+            </select>
+
+            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Ou saisir un nom (ex: Terrain 1) :</label>
+            <input 
+              type="text" 
+              value={selectedOtmInput}
+              onChange={(e) => setSelectedOtmInput(e.target.value)}
+              className="tm-input"
+              style={{ width: '100%', marginBottom: '25px' }}
+              placeholder="Nom de l'OTM ou du terrain..."
+            />
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setOtmModal(null)} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Annuler</button>
+              <button onClick={() => {
+                const finalVal = selectedOtmInput.trim();
+                if (otmModal.isPlayoff) {
+                  const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
+                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                } else {
+                  const newSchedule = tourney.schedule.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
+                  update({ schedule: newSchedule });
+                }
+                setOtmModal(null);
+              }} className="tm-btn-success" style={{ padding: '10px 20px', fontSize: '1rem' }}>Valider</button>
+            </div>
           </div>
         </div>
       )}

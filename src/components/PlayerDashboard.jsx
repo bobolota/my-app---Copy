@@ -7,7 +7,7 @@ import Mercato from './Mercato';
 import PlayerProfileModal from './PlayerProfileModal';
 import TournamentRegistrationModal from './TournamentRegistrationModal';
 
-export default function PlayerDashboard({ session, currentTab }) {
+export default function PlayerDashboard({ session, currentTab, setActiveTourneyId, setView }) {
   const [myTeams, setMyTeams] = useState([]);
   const [allTeams, setAllTeams] = useState([]);
   const [newTeamName, setNewTeamName] = useState("");
@@ -35,6 +35,13 @@ export default function PlayerDashboard({ session, currentTab }) {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // --- NOUVEAU : FIX D'UX ---
+  // Si l'utilisateur change d'onglet dans le menu latéral, on ferme la vue de gestion d'équipe.
+  useEffect(() => {
+    setManagingTeam(null);
+  }, [currentTab]);
+  // -------------------------
 
   const calculateStats = (playerId, tourneys) => {
     let stats = { gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0 };
@@ -324,6 +331,8 @@ export default function PlayerDashboard({ session, currentTab }) {
           allTournaments={allTournaments} 
           myTeams={myTeams} 
           setRegisterModalTourney={setRegisterModalTourney} 
+          setActiveTourneyId={setActiveTourneyId}
+          setView={setView}
         />
       )}
 

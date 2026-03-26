@@ -209,20 +209,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
         
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
             
-            <div className="dashboard-controls" style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <strong style={{fontSize: '0.9rem', color: 'var(--accent-blue)'}}>🔑 Rejoindre une table de marque</strong>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                  className="dashboard-input"
-                  placeholder="Code PIN..." 
-                  value={pinCode} 
-                  onChange={e => setPinCode(e.target.value)}
-                  style={{ width: '120px' }}
-                />
-                <button onClick={joinAsOtm} className="dashboard-btn-create" style={{ background: 'var(--accent-blue)' }}>REJOINDRE</button>
-              </div>
-            </div>
-
+            
             {canCreate && (
               <div className="dashboard-controls" style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px dashed var(--accent-purple)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <strong style={{fontSize: '0.9rem', color: 'var(--accent-purple)'}}>🛠 Créer un nouveau tournoi</strong>
