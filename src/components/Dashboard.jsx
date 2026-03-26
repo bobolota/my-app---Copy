@@ -1,40 +1,104 @@
 import React, { useState } from 'react';
+import { supabase } from '../supabaseClient'; 
 
-export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView }) {
+export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView, userRole, session }) {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
+  const [pinCode, setPinCode] = useState("");
 
-  const create = () => {
-    if (!name.trim()) return;
+  const [periodCount, setPeriodCount] = useState(4);
+  const [periodDuration, setPeriodDuration] = useState(10);
+  const [timeouts, setTimeouts] = useState(2);
+
+  const canCreate = userRole === 'ADMIN' || userRole === 'ORGANIZER';
+
+  const visibleTournaments = tournaments.filter(t => {
+    if (userRole === 'ADMIN') return true;       
+    if (userRole === 'SPECTATOR') return true;   
+    
+    const isOwner = t.organizer_id === session.user.id;
+    const isInvitedOtm = t.otm_ids && t.otm_ids.includes(session.user.id);
+    
+    return isOwner || isInvitedOtm;
+  });
+
+  const create = async () => {
+    if (!canCreate || !name.trim()) return;
+    
+    const generatedPin = Math.random().toString(36).substring(2, 8).toUpperCase();
+
     const newT = { 
       id: "t_" + Date.now(), 
       name, 
       teams: [], 
       schedule: [], 
       status: 'preparing', 
-      date: new Date().toLocaleDateString() 
+      date: new Date().toLocaleDateString(),
+      organizer_id: session.user.id,
+      pin_code: generatedPin,
+      otm_ids: [],
+      // CORRECTION ICI : "matchsettings" tout en minuscules pour la base de données !
+      matchsettings: {
+        periodCount: parseInt(periodCount) || 4,
+        periodDuration: parseInt(periodDuration) || 10,
+        timeoutsPerPeriod: parseInt(timeouts) || 2
+      }
     };
+    
     setTournaments([...tournaments, newT]);
     setName("");
+
+    setPeriodCount(4);
+    setPeriodDuration(10);
+    setTimeouts(2);
+
+    const { error } = await supabase.from('tournaments').insert([newT]);
+    if (error) {
+      console.error("Erreur de sauvegarde :", error);
+      alert("Erreur lors de la création du tournoi dans le cloud.");
+    }
   };
 
-  // --- LOGIQUE DRAG & DROP ---
-  const onDragStart = (e, tourneyId) => {
-    setDraggedId(tourneyId);
-    e.dataTransfer.setData("tourneyId", tourneyId);
-    e.dataTransfer.effectAllowed = "move";
+  const joinAsOtm = async () => {
+    if (!pinCode.trim()) return;
     
+    try {
+      const { data, error } = await supabase.rpc('join_as_otm', { pin: pinCode.trim().toUpperCase() });
+      
+      if (error) throw error;
+      
+      alert("Succès ! Vous êtes maintenant OTM sur ce tournoi.");
+      setPinCode("");
+      
+    } catch (error) {
+      alert(error.message || "Code PIN invalide.");
+    }
+  };
+
+  const onDragStart = (e, tourney) => {
+    const canEditTourney = userRole === 'ADMIN' || tourney.organizer_id === session.user.id;
+    if (!canEditTourney) { e.preventDefault(); return; }
+    
+    setDraggedId(tourney.id);
+    e.dataTransfer.setData("tourneyId", tourney.id);
+    e.dataTransfer.effectAllowed = "move";
     setTimeout(() => {
-      const el = e.target;
-      el.style.opacity = "0.2";
-      el.style.transform = "scale(0.95)";
+      if(e.target) {
+        e.target.style.opacity = "0.2";
+        e.target.style.transform = "scale(0.95)";
+      }
     }, 0);
   };
 
-  const onDragEnd = (e) => {
+  const onDragEnd = (e, tourney) => {
+    const canEditTourney = userRole === 'ADMIN' || tourney.organizer_id === session.user.id;
+    if (!canEditTourney) return;
+
     setDraggedId(null);
-    e.target.style.opacity = "1";
-    e.target.style.transform = "scale(1)";
+    if(e.target) {
+      e.target.style.opacity = "1";
+      e.target.style.transform = "scale(1)";
+    }
   };
 
   const onDragOver = (e) => {
@@ -46,20 +110,40 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
     e.currentTarget.classList.remove('drag-over');
   };
 
-  const onDrop = (e, newStatus) => {
+  const onDrop = async (e, newStatus) => {
     e.preventDefault();
     onDragLeave(e);
+    
     const id = e.dataTransfer.getData("tourneyId");
-    const updated = tournaments.map(t => 
-      t.id === id ? { ...t, status: newStatus } : t
-    );
+    if (!id) return; 
+
+    const tourney = tournaments.find(t => t.id === id);
+    if (userRole !== 'ADMIN' && tourney.organizer_id !== session.user.id) {
+        alert("Seul l'organisateur peut déplacer le tournoi.");
+        return;
+    }
+
+    const updated = tournaments.map(t => t.id === id ? { ...t, status: newStatus } : t);
     setTournaments(updated);
+
+    const { error } = await supabase.from('tournaments').update({ status: newStatus }).eq('id', id);
+    if (error) {
+      console.error("Erreur de mise à jour :", error);
+      alert("Erreur lors du déplacement du tournoi.");
+    }
   };
 
-  const deleteTourney = (e, id) => {
+  const deleteTourney = async (e, id) => {
     e.stopPropagation();
-    if (window.confirm("Supprimer ce tournoi ?")) {
+    
+    if (window.confirm("Supprimer ce tournoi DÉFINITIVEMENT pour tous les utilisateurs ?")) {
       setTournaments(tournaments.filter(t => t.id !== id));
+
+      const { error } = await supabase.from('tournaments').delete().eq('id', id);
+      if (error) {
+        console.error("Erreur de suppression :", error);
+        alert("Erreur : vous n'avez pas les droits pour supprimer ce tournoi.");
+      }
     }
   };
 
@@ -71,31 +155,47 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
       onDrop={(e) => onDrop(e, status)}
     >
       <h3 className="dashboard-col-title" style={{ borderBottom: `3px solid ${color}` }}>
-        {title} <span style={{ opacity: 0.4 }}>({tournaments.filter(t => t.status === status).length})</span>
+        {title} <span style={{ opacity: 0.4 }}>({visibleTournaments.filter(t => t.status === status).length})</span>
       </h3>
       
       <div className="dashboard-scroll-area">
-        {tournaments
+        {visibleTournaments
           .filter(t => t.status === status || (!t.status && status === 'preparing'))
-          .map(t => (
-            <div 
-              key={t.id} 
-              draggable 
-              onDragStart={(e) => onDragStart(e, t.id)}
-              onDragEnd={onDragEnd}
-              onClick={() => { setActiveTourneyId(t.id); setView('tournament'); }}
-              className={`dashboard-card ${draggedId === t.id ? 'grabbing' : ''}`}
-            >
-              <div className="dashboard-card-header">
-                <strong className="dashboard-card-title" style={{ color: color }}>{t.name}</strong>
-                <button onClick={(e) => deleteTourney(e, t.id)} className="dashboard-btn-delete">✕</button>
+          .map(t => {
+            const isOwnerOrAdmin = userRole === 'ADMIN' || t.organizer_id === session.user.id; 
+            
+            return (
+              <div 
+                key={t.id} 
+                draggable={isOwnerOrAdmin}
+                onDragStart={(e) => onDragStart(e, t)}
+                onDragEnd={(e) => onDragEnd(e, t)}
+                onClick={() => { setActiveTourneyId(t.id); setView('tournament'); }}
+                className={`dashboard-card ${draggedId === t.id ? 'grabbing' : ''}`}
+                style={{ cursor: isOwnerOrAdmin ? 'grab' : 'pointer' }}
+              >
+                <div className="dashboard-card-header">
+                  <strong className="dashboard-card-title" style={{ color: color }}>{t.name}</strong>
+                  {isOwnerOrAdmin && (
+                    <button onClick={(e) => deleteTourney(e, t.id)} className="dashboard-btn-delete">✕</button>
+                  )}
+                </div>
+                
+                {/* CORRECTION ICI AUSSI : matchsettings */}
+                <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '5px', background: '#111', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
+                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | {t.matchsettings?.timeoutsPerPeriod || 2} TM
+                </div>
+
+                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>👥 {t.teams?.length || 0} équipes | 📅 {t.schedule?.length || 0} matchs</span>
+                  {(!isOwnerOrAdmin && t.otm_ids?.includes(session.user.id)) && (
+                      <span style={{ color: 'var(--accent-blue)', fontWeight: 'bold' }}>OTM 📝</span>
+                  )}
+                </div>
+                {isOwnerOrAdmin && <div className="dashboard-drag-handle">⠿ GLISSER POUR PORTER</div>}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '10px' }}>
-                👥 {t.teams.length} équipes | 📅 {t.schedule.length} matchs
-              </div>
-              <div className="dashboard-drag-handle">⠿ GLISSER POUR PORTER</div>
-            </div>
-          ))}
+            );
+          })}
       </div>
     </div>
   );
@@ -104,14 +204,56 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1 className="dashboard-title">🛰️ Centre de Contrôle</h1>
-        <div className="dashboard-controls">
-          <input 
-            className="dashboard-input"
-            placeholder="Nom du tournoi..." 
-            value={name} 
-            onChange={e => setName(e.target.value)} 
-          />
-          <button onClick={create} className="dashboard-btn-create">+ NOUVEAU</button>
+        
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            
+            <div className="dashboard-controls" style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <strong style={{fontSize: '0.9rem', color: 'var(--accent-blue)'}}>🔑 Rejoindre une table de marque</strong>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  className="dashboard-input"
+                  placeholder="Code PIN..." 
+                  value={pinCode} 
+                  onChange={e => setPinCode(e.target.value)}
+                  style={{ width: '120px' }}
+                />
+                <button onClick={joinAsOtm} className="dashboard-btn-create" style={{ background: 'var(--accent-blue)' }}>REJOINDRE</button>
+              </div>
+            </div>
+
+            {canCreate && (
+              <div className="dashboard-controls" style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px dashed var(--accent-purple)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <strong style={{fontSize: '0.9rem', color: 'var(--accent-purple)'}}>🛠 Créer un nouveau tournoi</strong>
+                  
+                  <input 
+                    className="dashboard-input"
+                    placeholder="Nom du tournoi..." 
+                    value={name} 
+                    onChange={e => setName(e.target.value)} 
+                    style={{ width: '100%', marginBottom: '5px' }}
+                  />
+                  
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Périodes</label>
+                          <input type="number" min="1" max="10" className="dashboard-input" value={periodCount} onChange={e => setPeriodCount(e.target.value)} style={{ width: '60px', padding: '8px' }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Min/Période</label>
+                          <input type="number" min="1" max="60" className="dashboard-input" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} style={{ width: '70px', padding: '8px' }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Temps morts</label>
+                          <input type="number" min="0" max="10" className="dashboard-input" value={timeouts} onChange={e => setTimeouts(e.target.value)} style={{ width: '70px', padding: '8px' }} />
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                        <button onClick={create} className="dashboard-btn-create" style={{ padding: '10px 20px', height: '37px' }}>+ CRÉER</button>
+                      </div>
+                  </div>
+              </div>
+            )}
+
         </div>
       </div>
 
