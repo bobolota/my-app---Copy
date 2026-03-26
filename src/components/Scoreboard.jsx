@@ -163,7 +163,10 @@ const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, o
 
 // --- COMPOSANT PRINCIPAL ---
 
-export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedStatsB, isFinished, onExit, onMatchFinished, userRole, onLiveUpdate }) {
+export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedStatsB, isFinished, onExit, onMatchFinished, onLiveUpdate, userRole, tourney }) {
+  
+  // NOUVEAU : On lit le règlement du tournoi (ou on met les règles FIBA par défaut)
+  const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
   
   // --- NOUVEAU VIGILE ---
   const canEdit = userRole === 'ADMIN' || userRole === 'ORGANIZER' || userRole === 'OTM';
@@ -197,7 +200,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
 
   const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : initPlayers(teamA)));
   const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : initPlayers(teamB)));
-  const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : 600));
+  const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : settings.periodDuration * 60));
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : 'Q1'));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : null));
   const [history, setHistory] = useState(() => safeSave ? safeSave.history : []);
@@ -234,13 +237,31 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const teamFoulsA = getTeamFouls('A');
   const teamFoulsB = getTeamFouls('B');
 
-  const getTimeoutsLeft = (team) => {
-      const teamTimeouts = history.filter(act => act.team === team && act.type === 'TIMEOUT');
-      let maxT = 0, usedT = 0;
-      if (period === 'Q1' || period === 'Q2') { maxT = 2; usedT = teamTimeouts.filter(act => act.period === 'Q1' || act.period === 'Q2').length; }
-      else if (period === 'Q3' || period === 'Q4') { maxT = 3; usedT = teamTimeouts.filter(act => act.period === 'Q3' || act.period === 'Q4').length; }
-      else if (period.startsWith('OT')) { maxT = 1; usedT = teamTimeouts.filter(act => act.period === period).length; }
-      return Math.max(0, maxT - usedT);
+  const getTimeoutsLeft = (teamId) => {
+    // 1. Déterminer dans quelle partie du match on se trouve
+    let maxTimeouts = 0;
+    let periodsInCurrentHalf = [];
+
+    if (period === 'Q1' || period === 'Q2') {
+      maxTimeouts = settings.timeoutsHalf1; // Ex: 2 temps morts
+      periodsInCurrentHalf = ['Q1', 'Q2'];
+    } 
+    else if (period === 'Q3' || period === 'Q4') {
+      maxTimeouts = settings.timeoutsHalf2; // Ex: 3 temps morts
+      periodsInCurrentHalf = ['Q3', 'Q4'];
+    } 
+    else if (period && period.startsWith('OT')) {
+      maxTimeouts = 1; // Règle FIBA : 1 TM par prolongation (non cumulable)
+      periodsInCurrentHalf = [period]; 
+    }
+
+    // 2. Compter combien de TM ont déjà été pris par cette équipe dans CETTE mi-temps
+    const timeoutsTakenThisHalf = history.filter(
+      action => action.type === 'TIMEOUT' && action.team === teamId && periodsInCurrentHalf.includes(action.period)
+    ).length;
+
+    // 3. Retourner ce qu'il reste (sans jamais descendre en dessous de zéro)
+    return Math.max(0, maxTimeouts - timeoutsTakenThisHalf);
   };
 
   const timeoutsA = getTimeoutsLeft('A');
@@ -295,7 +316,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       nextP = `OT${otNumber}`;
     }
     if (window.confirm(`Passer à ${nextP} et remettre le chrono à 10:00 ?`)) {
-      setPeriod(nextP); setTime(600); setIsRunning(false);
+      setPeriod(nextP); setTime(settings.periodDuration * 60); setIsRunning(false);
     }
   };
 
@@ -311,18 +332,21 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     set(prev => prev.map(p => {
       if (p.id === playerId) {
         let up = { ...p };
+        
+        // CORRECTION ICI : Le bloc SCORE est bien refermé
         if (type === 'SCORE') {
-      const otherSet = isA ? setPlayersB : setPlayersA;
-      const updatePM = (list, val) => list.map(p => p.status === 'court' ? { ...p, plusMinus: p.plusMinus + val } : p);
-      set(prev => updatePM(prev, -value));
-      otherSet(prev => updatePM(prev, value));
-
-      // --- NOUVEAU : ON CORRIGE LE SCORE EN DIRECT ---
-      const newScoreA = isA ? scoreA - value : scoreA;
-      const newScoreB = !isA ? scoreB - value : scoreB;
-      if (onLiveUpdate) onLiveUpdate(newScoreA, newScoreB);
-      // -----------------------------------------------
-    }
+          up.points -= value;
+          if (value === 1) { up.ftm -= 1; up.fta -= 1; }
+          else if (value === 2) { up.fg2m -= 1; up.fg2a -= 1; }
+          else { up.fg3m -= 1; up.fg3a -= 1; }
+          
+          // --- NOUVEAU : ON CORRIGE LE SCORE EN DIRECT ---
+          const newScoreA = isA ? scoreA - value : scoreA;
+          const newScoreB = !isA ? scoreB - value : scoreB;
+          if (onLiveUpdate) onLiveUpdate(newScoreA, newScoreB);
+          // -----------------------------------------------
+        }
+        
         if (type === 'MISS') {
           if (value === 1) up.fta -= 1; else if (value === 2) up.fg2a -= 1; else up.fg3a -= 1;
         }

@@ -8,7 +8,8 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
 
   const [periodCount, setPeriodCount] = useState(4);
   const [periodDuration, setPeriodDuration] = useState(10);
-  const [timeouts, setTimeouts] = useState(2);
+  const [timeoutsHalf1, setTimeoutsHalf1] = useState(2);
+  const [timeoutsHalf2, setTimeoutsHalf2] = useState(3);
 
   const canCreate = userRole === 'ADMIN' || userRole === 'ORGANIZER';
 
@@ -41,7 +42,8 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
       matchsettings: {
         periodCount: parseInt(periodCount) || 4,
         periodDuration: parseInt(periodDuration) || 10,
-        timeoutsPerPeriod: parseInt(timeouts) || 2
+        timeoutsHalf1: parseInt(timeoutsHalf1) || 2,
+        timeoutsHalf2: parseInt(timeoutsHalf2) || 3
       }
     };
     
@@ -50,7 +52,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
 
     setPeriodCount(4);
     setPeriodDuration(10);
-    setTimeouts(2);
+    setTimeoutsHalf1(2); setTimeoutsHalf2(3);
 
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) {
@@ -183,7 +185,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
                 
                 {/* CORRECTION ICI AUSSI : matchsettings */}
                 <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '5px', background: '#111', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
-                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | {t.matchsettings?.timeoutsPerPeriod || 2} TM
+                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | TM: {t.matchsettings?.timeoutsHalf1 || 2} (1ère) - {t.matchsettings?.timeoutsHalf2 || 3} (2ème)
                 </div>
 
                 <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
@@ -243,8 +245,12 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
                           <input type="number" min="1" max="60" className="dashboard-input" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} style={{ width: '70px', padding: '8px' }} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Temps morts</label>
-                          <input type="number" min="0" max="10" className="dashboard-input" value={timeouts} onChange={e => setTimeouts(e.target.value)} style={{ width: '70px', padding: '8px' }} />
+                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>TM 1ère MT</label>
+                          <input type="number" min="0" max="10" className="dashboard-input" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} style={{ width: '65px', padding: '8px' }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>TM 2ème MT</label>
+                          <input type="number" min="0" max="10" className="dashboard-input" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} style={{ width: '65px', padding: '8px' }} />
                       </div>
                       
                       <div style={{ display: 'flex', alignItems: 'flex-end' }}>
