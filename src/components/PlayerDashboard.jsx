@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-import MaCarriere from './MaCarriere'; // NOUVEAU
+import MaCarriere from './MaCarriere';
 import ExplorerTournois from './ExplorerTournois';
 import MonVestiaire from './MonVestiaire';
 import Mercato from './Mercato';
@@ -28,20 +28,19 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   const [registerModalTourney, setRegisterModalTourney] = useState(null);
   const [selectedTeamToRegister, setSelectedTeamToRegister] = useState("");
 
-  // NOUVEAU : LA RÈGLE DU CONTRAT EXCLUSIF 🏀
-  // Vérifie si le joueur est actuellement validé dans au moins une équipe
-  const hasTeam = myTeams.some(mt => mt.status === 'accepted');
+  // NOUVEAU : États pour la modale de changement de capitaine
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [selectedNewCaptainId, setSelectedNewCaptainId] = useState("");
+
+  const hasTeam = false; 
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // --- NOUVEAU : FIX D'UX ---
-  // Si l'utilisateur change d'onglet dans le menu latéral, on ferme la vue de gestion d'équipe.
   useEffect(() => {
     setManagingTeam(null);
   }, [currentTab]);
-  // -------------------------
 
   const calculateStats = (playerId, tourneys) => {
     let stats = { gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0 };
@@ -123,8 +122,9 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
 
   const handleCreateTeam = async (e) => {
     e.preventDefault();
-    if (hasTeam) return alert("Tu appartiens déjà à une équipe !"); // Sécurité
-    if (!newTeamName.trim()) return;
+    if (!newTeamName.trim() || !newTeamCity.trim()) {
+      return alert("Le nom ET la ville de l'équipe sont obligatoires !");
+    }
 
     try {
       const { data: teamData, error: teamError } = await supabase
@@ -134,13 +134,11 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
         .from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
       if (memberError) throw memberError;
       setNewTeamName(""); setNewTeamCity(""); fetchData(); 
-      alert("Ton équipe a été créée avec succès !");
+      alert("Ton équipe a été créée avec succès ! 🎉");
     } catch (error) { alert("Erreur : " + error.message); }
   };
 
   const handleJoinTeam = async (teamId) => {
-    if (hasTeam) return alert("Tu es déjà engagé avec une autre équipe !"); // Sécurité
-    
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: teamId, player_id: session.user.id, status: 'pending' }]);
       if (error && error.code === '23505') alert("Tu as déjà fait une demande pour cette équipe !");
@@ -158,8 +156,6 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   };
 
   const respondToInvite = async (teamId, accept) => {
-    if (accept && hasTeam) return alert("Impossible d'accepter : tu es déjà dans une équipe !"); // Sécurité
-
     try {
       if (accept) {
         await supabase.from('team_members').update({ status: 'accepted' }).eq('team_id', teamId).eq('player_id', session.user.id);
@@ -202,32 +198,90 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
     else { setRoster(prev => prev.filter(p => p.player_id !== playerId)); }
   };
 
+  // --- MODIFIÉ : FONCTION TRANSFERT AVEC MODALE ---
+  const handleTransferCaptaincy = async () => {
+    if (!selectedNewCaptainId) return alert("Sélectionne un joueur dans la liste !");
+    
+    const newCap = roster.find(p => p.player_id === selectedNewCaptainId);
+    if (!window.confirm(`Es-tu sûr de vouloir léguer le rôle de Capitaine à ${newCap.full_name} ?\nTu deviendras un simple joueur et n'auras plus accès à la gestion de l'équipe.`)) return;
+    
+    try {
+      const { error } = await supabase.from('global_teams').update({ captain_id: selectedNewCaptainId }).eq('id', managingTeam.id);
+      if (error) throw error;
+      
+      alert(`${newCap.full_name} est le nouveau Capitaine de l'équipe ! 👑`);
+      setManagingTeam({ ...managingTeam, captain_id: selectedNewCaptainId });
+      setTransferModalOpen(false);
+      setSelectedNewCaptainId("");
+      fetchData();
+    } catch (error) {
+      alert("Erreur lors du transfert : " + error.message);
+    }
+  };
+
+  const handleDeleteTeam = async () => {
+    if (!window.confirm("🚨 ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?\n\nCette action va renvoyer tous les joueurs dans la section Mercato. (L'historique dans les anciens tournois sera conservé).")) return;
+    
+    try {
+      const { error } = await supabase.from('global_teams').delete().eq('id', managingTeam.id);
+      if (error) throw error;
+      
+      alert("L'équipe a été dissoute avec succès. 💥");
+      setManagingTeam(null);
+      fetchData();
+    } catch (error) {
+      alert("Erreur lors de la dissolution : " + error.message);
+    }
+  };
+  // ---------------------------------------------
+
   const submitRegistration = async () => {
     if (!selectedTeamToRegister) return alert("Sélectionne une équipe !");
     try {
       const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
+      
       const { data: members } = await supabase.from('team_members').select('player_id').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
+      
       let newPlayers = [];
       if (members && members.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', members.map(m => m.player_id));
+        
+        const existingTeams = registerModalTourney.teams || [];
+        const alreadyRegisteredPlayerIds = new Set();
+        existingTeams.forEach(t => {
+            (t.players || []).forEach(p => alreadyRegisteredPlayerIds.add(p.id));
+        });
+
+        const overlappingMember = members.find(m => alreadyRegisteredPlayerIds.has(m.player_id));
+        if (overlappingMember) {
+            const badPlayerName = profiles?.find(p => p.id === overlappingMember.player_id)?.full_name || "Un joueur";
+            alert(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe ! Un joueur ne peut pas affronter sa propre équipe.`);
+            return;
+        }
+
         newPlayers = members.map((m, i) => ({
           id: m.player_id, name: profiles.find(p => p.id === m.player_id)?.full_name || "Joueur Inconnu",
           number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20
         }));
       }
+
       const newTeamObj = { id: "tm_" + Date.now(), global_id: teamToReg.id, name: teamToReg.name, players: newPlayers, groupId: null };
       await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: newTeamObj });
+      
       alert(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
       setRegisterModalTourney(null); setSelectedTeamToRegister(""); fetchData();
-    } catch(err) {}
+
+    } catch(err) {
+      console.error(err);
+      alert("Une erreur s'est produite lors de l'inscription.");
+    }
   };
 
   if (loading) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>Chargement... 🏀</div>;
 
-    const myTeamIds = myTeams.map(mt => mt.global_teams.id);
+  const myTeamIds = myTeams.map(mt => mt.global_teams.id);
   const availableTeams = allTeams.filter(t => !myTeamIds.includes(t.id));
   const myCaptainTeams = myTeams.filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted').map(mt => mt.global_teams);
-  
 
   // --- GESTION INTERNE D'UNE ÉQUIPE ---
   if (managingTeam) {
@@ -241,9 +295,24 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
         <button onClick={() => { setManagingTeam(null); fetchData(); }} style={{ background: 'none', border: '1px solid #666', color: '#ccc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', marginBottom: '20px' }}>
           ⬅ RETOUR AU VESTIAIRE
         </button>
-        <h1 style={{ color: 'var(--accent-blue)', borderBottom: '2px solid #333', paddingBottom: '10px' }}>
-          {isCaptainView ? '👑 Gestion' : '🏀 Équipe'} : {managingTeam.name}
+        
+        {/* EN-TÊTE DE LA GESTION D'ÉQUIPE (Modifié avec le bouton unique pour le Capitaine) */}
+        <h1 style={{ color: 'var(--accent-blue)', borderBottom: '2px solid #333', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <span>{isCaptainView ? '👑 Gestion' : '🏀 Équipe'} : {managingTeam.name}</span>
+          {isCaptainView && (
+            <div style={{ display: 'flex', gap: '10px' }}>
+              {acceptedPlayers.length > 1 && (
+                <button onClick={() => setTransferModalOpen(true)} style={{ background: 'transparent', color: 'var(--accent-orange)', border: '1px solid var(--accent-orange)', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}>
+                  👑 CHANGER DE CAPITAINE
+                </button>
+              )}
+              <button onClick={handleDeleteTeam} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}>
+                DISSOUDRE 💥
+              </button>
+            </div>
+          )}
         </h1>
+
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginTop: '30px' }}>
           {isCaptainView && (
             <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -271,16 +340,48 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
                 const isMe = p.player_id === session.user.id;
                 const isTheCaptain = p.player_id === managingTeam.captain_id;
                 return (
-                  <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)' }}>
+                  <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)', flexWrap: 'wrap', gap: '10px' }}>
                     <strong style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}>{p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}</strong>
-                    {isCaptainView && !isTheCaptain && <button onClick={() => removePlayer(p.player_id)} style={{ background: 'transparent', color: '#888', border: '1px solid #444', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>Exclure</button>}
-                    {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer' }}>Quitter</button>}
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {/* On a enlevé le bouton individuel de Nommer Cap. ici ! */}
+                      {isCaptainView && !isTheCaptain && (
+                        <button onClick={() => removePlayer(p.player_id)} style={{ background: 'transparent', color: '#888', border: '1px solid #444', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Exclure</button>
+                      )}
+                      {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
         </div>
+
+        {/* MODALE POUR LE CHANGEMENT DE CAPITAINE */}
+        {transferModalOpen && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
+            <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-orange)', width: '90%', maxWidth: '400px' }}>
+              <h3 style={{ marginTop: 0, color: 'var(--accent-orange)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👑 Nommer un nouveau Capitaine</h3>
+              
+              <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Sélectionner le joueur :</label>
+              <select
+                value={selectedNewCaptainId}
+                onChange={(e) => setSelectedNewCaptainId(e.target.value)}
+                style={{ width: '100%', marginBottom: '25px', padding: '10px', borderRadius: '6px', background: '#222', color: 'white', border: '1px solid #555' }}
+              >
+                <option value="">-- Choisir dans l'effectif --</option>
+                {acceptedPlayers.filter(p => p.player_id !== session.user.id).map(p => (
+                  <option key={p.player_id} value={p.player_id}>{p.full_name}</option>
+                ))}
+              </select>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Annuler</button>
+                <button onClick={handleTransferCaptaincy} style={{ padding: '10px 20px', fontSize: '1rem', background: 'var(--accent-orange)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Valider</button>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     );
   }
@@ -336,7 +437,6 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
         />
       )}
 
-      {/* --- MODAL GLOBALES (VISIBLES PARTOUT) --- */}
       {/* --- MODALS (FENÊTRES POP-UP) --- */}
       <PlayerProfileModal 
         selectedProfile={selectedProfile}

@@ -98,7 +98,7 @@ export default function MonVestiaire({
                 />
                 <input 
                   type="text" 
-                  placeholder="Ville (Optionnel)" 
+                  placeholder="Ville (Obligatoire)" 
                   value={newTeamCity} 
                   onChange={e => setNewTeamCity(e.target.value)} 
                   style={{ padding: '12px', borderRadius: '6px', border: '1px solid #444', background: '#222', color: 'white' }} 
