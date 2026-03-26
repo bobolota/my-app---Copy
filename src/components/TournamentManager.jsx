@@ -359,8 +359,34 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const deleteTeam = (teamId) => {
     if (!canEdit) return;
-    if(window.confirm("Supprimer cette équipe du tournoi ?")) {
-      update({ teams: tourney.teams.filter(t => t.id !== teamId) });
+    if(window.confirm("Supprimer définitivement cette équipe du tournoi ?")) {
+      
+      // 1. On retire l'équipe de la liste
+      const newTeams = tourney.teams.filter(t => t.id !== teamId);
+
+      // 2. On nettoie les matchs de poule (Sécurisé contre les valeurs nulles)
+      const newSchedule = (tourney.schedule || []).filter(match => {
+        const aId = match.teamA?.id || null;
+        const bId = match.teamB?.id || null;
+        return aId !== teamId && bId !== teamId;
+      });
+
+      // 3. On nettoie l'arbre des playoffs (On remplace l'équipe par "null" / place vacante)
+      let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
+      if (newPlayoffs && newPlayoffs.matches) {
+        newPlayoffs.matches = newPlayoffs.matches.map(m => {
+          if (m.teamA?.id === teamId) m.teamA = null;
+          if (m.teamB?.id === teamId) m.teamB = null;
+          return m;
+        });
+      }
+
+      // 4. On utilise ta propre fonction "update" pour la sauvegarde Supabase
+      update({
+        teams: newTeams,
+        schedule: newSchedule,
+        playoffs: newPlayoffs
+      });
     }
   };
 
