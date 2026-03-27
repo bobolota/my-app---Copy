@@ -16,8 +16,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const [teamName, setTeamName] = useState("");
   const [editId, setEditId] = useState(null);
-  const [pName, setPName] = useState("");
-  const [pNum, setPNum] = useState("");
+  
+  // Le brouillon d'ajout multiple
+  const [playersDraft, setPlayersDraft] = useState([{ name: "", number: "" }]);
   const [groupCount, setGroupCount] = useState(1);
   const [draggedPlayerId, setDraggedPlayerId] = useState(null);
   const [draggedMatchId, setDraggedMatchId] = useState(null);
@@ -25,10 +26,24 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const [globalTeams, setGlobalTeams] = useState([]);
   const [selectedGlobalTeamId, setSelectedGlobalTeamId] = useState("");
 
-  // --- NOUVEAU : ÉTATS POUR LA MODALE OTM ---
+  // --- ÉTATS POUR LA MODALE OTM ---
   const [otmProfiles, setOtmProfiles] = useState([]);
   const [otmModal, setOtmModal] = useState(null);
-  const [selectedOtmInput, setSelectedOtmInput] = useState("");
+  const [selectedOtms, setSelectedOtms] = useState([]); // Pour les cases à cocher
+  const [customOtm, setCustomOtm] = useState("");       // Pour le texte libre
+
+  // --- Toujours connaître le nom de l'utilisateur connecté ---
+  const [currentUserName, setCurrentUserName] = useState("");
+
+  useEffect(() => {
+    const fetchMyName = async () => {
+      if (session?.user?.id) {
+        const { data } = await supabase.from('profiles').select('full_name').eq('id', session.user.id).single();
+        if (data) setCurrentUserName(data.full_name);
+      }
+    };
+    fetchMyName();
+  }, [session]);
 
   // On récupère les profils de ceux qui ont débloqué le mode OTM
   useEffect(() => {
@@ -43,7 +58,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     };
     fetchOtms();
   }, [tourney.otm_ids, canEdit]);
-  // -----------------------------------------
 
   useEffect(() => {
     if (!canEdit) return;
@@ -60,9 +74,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     // 1. Mise à jour instantanée de l'écran local
     setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...data } : t));
 
-    // 2. 🛡️ BOUCLIER ANTI-TOAST POSTGRES : 
-    // On force la présence des gros objets JSON (s'ils ne sont pas déjà dans "data")
-    // pour éviter que le flux en direct de Supabase ne les omette et efface l'écran.
+    // 2. BOUCLIER ANTI-TOAST POSTGRES : 
     const safePayload = {
       ...data,
       teams: data.teams !== undefined ? data.teams : tourney.teams,
@@ -70,18 +82,20 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       playoffs: data.playoffs !== undefined ? data.playoffs : tourney.playoffs
     };
 
-    const { error } = await supabase
+    const { data: updatedRows, error } = await supabase
       .from('tournaments')
       .update(safePayload)
-      .eq('id', tourney.id);
+      .eq('id', tourney.id)
+      .select();
 
     if (error) {
       console.error("Erreur de sauvegarde Supabase :", error);
       alert("Erreur de synchronisation avec le cloud.");
+    } else if (!updatedRows || updatedRows.length === 0) {
+      alert("🚨 BLOCAGE SILENCIEUX SUPABASE 🚨\n\nL'application a essayé de sauvegarder, mais Supabase a refusé (0 ligne modifiée) sans envoyer d'erreur.\n\nC'est un problème de droits (RLS) sur la table 'tournaments'.");
     }
   };
 
-  // --- 🛡️ BOUCLIERS ANTI-CRASH ---
   const getGroupLimit = (t, gNum) => {
     const val = t?.qualifiedSettings?.[gNum];
     const parsed = parseInt(val, 10);
@@ -108,7 +122,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       return { ...team, points, diff };
     }).sort((a,b) => b.points - a.points || b.diff - a.diff);
   };
-  // ---------------------------------
 
   useEffect(() => {
     if (!canEdit) return; 
@@ -143,12 +156,13 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     }
   }, [tourney.playoffs]);
 
-  const handleLaunchMatch = (matchId) => {
+  const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
     let match = (tourney.schedule || []).find(m => m.id === matchId);
     if (!match && tourney.playoffs) {
       match = tourney.playoffs.matches.find(m => m.id === matchId);
     }
     if (match) {
+      localStorage.setItem(`canEdit_match_${matchId}`, canLaunchThisMatch ? "true" : "false");
       onLaunchMatch(matchId);
     }
   };
@@ -184,14 +198,18 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     }
   };
 
-  // --- MODIFIÉ : UTILISATION DE LA MODALE POUR L'OTM ---
   const handleAssignOtm = (matchId, isPlayoff) => {
     if (!canEdit) return;
     const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
     setOtmModal({ matchId, isPlayoff });
-    setSelectedOtmInput(match.otm || "");
+    
+    const currentOtmStr = match.otm || "";
+    const currentOtmsArray = currentOtmStr.split(' - ').map(s => s.trim()).filter(Boolean);
+    const knownProfiles = otmProfiles.map(p => p.full_name);
+    
+    setSelectedOtms(currentOtmsArray.filter(name => knownProfiles.includes(name)));
+    setCustomOtm(currentOtmsArray.filter(name => !knownProfiles.includes(name)).join(' - '));
   };
-  // -----------------------------------------------------
 
   const generateDrawAndSchedule = () => {
     if (!canEdit) return;
@@ -234,11 +252,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       return;
     }
 
-    // On compte tous les matchs résolus (terminés, forfaits ou annulés)
     const resolvedMatches = tourney.schedule.filter(m => ['finished', 'forfeit', 'canceled'].includes(m.status)).length;
     const totalMatches = tourney.schedule.length;
 
-    // BLOCAGE STRICT : Tous les matchs doivent être joués (ou traités)
     if (resolvedMatches < totalMatches) {
       const remaining = totalMatches - resolvedMatches;
       alert(`Impossible de générer la phase finale 🛑\n\nTous les matchs de poule doivent être terminés (ou annulés/forfaits).\nIl reste actuellement ${remaining} match(s) en attente.`);
@@ -394,11 +410,37 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     }
   };
 
-  const addPlayer = (tid) => {
-    if (!canEdit || !pName.trim() || !pNum.trim()) return;
-    const newPlayer = { id: "p_" + Date.now(), name: pName, number: pNum, licenseStatus: 'to_check', paid: 0, totalDue: 20 };
-    update({ teams: tourney.teams.map(t => t.id === tid ? { ...t, players: [...t.players, newPlayer] } : t) });
-    setPName(""); setPNum("");
+  const handleDraftChange = (index, field, value) => {
+    const newDraft = [...playersDraft];
+    newDraft[index][field] = value;
+    setPlayersDraft(newDraft);
+  };
+
+  const addDraftRow = () => {
+    setPlayersDraft([...playersDraft, { name: "", number: "" }]);
+  };
+
+  const removeDraftRow = (index) => {
+    setPlayersDraft(playersDraft.filter((_, i) => i !== index));
+  };
+
+  const saveMultiplePlayers = (tid) => {
+    if (!canEdit) return;
+    
+    const validPlayers = playersDraft.filter(p => p.name.trim() !== "");
+    if (validPlayers.length === 0) return alert("Veuillez remplir au moins un nom !");
+    
+    const newPlayers = validPlayers.map((p, index) => ({
+      id: "p_" + Date.now() + "_" + index, 
+      name: p.name.trim(), 
+      number: p.number || '0', 
+      licenseStatus: 'to_check', 
+      paid: 0, 
+      totalDue: 20 
+    }));
+
+    update({ teams: tourney.teams.map(t => t.id === tid ? { ...t, players: [...t.players, ...newPlayers] } : t) });
+    setPlayersDraft([{ name: "", number: "" }]);
   };
 
   const updatePlayerFinance = (teamId, playerId, field, value) => {
@@ -428,30 +470,40 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     });
   };
 
+  // --- DRAG & DROP DES JOUEURS (KANBAN) ---
   const onDragStartPlayer = (e, playerId) => {
     if (!canEdit) { e.preventDefault(); return; }
     setDraggedPlayerId(playerId);
     e.dataTransfer.setData("playerId", playerId);
     e.dataTransfer.effectAllowed = "move";
-    setTimeout(() => { if(e.target) { e.target.style.opacity = "0.2"; e.target.style.transform = "scale(0.95)"; } }, 0);
   };
 
   const onDragEndPlayer = (e) => {
     if (!canEdit) return;
     setDraggedPlayerId(null);
-    if(e.target) { e.target.style.opacity = "1"; e.target.style.transform = "scale(1)"; }
+    // On efface tous les résidus de contour orange possibles sur la page entière
+    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
   };
+
+  useEffect(() => {
+    setPlayersDraft([{ name: "", number: "" }]);
+  }, [editId]);
 
   const onDropPlayer = (e, newStatus, teamId) => {
     if (!canEdit) return;
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
+    e.currentTarget.classList.remove('drag-over'); 
+    
     const pid = e.dataTransfer.getData("playerId");
     if (!pid) return;
+    
     const team = tourney.teams.find(t => t.id === teamId);
+    if (!team) return;
+
     const updatedPlayers = team.players.map(p => p.id === pid ? { ...p, licenseStatus: newStatus } : p);
     update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: updatedPlayers } : t) });
   };
+  // -----------------------------------------
 
   const deletePlayer = (teamId, playerId) => {
     if (!canEdit) return;
@@ -484,20 +536,16 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     }
   };
 
-  // --- NOUVEAU : DÉBLOQUER LE MODE OTM DEPUIS LE TOURNOI ---
   const handleUnlockOtm = async () => {
     const pin = window.prompt("Entrez le code PIN fourni par l'organisateur pour débloquer la Table de Marque :");
     if (!pin) return;
 
     try {
-      // 1. On vérifie le code avec la base de données
       const { error } = await supabase.rpc('join_as_otm', { pin: pin.trim().toUpperCase() });
-      
       if (error) throw error;
       
       alert("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
       
-      // 2. On met à jour l'écran localement pour faire apparaître les boutons instantanément !
       setTournaments(prev => prev.map(t => {
         if (t.id === tourney.id) {
           return { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] };
@@ -509,7 +557,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       alert("Code PIN invalide ou erreur réseau.");
     }
   };
-  // ---------------------------------------------------------
 
   const renderPlayerColumn = (title, status, color, team) => {
     const filteredPlayers = team.players.filter(p => p.licenseStatus === status || (!p.licenseStatus && status === 'to_check'));
@@ -518,7 +565,10 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         className="dashboard-column"
         onDragOver={(e) => { if(canEdit) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); } }}
         onDragLeave={(e) => { if(canEdit) e.currentTarget.classList.remove('drag-over'); }}
-        onDrop={(e) => onDropPlayer(e, status, team.id)}
+        onDrop={(e) => {
+          e.currentTarget.classList.remove('drag-over'); 
+          onDropPlayer(e, status, team.id);
+        }}
       >
         <h3 className="dashboard-col-title" style={{ borderBottom: `3px solid ${color}` }}>
           {title} <span style={{ opacity: 0.4 }}>({filteredPlayers.length})</span>
@@ -534,7 +584,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                 onDragStart={(e) => onDragStartPlayer(e, p.id)}
                 onDragEnd={onDragEndPlayer}
                 className={`dashboard-card ${draggedPlayerId === p.id ? 'grabbing' : ''}`}
-                style={{ display: 'flex', flexDirection: 'column', gap: '8px', cursor: canEdit ? 'grab' : 'default' }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
               >
                 <div className="dashboard-card-header">
                   <strong className="dashboard-card-title" style={{ color: color }}>#{p.number} {p.name}</strong>
@@ -683,10 +733,40 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                 {canEdit && <button onClick={() => validateAllPlayers(team.id)} className="tm-btn-success" style={{ padding: '8px 15px', fontSize: '0.8rem' }}>✅ TOUT VALIDER</button>}
             </div>
             {canEdit && (
-              <div className="tm-flex-gap" style={{ gap: '10px' }}>
-                  <input className="tm-input" placeholder="Nom du joueur" value={pName} onChange={e => setPName(e.target.value)} />
-                  <input className="tm-input" style={{ width: '60px' }} type="number" placeholder="N°" value={pNum} onChange={e => setPNum(e.target.value)} />
-                  <button onClick={() => addPlayer(team.id)} className="tm-btn-success">+ AJOUTER</button>
+              <div style={{ background: '#222', padding: '15px', borderRadius: '8px', border: '1px dashed #555', width: '100%', maxWidth: '500px' }}>
+                <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#ccc', fontSize: '0.9rem' }}>➕ Ajout rapide (Multiple)</h4>
+                
+                {playersDraft.map((draft, index) => (
+                  <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                    <input 
+                      className="tm-input" 
+                      placeholder="Nom du joueur" 
+                      value={draft.name} 
+                      onChange={e => handleDraftChange(index, 'name', e.target.value)} 
+                      style={{ flex: 1 }} 
+                    />
+                    <input 
+                      className="tm-input" 
+                      style={{ width: '60px' }} 
+                      type="number" 
+                      placeholder="N°" 
+                      value={draft.number} 
+                      onChange={e => handleDraftChange(index, 'number', e.target.value)} 
+                    />
+                    {playersDraft.length > 1 && (
+                      <button onClick={() => removeDraftRow(index)} style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
+                    )}
+                  </div>
+                ))}
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                  <button onClick={addDraftRow} style={{ background: 'transparent', color: 'var(--accent-blue)', border: '1px dashed var(--accent-blue)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    + Ligne
+                  </button>
+                  <button onClick={() => saveMultiplePlayers(team.id)} className="tm-btn-success">
+                    💾 SAUVEGARDER
+                  </button>
+                </div>
               </div>
             )}
         </div>
@@ -742,7 +822,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
               </span>
             )}
 
-            {/* NOUVEAU : Bouton de déblocage pour les spectateurs/joueurs */}
+            {/* Bouton de déblocage pour les spectateurs/joueurs */}
             {!canManageMatch && session && (
               <button 
                 onClick={handleUnlockOtm} 
@@ -868,6 +948,10 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                       const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
                       const canClick = isReady || isFinished;
                       
+                      // Vérification des droits spécifiques au match
+                      const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
+                      const canLaunchThisMatch = canEdit || isAssignedOtm;
+                      
                       return (
                         <div 
                           key={m.id} 
@@ -878,7 +962,9 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                               e.dataTransfer.setData("matchId", m.id);
                               e.dataTransfer.effectAllowed = "move";
                           }}
-                          onDragEnd={() => setDraggedMatchId(null)}
+                          onDragEnd={(e) => {
+                              setDraggedMatchId(null);
+                          }}
                           onDragOver={(e) => {
                               if(!canEdit) return;
                               e.preventDefault();
@@ -889,14 +975,17 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                           }}
                           onDragLeave={(e) => {
                               if(!canEdit) return;
-                              e.currentTarget.style.transform = "scale(1)";
-                              e.currentTarget.style.boxShadow = "none";
+                              // FIX: On réinitialise purement le style !
+                              e.currentTarget.style.transform = "";
+                              e.currentTarget.style.boxShadow = "";
                           }}
                           onDrop={(e) => {
                               if(!canEdit) return;
                               e.preventDefault();
-                              e.currentTarget.style.transform = "scale(1)";
-                              e.currentTarget.style.boxShadow = "none";
+                              // FIX: Nettoyage immédiat au drop
+                              e.currentTarget.style.transform = "";
+                              e.currentTarget.style.boxShadow = "";
+                              
                               const sourceMatchId = e.dataTransfer.getData("matchId");
                               if (!sourceMatchId || sourceMatchId === m.id) return;
                               
@@ -942,15 +1031,16 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                            
                            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                              <button onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!canClick && !isCanceled && !isForfeit) { alert(`Le match n'est pas prêt.`); return; }
-                                  if (!isCanceled && !isForfeit) handleLaunchMatch(m.id);
-                             }} 
+                                                  e.stopPropagation();
+                                                  if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
+                                                  
+                                                  if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
+                                                }}
                              className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
                              style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), flex: 1, margin: 0 }}
                              disabled={isCanceled || isForfeit}
                              >
-                                  {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                                  {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
                              </button>
                              
                              {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
@@ -1027,17 +1117,71 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                     const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
                                     const canClick = isReady || isFinished;
                                     
+                                    // Vérification des droits spécifiques au match
+                                    const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
+                                    const canLaunchThisMatch = canEdit || isAssignedOtm;
+                                    
                                     return (
                                         <div 
                                           key={m.id} 
                                           className="tm-match-row"
+                                          draggable={canEdit}
+                                          onDragStart={(e) => {
+                                              if(!canEdit) return;
+                                              setDraggedMatchId(m.id);
+                                              e.dataTransfer.setData("matchId", m.id);
+                                              e.dataTransfer.effectAllowed = "move";
+                                          }}
+                                          onDragEnd={(e) => {
+                                              setDraggedMatchId(null);
+                                          }}
+                                          onDragOver={(e) => {
+                                              if(!canEdit) return;
+                                              e.preventDefault();
+                                              if(draggedMatchId && draggedMatchId !== m.id) {
+                                                  e.currentTarget.style.transform = "scale(1.02)";
+                                                  e.currentTarget.style.boxShadow = "0 0 15px rgba(255, 165, 0, 0.4)";
+                                              }
+                                          }}
+                                          onDragLeave={(e) => {
+                                              if(!canEdit) return;
+                                              // FIX: On réinitialise purement le style !
+                                              e.currentTarget.style.transform = "";
+                                              e.currentTarget.style.boxShadow = "";
+                                          }}
+                                          onDrop={(e) => {
+                                              if(!canEdit) return;
+                                              e.preventDefault();
+                                              // FIX: Nettoyage immédiat au drop
+                                              e.currentTarget.style.transform = "";
+                                              e.currentTarget.style.boxShadow = "";
+                                              
+                                              const sourceMatchId = e.dataTransfer.getData("matchId");
+                                              if (!sourceMatchId || sourceMatchId === m.id) return;
+                                              
+                                              const newMatches = [...tourney.playoffs.matches];
+                                              const sourceIndex = newMatches.findIndex(x => x.id === sourceMatchId);
+                                              const targetIndex = newMatches.findIndex(x => x.id === m.id);
+                                              
+                                              if (sourceIndex > -1 && targetIndex > -1) {
+                                                  const temp = newMatches[sourceIndex];
+                                                  newMatches[sourceIndex] = newMatches[targetIndex];
+                                                  newMatches[targetIndex] = temp;
+                                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                              }
+                                          }}
                                           style={{ 
                                               padding: '15px', 
                                               background: isFinished ? '#1a1a1a' : '#111', 
                                               borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--accent-orange)' : 'var(--danger)'))}`,
-                                              position: 'relative'
+                                              position: 'relative',
+                                              cursor: canEdit ? (draggedMatchId === m.id ? 'grabbing' : 'grab') : 'default',
+                                              opacity: draggedMatchId === m.id ? 0.4 : (isCanceled ? 0.6 : 1),
+                                              transition: 'all 0.2s ease'
                                           }}
                                         >
+                                            {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem' }} title="Glisser pour intervertir">⠿</div>}
+
                                             {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
                                             {isFinished && <div className="tm-ribbon-finished">TERMINÉ</div>}
                                             {isCanceled && <div className="tm-ribbon-finished" style={{background: '#555'}}>ANNULÉ</div>}
@@ -1067,15 +1211,16 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                             ) : (
                                                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                                                   <button onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
-                                                    if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id);
-                                                  }} 
+                                  e.stopPropagation();
+                                  if (!canClick && !isCanceled && !isForfeit) { alert(`Le match n'est pas prêt.`); return; }
+                                  
+                                  if (!isCanceled && !isForfeit) handleLaunchMatch(m.id, canLaunchThisMatch);
+                             }}
                                                   className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
                                                   style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : (['canceled', 'forfeit'].includes(m.status) ? '#333' : ''), flex: 1, margin: 0 }}
                                                   disabled={['canceled', 'forfeit'].includes(m.status)}
                                                   >
-                                                    {m.status === 'canceled' ? "ANNULÉ" : m.status === 'forfeit' ? "FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canManageMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                                                    {m.status === 'canceled' ? "ANNULÉ" : m.status === 'forfeit' ? "FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
                                                   </button>
 
                                                   {(!isFinished && !['canceled', 'forfeit'].includes(m.status) && canEdit) && (
@@ -1124,39 +1269,53 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         </div>
       )}
 
-      {/* --- MODALE D'ASSIGNATION D'OTM --- */}
+      {/* --- MODALE D'ASSIGNATION D'OTM --- */}      
       {otmModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
           <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-blue)', width: '90%', maxWidth: '400px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👤 Assigner un OTM</h3>
+            <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👤 Assigner des OTM</h3>
             
-            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Sélectionner un OTM connecté :</label>
-            <select 
-              value={selectedOtmInput}
-              onChange={(e) => setSelectedOtmInput(e.target.value)}
-              className="tm-input"
-              style={{ width: '100%', marginBottom: '15px' }}
-            >
-              <option value="">-- Choisir dans la liste --</option>
-              {otmProfiles.map(prof => (
-                <option key={prof.id} value={prof.full_name}>{prof.full_name}</option>
-              ))}
-            </select>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Cocher les OTM connectés :</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', background: '#222', padding: '10px', borderRadius: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+              {otmProfiles.length === 0 ? (
+                <span style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic' }}>Aucun OTM n'a rejoint le tournoi.</span>
+              ) : (
+                otmProfiles.map(prof => (
+                  <label key={prof.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedOtms.includes(prof.full_name)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedOtms([...selectedOtms, prof.full_name]);
+                        } else {
+                          setSelectedOtms(selectedOtms.filter(name => name !== prof.full_name));
+                        }
+                      }}
+                      style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                    />
+                    {prof.full_name}
+                  </label>
+                ))
+              )}
+            </div>
 
-            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Ou saisir un nom (ex: Terrain 1) :</label>
+            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Autre (ex: Terrain 1, Bénévoles...) :</label>
             <input 
               type="text" 
-              value={selectedOtmInput}
-              onChange={(e) => setSelectedOtmInput(e.target.value)}
+              value={customOtm}
+              onChange={(e) => setCustomOtm(e.target.value)}
               className="tm-input"
               style={{ width: '100%', marginBottom: '25px' }}
-              placeholder="Nom de l'OTM ou du terrain..."
+              placeholder="Saisir un texte libre..."
             />
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button onClick={() => setOtmModal(null)} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Annuler</button>
               <button onClick={() => {
-                const finalVal = selectedOtmInput.trim();
+                // On rassemble les cases cochées ET le texte libre, séparés par " - "
+                const finalVal = [...selectedOtms, customOtm.trim()].filter(Boolean).join(' - ');
+                
                 if (otmModal.isPlayoff) {
                   const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
                   update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
@@ -1170,7 +1329,6 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           </div>
         </div>
       )}
-
     </div>
   );
 }

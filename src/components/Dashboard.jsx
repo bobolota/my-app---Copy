@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient'; 
 
-export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView, userRole, session }) {
+export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView, userRole, userSubscription, session }) {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [pinCode, setPinCode] = useState("");
@@ -11,7 +11,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
   const [timeoutsHalf1, setTimeoutsHalf1] = useState(2);
   const [timeoutsHalf2, setTimeoutsHalf2] = useState(3);
 
-  const canCreate = userRole === 'ADMIN' || userRole === 'ORGANIZER';
+  const canCreate = userRole === 'ADMIN' || userSubscription === 'PRO';
 
   const visibleTournaments = tournaments.filter(t => {
     if (userRole === 'ADMIN') return true;       

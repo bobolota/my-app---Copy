@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
+import jsPDF from 'jspdf'; // NOUVEAU
+import html2canvas from 'html2canvas'; // NOUVEAU
 
 // --- COMPOSANTS INTERNES ---
 
@@ -168,12 +170,14 @@ const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, o
 
 export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedStatsB, isFinished, onExit, onMatchFinished, onLiveUpdate, userRole, tourney }) {
   
-  // NOUVEAU : On lit le règlement du tournoi (ou on met les règles FIBA par défaut)
   const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
-  
-  // --- NOUVEAU VIGILE ---
-  const canEdit = userRole === 'ADMIN' || userRole === 'ORGANIZER' || userRole === 'OTM';
-  // ----------------------
+
+  // --- ARCHITECTURE MODERNE : Rôles contextuels ---
+  // Soit l'utilisateur est le créateur absolu de l'app (ADMIN)
+  // Soit le TournamentManager lui a donné l'autorisation stricte pour CE match (Créateur du tournoi ou OTM assigné)
+  const isSpecificallyAssigned = localStorage.getItem(`canEdit_match_${matchId}`) === "true";
+  const canEdit = userRole === 'ADMIN' || isSpecificallyAssigned;
+  // ------------------------------------------------
 
   const saveKey = `basketMatchSave_${matchId}`;
 
@@ -200,24 +204,31 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   };
 
   const safeSave = getSafeSave();
+  const matchData = tourney?.schedule?.find(m => m.id === matchId) || tourney?.playoffs?.matches?.find(m => m.id === matchId);
 
-  // NOUVEAU : On gère l'état de validation du 5 majeur pour ne pas le redemander
-  const initialStartersValidated = isFinished || (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false);
+  // NOUVEAU : Si des joueurs sont déjà sur le terrain dans le cloud, c'est que le 5 majeur a été validé !
+  const cloudHasStarters = matchData?.savedStatsA?.some(p => p.status === 'court') || matchData?.startersValidated;
+
+  const initialStartersValidated = isFinished || 
+    (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false) || 
+    (matchData?.liveHistory?.length > 0) || 
+    cloudHasStarters;
+
   const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
 
-  const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : initPlayers(teamA)));
-  const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : initPlayers(teamB)));
-  const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : settings.periodDuration * 60));
-  const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : 'Q1'));
-  const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : null));
-  const [history, setHistory] = useState(() => safeSave ? safeSave.history : []);
+  const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : (matchData?.savedStatsA || initPlayers(teamA))));
+  const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : (matchData?.savedStatsB || initPlayers(teamB))));
+  const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : (matchData?.liveTime !== undefined ? matchData.liveTime : settings.periodDuration * 60)));
+  const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
+  const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
+  const [history, setHistory] = useState(() => safeSave ? safeSave.history : (matchData?.liveHistory || []));
+  // -----------------------------------------------------------------------------------------
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
   const [isRunning, setIsRunning] = useState(false);
   const [currentView, setCurrentView] = useState(isFinished ? 'boxscore' : 'court');
 
   const [activeAction, setActiveAction] = useState(() => {
-    // Si pas connecté ou pas autorisé, on ne force pas le panneau STARTERS
     if (!canEdit) return null; 
     return (!initialStartersValidated) ? { type: 'STARTERS' } : null;
   });
@@ -228,6 +239,32 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const [isEditing, setIsEditing] = useState(false);
   const [editMin, setEditMin] = useState(0);
   const [editSec, setEditSec] = useState(0);
+
+  // --- NOUVEAU : ÉTAT ET DÉTECTION HORS-LIGNE ---
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Synchronisation magique dès que le réseau revient
+      if (canEdit && !isMatchOver) {
+        supabase.channel(`match_live_${matchId}`).send({
+          type: 'broadcast', event: 'sync',
+          payload: { playersA, playersB, time, period, history, isRunning }
+        });
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [canEdit, isMatchOver, matchId, playersA, playersB, time, period, history, isRunning]);
+  // ----------------------------------------------
 
   const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
   const scoreB = playersB.reduce((sum, p) => sum + p.points, 0);
@@ -244,29 +281,26 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const teamFoulsB = getTeamFouls('B');
 
   const getTimeoutsLeft = (teamId) => {
-    // 1. Déterminer dans quelle partie du match on se trouve
     let maxTimeouts = 0;
     let periodsInCurrentHalf = [];
 
     if (period === 'Q1' || period === 'Q2') {
-      maxTimeouts = settings.timeoutsHalf1; // Ex: 2 temps morts
+      maxTimeouts = settings.timeoutsHalf1; 
       periodsInCurrentHalf = ['Q1', 'Q2'];
     } 
     else if (period === 'Q3' || period === 'Q4') {
-      maxTimeouts = settings.timeoutsHalf2; // Ex: 3 temps morts
+      maxTimeouts = settings.timeoutsHalf2; 
       periodsInCurrentHalf = ['Q3', 'Q4'];
     } 
     else if (period && period.startsWith('OT')) {
-      maxTimeouts = 1; // Règle FIBA : 1 TM par prolongation (non cumulable)
+      maxTimeouts = 1; 
       periodsInCurrentHalf = [period]; 
     }
 
-    // 2. Compter combien de TM ont déjà été pris par cette équipe dans CETTE mi-temps
     const timeoutsTakenThisHalf = history.filter(
       action => action.type === 'TIMEOUT' && action.team === teamId && periodsInCurrentHalf.includes(action.period)
     ).length;
 
-    // 3. Retourner ce qu'il reste (sans jamais descendre en dessous de zéro)
     return Math.max(0, maxTimeouts - timeoutsTakenThisHalf);
   };
 
@@ -274,7 +308,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const timeoutsB = getTimeoutsLeft('B');
 
   const handleTeamAction = (type, team) => {
-      if (!canEdit || isMatchOver) return; // Sécurité
+      if (!canEdit || isMatchOver) return; 
       if (type === 'TIMEOUT') {
           const left = team === 'A' ? timeoutsA : timeoutsB;
           if (left <= 0) { alert("Plus de temps mort disponible !"); return; }
@@ -292,16 +326,115 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     return isExcluded && p.status === 'court';
   });
 
-  // Sauvegarde locale (Le Cloud est appelé par App.jsx)
   useEffect(() => {
-    if (!isFinished && canEdit) { // Un spectateur n'écrase pas le cache
+    if (!isFinished && canEdit) { 
       const gameState = { playersA, playersB, time, period, history, isMatchOver, possession, startersValidated };
       localStorage.setItem(saveKey, JSON.stringify(gameState));
     }
   }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
+  // --- AUTO-SAUVEGARDE SILENCIEUSE (Étape 3) ---
+  useEffect(() => {
+    if (!canEdit || isMatchOver || history.length === 0) return;
+    
+    const timeoutId = setTimeout(async () => {
+        const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
+        const matchArray = isPlayoff ? tourney?.playoffs?.matches : tourney?.schedule;
+        if (!matchArray) return;
+        
+        const matchIndex = matchArray.findIndex(m => m.id === matchId);
+        if (matchIndex > -1) {
+            const updatedMatch = {
+                ...matchArray[matchIndex],
+                savedStatsA: playersA,
+                savedStatsB: playersB,
+                liveTime: time,
+                livePeriod: period,
+                liveHistory: history,
+                livePossession: possession,
+                startersValidated: startersValidated, // <--- C'EST ICI QU'ON L'AJOUTE AUSSI !
+                scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
+                scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
+            };
+            
+            let payload = {};
+            if (isPlayoff) {
+                const newMatches = [...tourney.playoffs.matches];
+                newMatches[matchIndex] = updatedMatch;
+                payload = { playoffs: { ...tourney.playoffs, matches: newMatches } };
+            } else {
+                const newSchedule = [...tourney.schedule];
+                newSchedule[matchIndex] = updatedMatch;
+                payload = { schedule: newSchedule };
+            }
+            
+            await supabase.from('tournaments').update(payload).eq('id', tourney?.id);
+        }
+    }, 1500); 
+
+    // ATTENTION : On ajoute bien startersValidated à la fin de cette ligne 👇
+  }, [history, startersValidated]); 
+  // ---------------------------------------------
+
+  // --- NOUVEAU : Sauvegarde totale avant de quitter la table de marque ---
+  const handleExit = (e) => {
+    if (e) e.stopPropagation();
+    
+    // 1. On quitte l'écran INSTANTANÉMENT pour l'utilisateur (pas de freeze !)
+    if (onExit) onExit();
+    
+    // 2. On fait la sauvegarde silencieusement en arrière-plan
+    if (canEdit && !isMatchOver) {
+        try {
+            const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
+            const matchArray = isPlayoff ? tourney.playoffs.matches : tourney.schedule;
+            
+            if (matchArray) {
+                const matchIndex = matchArray.findIndex(m => m.id === matchId);
+                if (matchIndex > -1) {
+                    const updatedMatch = {
+                        ...matchArray[matchIndex],
+                        savedStatsA: playersA,
+                        savedStatsB: playersB,
+                        liveTime: time,
+                        livePeriod: period,
+                        liveHistory: history,
+                        livePossession: possession,
+                        scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
+                        scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
+                    };
+                    
+                    let payload = {};
+                    if (isPlayoff) {
+                        const newMatches = [...tourney.playoffs.matches];
+                        newMatches[matchIndex] = updatedMatch;
+                        payload = { playoffs: { ...tourney.playoffs, matches: newMatches } };
+                    } else {
+                        const newSchedule = [...tourney.schedule];
+                        newSchedule[matchIndex] = updatedMatch;
+                        payload = { schedule: newSchedule };
+                    }
+                    
+                    // On envoie à Supabase sans utiliser "await" pour ne pas bloquer l'écran
+                    supabase.from('tournaments').update(payload).eq('id', tourney?.id).then();
+                }
+            }
+        } catch (err) {
+            console.error("Erreur silencieuse lors de la sauvegarde :", err);
+        }
+    }
+  };
+  // -----------------------------------------------------------------------
+
   const handleFinishMatch = () => {
-    if (!canEdit) return; // Sécurité
+    if (!canEdit) return; 
+
+    // NOUVEAU : Anti-crash de fin de match
+    if (!isOnline) {
+      alert("⚠️ Vous êtes HORS-LIGNE !\n\nLe match est bien sauvegardé dans la tablette, mais vous devez retrouver une connexion internet (pastille verte) avant de cliquer sur 'Terminer le match' pour l'envoyer dans le cloud.");
+      return;
+    }
+
     if (window.confirm("Terminer définitivement le match et sauvegarder les stats ?")) {
       setIsRunning(false); setIsMatchOver(true); setCurrentView('boxscore');
       if (onMatchFinished) onMatchFinished(scoreA, scoreB, playersA, playersB);
@@ -312,7 +445,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const handleResetTime = (e) => { e.stopPropagation(); if(window.confirm("Réinitialiser le chrono à 10:00 ?")) { setTime(600); setIsRunning(false); } };
 
   const nextPeriod = () => {
-    if (!canEdit) return; // Sécurité
+    if (!canEdit) return; 
     let nextP;
     if (period === 'Q1') nextP = 'Q2';
     else if (period === 'Q2') nextP = 'Q3';
@@ -327,7 +460,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   };
 
   const deleteAction = (index) => {
-    if (!canEdit || isMatchOver) return; // Sécurité
+    if (!canEdit || isMatchOver) return; 
     const actionToDelete = history[index];
     if (actionToDelete.type === 'SUB') { setHistory(prev => prev.filter((_, i) => i !== index)); return; }
     
@@ -339,18 +472,15 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       if (p.id === playerId) {
         let up = { ...p };
         
-        // CORRECTION ICI : Le bloc SCORE est bien refermé
         if (type === 'SCORE') {
           up.points -= value;
           if (value === 1) { up.ftm -= 1; up.fta -= 1; }
           else if (value === 2) { up.fg2m -= 1; up.fg2a -= 1; }
           else { up.fg3m -= 1; up.fg3a -= 1; }
           
-          // --- NOUVEAU : ON CORRIGE LE SCORE EN DIRECT ---
           const newScoreA = isA ? scoreA - value : scoreA;
           const newScoreB = !isA ? scoreB - value : scoreB;
           if (onLiveUpdate) onLiveUpdate(newScoreA, newScoreB);
-          // -----------------------------------------------
         }
         
         if (type === 'MISS') {
@@ -399,34 +529,36 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     return () => clearInterval(interval);
   }, [isRunning]);
 
-  // --- NOUVEAU : MODE COLLABORATIF MULTI-OTM ---
-  const stateRef = useRef({ playersA, playersB, time, period, history, isRunning });
+  const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });
   const isRemoteUpdate = useRef(false);
 
-  // On garde toujours une trace fraîche de l'état pour l'envoyer aux nouveaux arrivants
   useEffect(() => {
-    stateRef.current = { playersA, playersB, time, period, history, isRunning };
-  }, [playersA, playersB, time, period, history, isRunning]);
+    stateRef.current = { playersA, playersB, time, period, history, isRunning, startersValidated };
+  }, [playersA, playersB, time, period, history, isRunning, startersValidated]);
 
   useEffect(() => {
     const channel = supabase.channel(`match_live_${matchId}`);
     
-    // 1. TOUT LE MONDE (Spectateurs ET Éditeurs) écoute les changements
     channel.on('broadcast', { event: 'sync' }, ({ payload }) => {
-      if (canEdit) isRemoteUpdate.current = true; // Empêche l'effet miroir (boucle infinie)
+      if (canEdit) isRemoteUpdate.current = true; 
       setPlayersA(payload.playersA);
       setPlayersB(payload.playersB);
       setTime(payload.time);
       setPeriod(payload.period);
       setHistory(payload.history);
       setIsRunning(payload.isRunning);
+
+      // --- NOUVEAU : Si la tablette principale a déjà validé, on ferme le panneau ici aussi ! ---
+      if (payload.startersValidated || payload.history?.length > 0 || payload.playersA?.some(p => p.status === 'court')) {
+          setStartersValidated(true);
+          setActiveAction(prev => prev?.type === 'STARTERS' ? null : prev);
+      }
     });
 
     if (canEdit) {
-      // 2. Si un nouvel appareil se connecte, il demande le score actuel
       channel.on('broadcast', { event: 'request_sync' }, () => {
-        // L'OTM déjà présent envoie son état actuel au nouvel arrivant
-        const hasStarted = stateRef.current.history.length > 0 || stateRef.current.playersA.some(p => p.points > 0);
+        // --- NOUVEAU : On répond à l'appel même si le match est à 0-0 mais que le 5 majeur est prêt ---
+        const hasStarted = stateRef.current.history.length > 0 || stateRef.current.playersA.some(p => p.points > 0) || stateRef.current.startersValidated;
         if (hasStarted) {
             channel.send({
               type: 'broadcast', event: 'sync',
@@ -438,7 +570,6 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
 
     channel.subscribe((status) => {
         if (status === 'SUBSCRIBED' && canEdit) {
-            // 3. Je viens de me connecter, je demande le score aux autres OTMs
             channel.send({ type: 'broadcast', event: 'request_sync' });
         }
     });
@@ -446,24 +577,22 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     return () => { supabase.removeChannel(channel); };
   }, [matchId, canEdit]);
 
-  // 4. L'éditeur diffuse ses actions à chaque clic
   useEffect(() => {
-    if (canEdit) {
-      // Si la mise à jour vient d'un autre OTM, on ne la renvoie pas !
+    if (canEdit && isOnline) {
       if (isRemoteUpdate.current) {
          isRemoteUpdate.current = false;
          return;
       }
       supabase.channel(`match_live_${matchId}`).send({
         type: 'broadcast', event: 'sync',
-        payload: { playersA, playersB, time, period, history, isRunning }
+        // NOUVEAU : On inclut l'état startersValidated dans l'envoi en direct
+        payload: { playersA, playersB, time, period, history, isRunning, startersValidated }
       });
     }
-  }, [canEdit, matchId, playersA, playersB, time, period, history, isRunning]);
-  // ----------------------------------------------
+  }, [canEdit, isOnline, matchId, playersA, playersB, time, period, history, isRunning, startersValidated]);
 
   const handleAction = (incomingType, team, pid, incomingValue) => {
-    if (!canEdit || isMatchOver) return; // Sécurité maximale
+    if (!canEdit || isMatchOver) return; 
 
     if (incomingType === 'STARTERS') {
         const isA = team === 'A';
@@ -633,11 +762,9 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       setHistory([{ team, playerId, value, type: 'SCORE', time, period }, ...history]);
       if (value > 1) { setTimeout(() => setPendingAssist({ team, scorerId: playerId }), 10); }
       
-      // --- NOUVEAU : ON PRÉVIENT LE CLOUD QUE LE SCORE A CHANGÉ ! ---
       const newScoreA = isA ? scoreA + value : scoreA;
       const newScoreB = !isA ? scoreB + value : scoreB;
       if (onLiveUpdate) onLiveUpdate(newScoreA, newScoreB);
-      // --------------------------------------------------------------
 
     } else {
       const updateMiss = (list) => list.map(p => {
@@ -652,14 +779,63 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     setPendingAction(null); setActiveAction(null);
   };
 
+  // 👇 AJOUTE LA FONCTION PDF JUSTE ICI 👇
+  const handleGeneratePDF = async () => {
+    const element = document.getElementById('pdf-scoresheet-template');
+    if (!element) return;
+
+    // On rend le composant visible un très court instant pour le prendre en photo
+    element.style.display = 'block';
+    
+    try {
+      // On génère une image haute qualité (scale: 2) de la zone HTML
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      
+      // On crée le document PDF format A4
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Feuille_Match_${teamA?.name}_vs_${teamB?.name}.pdf`);
+      
+    } catch (err) {
+      console.error("Erreur lors de la génération du PDF :", err);
+      alert("Une erreur est survenue lors de la création du PDF.");
+    } finally {
+      // On recache le composant pour ne pas polluer l'écran
+      element.style.display = 'none';
+    }
+  };
+  // 👆 -------------------------------- 👆
+
   return (
     <div className="scoreboard-container">
       <div className="tm-flex-between" style={{ marginBottom:'20px' }}>
-        <button className="btn-undo" onClick={onExit}>⬅ RETOUR</button>
+        
+        {/* NOUVEAU : AFFICHAGE DE L'ÉTAT DU RÉSEAU POUR L'OTM */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <button className="btn-undo" onClick={handleExit}>⬅ RETOUR</button>
+          {canEdit && (
+            <span style={{ 
+              display: 'flex', alignItems: 'center', gap: '6px', 
+              fontSize: '0.8rem', fontWeight: 'bold', 
+              padding: '4px 8px', borderRadius: '20px', 
+              background: isOnline ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
+              color: isOnline ? '#2ecc71' : '#e74c3c',
+              border: `1px solid ${isOnline ? '#2ecc71' : '#e74c3c'}`
+            }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#2ecc71' : '#e74c3c', boxShadow: `0 0 5px ${isOnline ? '#2ecc71' : '#e74c3c'}` }}></div>
+              {isOnline ? 'EN LIGNE' : 'HORS-LIGNE'}
+            </span>
+          )}
+        </div>
+
         <div className="view-tabs" style={{ margin:0 }}>
             <button className={`btn-tab ${currentView === 'court' ? 'active' : ''}`} onClick={() => !isFinished && setCurrentView('court')}>TERRAIN</button>
             <button className={`btn-tab ${currentView === 'boxscore' ? 'active' : ''}`} onClick={() => setCurrentView('boxscore')}>STATS</button>
-            {isMatchOver && <button onClick={() => window.print()} className="sb-btn-print">IMPRIMER PDF 📄</button>}
+            {isMatchOver && <button onClick={handleGeneratePDF} className="sb-btn-print" style={{ background: 'white', color: 'black' }}>GÉNÉRER PDF 📄</button>}
             {(!isMatchOver && canEdit) && <button onClick={handleFinishMatch} className="sb-btn-finish">TERMINER LE MATCH 🏁</button>}
         </div>
       </div>
@@ -770,7 +946,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                               return;
                           }
                           setActiveAction(null);
-                          setStartersValidated(true); // <--- NOUVEAU : On enregistre la validation
+                          setStartersValidated(true); 
                       }}>
                           VALIDER LE 5 MAJEUR
                       </button>
@@ -902,6 +1078,91 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
           )}
         </div>
       </div>
+
+{/* --- LE MODÈLE CACHÉ POUR L'EXPORT PDF --- */}
+      <div id="pdf-scoresheet-template" style={{ display: 'none', position: 'absolute', top: 0, left: 0, width: '800px', background: 'white', color: 'black', padding: '40px', fontFamily: 'sans-serif', zIndex: -100 }}>
+        
+        {/* EN-TÊTE DU PDF */}
+        <div style={{ textAlign: 'center', borderBottom: '3px solid black', paddingBottom: '20px', marginBottom: '30px' }}>
+          <h1 style={{ margin: '0 0 10px 0', fontSize: '24px', textTransform: 'uppercase' }}>Feuille de Marque Officielle</h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 'bold' }}>
+            <span style={{ flex: 1, textAlign: 'right' }}>{teamA?.name}</span>
+            <span style={{ padding: '0 20px', fontSize: '24px', background: '#eee', borderRadius: '8px' }}>{scoreA} - {scoreB}</span>
+            <span style={{ flex: 1, textAlign: 'left' }}>{teamB?.name}</span>
+          </div>
+          <div style={{ marginTop: '10px', fontSize: '14px', color: '#555' }}>
+            Match généré le {new Date().toLocaleDateString('fr-FR')} à {new Date().toLocaleTimeString('fr-FR')}
+          </div>
+        </div>
+
+        {/* FONCTION POUR DESSINER LE TABLEAU D'UNE ÉQUIPE */}
+        {[ 
+          { name: teamA?.name, players: playersA, score: scoreA }, 
+          { name: teamB?.name, players: playersB, score: scoreB } 
+        ].map((teamData, index) => (
+          <div key={index} style={{ marginBottom: '40px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'black', color: 'white', padding: '10px', fontWeight: 'bold' }}>
+              <span>ÉQUIPE {index === 0 ? 'A' : 'B'} : {teamData.name}</span>
+              <span>TOTAL : {teamData.score} PTS</span>
+            </div>
+            
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px', fontSize: '12px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f0f0f0' }}>
+                  <th style={{ border: '1px solid black', padding: '8px', width: '30px' }}>N°</th>
+                  <th style={{ border: '1px solid black', padding: '8px', textAlign: 'left' }}>NOM DU JOUEUR</th>
+                  <th style={{ border: '1px solid black', padding: '8px', width: '40px' }}>PTS</th>
+                  <th style={{ border: '1px solid black', padding: '8px', width: '80px' }}>FAUTES (1 à 5)</th>
+                  <th style={{ border: '1px solid black', padding: '8px', width: '40px' }}>3PT</th>
+                  <th style={{ border: '1px solid black', padding: '8px', width: '40px' }}>LF</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamData.players.map((p, i) => (
+                  <tr key={i}>
+                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{p.number}</td>
+                    <td style={{ border: '1px solid black', padding: '8px', textTransform: 'uppercase' }}>{p.name}</td>
+                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{p.points}</td>
+                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center' }}>
+                      {/* On affiche les lettres des fautes P, T, U... ou des cases vides */}
+                      <div style={{ display: 'flex', justifyContent: 'center', gap: '3px' }}>
+                        {[0, 1, 2, 3, 4].map(fIdx => {
+                          const foulLetter = (p.foulList && p.foulList[fIdx]) ? p.foulList[fIdx] : '';
+                          return (
+                            <div key={fIdx} style={{ width: '12px', height: '12px', border: '1px solid black', fontSize: '9px', lineHeight: '10px' }}>
+                              {foulLetter}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center' }}>{p.fg3m}</td>
+                    <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center' }}>{p.ftm}/{p.fta}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ))}
+
+        {/* ZONE DE SIGNATURE */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '50px', paddingTop: '20px', borderTop: '2px dashed #aaa' }}>
+          <div style={{ textAlign: 'center', width: '30%' }}>
+            <strong>Capitaine Équipe A</strong>
+            <div style={{ borderBottom: '1px solid black', height: '50px', marginTop: '20px' }}></div>
+          </div>
+          <div style={{ textAlign: 'center', width: '30%' }}>
+            <strong>Officiel de Table (OTM)</strong>
+            <div style={{ borderBottom: '1px solid black', height: '50px', marginTop: '20px' }}></div>
+          </div>
+          <div style={{ textAlign: 'center', width: '30%' }}>
+            <strong>Capitaine Équipe B</strong>
+            <div style={{ borderBottom: '1px solid black', height: '50px', marginTop: '20px' }}></div>
+          </div>
+        </div>
+        
+      </div>
+
     </div>
   );
 }

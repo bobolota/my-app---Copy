@@ -5,7 +5,6 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
   // Filtre pour la colonne "Terminés"
   const [filterFinished, setFilterFinished] = useState('all');
 
-  // 1. On isole la logique de filtrage ici, pour alléger le Dashboard principal !
   const myCaptainTeams = myTeams
     .filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted')
     .map(mt => mt.global_teams);
@@ -16,7 +15,6 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
   
   const isRegisteredIn = (t) => t.teams && t.teams.some(team => myAcceptedTeamIds.includes(team.global_id));
 
-  // 2. Répartition des tournois en 4 catégories
   const publicTourneys = allTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));
   const ongoingOtherTourneys = allTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t));
   const myActiveTourneys = allTournaments.filter(t => t.status !== 'finished' && isRegisteredIn(t));
@@ -26,36 +24,65 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
     finishedTourneys = finishedTourneys.filter(t => isRegisteredIn(t));
   }
 
-  // 3. Fonction pour ouvrir un tournoi en mode Spectateur/Joueur
   const handleOpenTourney = (tId) => {
     setActiveTourneyId(tId);
-    setView('tournament'); // Ouvre le TournamentManager en lecture seule
+    setView('tournament'); 
+  };
+
+  const renderTeamTags = (teams) => {
+    if (!teams || teams.length === 0) {
+      return <p style={{ color: '#666', fontStyle: 'italic', fontSize: '0.8rem', margin: '0 0 15px 0' }}>Aucune équipe inscrite pour le moment.</p>;
+    }
+    return (
+      <div className="teams-tags-container" style={{ marginBottom: '15px' }}>
+        {teams.map((team, idx) => (
+          <span key={idx} className="team-tag">
+            🛡️ {team.name}
+          </span>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <>
-      <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px' }}>🌍 Explorer les tournois</h1>
+    /* 🛠️ CONTENEUR PRINCIPAL FORCÉ À 100% */
+    <div className="dashboard-container" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
-      <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', marginTop: '30px', paddingBottom: '20px', alignItems: 'stretch' }}>
+      <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px', margin: 0, width: '100%' }}>
+        🌍 Explorer les tournois
+      </h1>
+      
+      {/* 🛠️ GRILLE FORCÉE À PRENDRE TOUTE LA LARGEUR ET SE DIVISER EN 4 PILES EXACTES */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', /* La formule magique est ici ! */
+        gap: '20px', 
+        marginTop: '30px', 
+        paddingBottom: '20px',
+        width: '100%',
+        flex: 1
+      }}>
         
         {/* COLONNE 1 : TOURNOIS PUBLICS (Inscription) */}
-        <div style={{ flex: '1', minWidth: '300px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222' }}>
+        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-purple)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
             🟢 Inscription ouverte
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
             {publicTourneys.length === 0 ? (
               <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun tournoi disponible.</p>
             ) : (
               publicTourneys.map(t => (
-                <div key={t.id} style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', border: '1px solid #333' }}>
-                  <strong style={{ fontSize: '1.1rem', display: 'block', color: 'white', marginBottom: '5px' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.8rem', color: '#888', display: 'block', marginBottom: '15px' }}>📅 {t.date || 'Date non définie'}</span>
+                <div key={t.id} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', boxShadow: 'var(--shadow-sm)' }}>
+                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
+                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                  
+                  {renderTeamTags(t.teams)}
                   
                   {myCaptainTeams.length === 0 ? (
-                    <span style={{ fontSize: '0.8rem', color: 'var(--danger)', fontStyle: 'italic' }}>Fonde une équipe pour t'inscrire.</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--danger)', fontStyle: 'italic', fontWeight: 'bold' }}>Fonde une équipe pour t'inscrire.</span>
                   ) : (
-                    <button onClick={() => setRegisterModalTourney(t)} style={{ width: '100%', background: 'transparent', color: 'var(--accent-purple)', border: '1px solid var(--accent-purple)', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                    <button onClick={() => setRegisterModalTourney(t)} style={{ width: '100%', background: 'transparent', color: 'var(--accent-purple)', border: '2px solid var(--accent-purple)', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseOver={e => {e.target.style.background='var(--accent-purple)'; e.target.style.color='white'}} onMouseOut={e => {e.target.style.background='transparent'; e.target.style.color='var(--accent-purple)'}}>
                       S'INSCRIRE
                     </button>
                   )}
@@ -66,19 +93,22 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
         </div>
 
         {/* COLONNE 2 : TOURNOIS EN COURS (À SUIVRE) */}
-        <div style={{ flex: '1', minWidth: '300px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222' }}>
+        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
             🔥 Suivre un tournoi
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
             {ongoingOtherTourneys.length === 0 ? (
               <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun autre tournoi en cours.</p>
             ) : (
               ongoingOtherTourneys.map(t => (
-                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', border: '1px solid #333', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                  <strong style={{ fontSize: '1.1rem', display: 'block', color: 'white', marginBottom: '5px' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.8rem', color: '#888', display: 'block', marginBottom: '15px' }}>📅 {t.date || 'Date non définie'}</span>
-                  <span style={{ fontSize: '0.85rem', color: 'var(--accent-blue)', fontWeight: 'bold' }}>👀 Suivre les matchs & Stats</span>
+                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseOver={e => {e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='var(--shadow-glow-blue)'}} onMouseOut={e => {e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='none'}}>
+                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
+                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                  
+                  {renderTeamTags(t.teams)}
+
+                  <span style={{ fontSize: '0.85rem', color: 'var(--accent-blue)', fontWeight: 'bold', display: 'block', textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', padding: '8px', borderRadius: '6px' }}>👀 Suivre les matchs & Stats</span>
                 </div>
               ))
             )}
@@ -86,23 +116,28 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
         </div>
 
         {/* COLONNE 3 : MES TOURNOIS */}
-        <div style={{ flex: '1', minWidth: '300px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222' }}>
+        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--success)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
             ✅ Inscrit
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
             {myActiveTourneys.length === 0 ? (
               <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Tu n'es inscrit à aucun tournoi actif.</p>
             ) : (
               myActiveTourneys.map(t => (
-                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', borderLeft: '4px solid var(--success)', cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                  <strong style={{ fontSize: '1.1rem', display: 'block', color: 'white', marginBottom: '5px' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.8rem', color: '#888', display: 'block', marginBottom: '15px' }}>📅 {t.date || 'Date non définie'}</span>
-                  {t.status === 'ongoing' ? (
-                     <span style={{ fontSize: '0.85rem', color: 'var(--accent-orange)', fontWeight: 'bold' }}>🔥 EN JEU (Suivre l'avancée)</span>
-                  ) : (
-                     <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 'bold' }}>🗓️ Voir les engagés</span>
-                  )}
+                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--success)', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform='translateY(-4px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
+                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
+                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                  
+                  {renderTeamTags(t.teams)}
+
+                  <div style={{ textAlign: 'center', background: t.status === 'ongoing' ? 'rgba(255, 107, 0, 0.1)' : 'rgba(52, 199, 89, 0.1)', padding: '8px', borderRadius: '6px' }}>
+                    {t.status === 'ongoing' ? (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--accent-orange)', fontWeight: 'bold' }}>🔥 EN JEU (Suivre l'avancée)</span>
+                    ) : (
+                        <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 'bold' }}>🗓️ Voir les engagés</span>
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -110,7 +145,7 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
         </div>
 
         {/* COLONNE 4 : TOURNOIS TERMINÉS */}
-        <div style={{ flex: '1', minWidth: '300px', background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222' }}>
+        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
           <h2 style={{ margin: '0 0 10px 0', color: '#888', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
             🏁 Terminés
           </h2>
@@ -118,31 +153,40 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
             <button 
               onClick={() => setFilterFinished('all')}
-              style={{ background: filterFinished === 'all' ? '#555' : '#222', color: 'white', border: '1px solid #444', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{ background: filterFinished === 'all' ? '#555' : '#222', color: 'white', border: filterFinished === 'all' ? '1px solid #777' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filterFinished === 'all' ? 'bold' : 'normal' }}
             >
               Tous
             </button>
             <button 
               onClick={() => setFilterFinished('mine')}
-              style={{ background: filterFinished === 'mine' ? 'var(--success)' : '#222', color: 'white', border: '1px solid #444', padding: '4px 10px', borderRadius: '4px', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{ background: filterFinished === 'mine' ? 'var(--success)' : '#222', color: 'white', border: filterFinished === 'mine' ? '1px solid var(--success)' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filterFinished === 'mine' ? 'bold' : 'normal' }}
             >
               Mes participations
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
             {finishedTourneys.length === 0 ? (
               <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun historique.</p>
             ) : (
               finishedTourneys.map(t => {
                 const iParticipated = isRegisteredIn(t);
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: '#1a1a1a', padding: '15px', borderRadius: '8px', border: '1px solid #333', opacity: 0.9, cursor: 'pointer', boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-                    <strong style={{ fontSize: '1.1rem', display: 'block', color: 'white', marginBottom: '5px' }}>{t.name}</strong>
-                    <span style={{ fontSize: '0.8rem', color: '#888', display: 'block', marginBottom: '10px' }}>📅 {t.date || 'Date non définie'}</span>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', opacity: 0.8, cursor: 'pointer', transition: 'opacity 0.2s, transform 0.2s' }} onMouseOver={e => {e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='translateY(-2px)'}} onMouseOut={e => {e.currentTarget.style.opacity='0.8'; e.currentTarget.style.transform='none'}}>
+                    <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                    
+                    <div className="teams-tags-container" style={{ marginBottom: '15px', opacity: 0.7 }}>
+                      {(t.teams || []).map((team, idx) => (
+                        <span key={idx} className="team-tag" style={{ background: '#333', color: '#ccc', borderColor: '#555' }}>
+                          🛡️ {team.name}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
                       <span style={{ fontSize: '0.85rem', color: '#aaa', fontWeight: 'bold' }}>📊 Voir les archives</span>
-                      {iParticipated && <span style={{ fontSize: '0.65rem', background: 'var(--success)', color: 'white', padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold' }}>J'y étais !</span>}
+                      {iParticipated && <span style={{ fontSize: '0.7rem', background: 'var(--success)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>J'y étais !</span>}
                     </div>
                   </div>
                 );
@@ -152,6 +196,6 @@ export default function ExplorerTournois({ session, allTournaments, myTeams, set
         </div>
 
       </div>
-    </>
+    </div>
   );
 }

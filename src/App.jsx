@@ -10,7 +10,9 @@ import PlayerDashboard from './components/PlayerDashboard';
 export default function App() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [userSubscription, setUserSubscription] = useState('FREE');
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const [activeMenu, setActiveMenu] = useState(() => localStorage.getItem('basket_active_menu_v3') || 'vestiaire');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -65,23 +67,24 @@ export default function App() {
 
   const fetchUserRole = async (userId) => {
     try {
-      const { data, error } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      // --- NOUVEAU : On récupère aussi l'abonnement ! ---
+      const { data, error } = await supabase.from('profiles').select('role, subscription_tier').eq('id', userId).single();
       if (!error && data) {
         setUserRole(data.role);
+        setUserSubscription(data.subscription_tier || 'FREE');
         
         // On vérifie si l'utilisateur avait déjà un menu d'ouvert
         const savedMenu = localStorage.getItem('basket_active_menu_v3');
         
         if (!savedMenu) {
-          // 1ère connexion : on envoie les orgas vers le dashboard, et les autres au vestiaire
-          if (data.role === 'ADMIN' || data.role === 'ORGANIZER') setActiveMenu('dashboard_orga');
+          // 1ère connexion : on envoie les VIP vers le dashboard, et les autres au vestiaire
+          if (data.role === 'ADMIN' || data.subscription_tier === 'PRO') setActiveMenu('dashboard_orga');
           else setActiveMenu('vestiaire');
         } 
-        else if (savedMenu === 'dashboard_orga' && data.role !== 'ADMIN' && data.role !== 'ORGANIZER') {
+        else if (savedMenu === 'dashboard_orga' && data.role !== 'ADMIN' && data.subscription_tier !== 'PRO') {
           // Sécurité : si un joueur normal a "dashboard_orga" en mémoire, on le renvoie au vestiaire
           setActiveMenu('vestiaire');
         }
-        // Si c'est un orga et qu'il était sur "explorer", on ne touche à rien !
       }
     } catch (error) {
       console.error("Erreur récupération rôle :", error);
@@ -223,33 +226,59 @@ export default function App() {
   return (
     <div className="app-layout">
       
-      <aside className={`app-sidebar ${isSidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-header">SWISH 🏀</div>
+      <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isSidebarOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-header">
+          {/* On aligne le gap sur celui du menu (15px) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* On force le ballon à prendre la même largeur (25px) que les icônes du menu */}
+            <span style={{ minWidth: '25px', textAlign: 'center', fontSize: '1.4rem' }}>🏀</span>
+            
+            {!isSidebarCollapsed && (
+              <span style={{ color: 'var(--accent-orange)', fontWeight: 900, letterSpacing: '2px', fontSize: '1.9rem' }}>
+                SWISH
+              </span>
+            )}
+          </div>
+          
+          <button 
+            className="sidebar-toggle-btn desktop-only" 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            title={isSidebarCollapsed ? "Déplier le menu" : "Rétracter le menu"}
+          >
+            {isSidebarCollapsed ? '❯' : '❮'}
+          </button>
+
+          <button 
+            className="sidebar-toggle-btn mobile-only" 
+            onClick={() => setIsSidebarOpen(false)}
+          >
+            ✕
+          </button>
+        </div>
         
         <div className="sidebar-menu">
           <div className="menu-category">ESPACE JOUEUR</div>
           
-          {/* NOUVEAU : On a activé les 3 boutons ! */}
           <button className={`menu-item ${(activeMenu === 'vestiaire' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('vestiaire')}>
-            👟 Mon Vestiaire
+            <span className="menu-icon">👟</span> <span className="sidebar-text">Mon Vestiaire</span>
           </button>
           <button className={`menu-item ${(activeMenu === 'mercato' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('mercato')}>
-            🤝 Le Mercato
+            <span className="menu-icon">🤝</span> <span className="sidebar-text">Le Mercato</span>
           </button>
           <button className={`menu-item ${(activeMenu === 'carriere' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('carriere')}>
-            📊 Ma Carrière
+            <span className="menu-icon">📊</span> <span className="sidebar-text">Ma Carrière</span>
           </button>
 
           <div className="menu-category">ÉVÉNEMENTS</div>
           <button className={`menu-item ${(activeMenu === 'explorer' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('explorer')}>
-            🌍 Explorer les tournois
+            <span className="menu-icon">🌍</span> <span className="sidebar-text">Explorer les tournois</span>
           </button>
 
-          {(userRole === 'ADMIN' || userRole === 'ORGANIZER') && (
+          {(userRole === 'ADMIN' || userSubscription === 'PRO') && (
             <>
               <div className="menu-category">ADMINISTRATION</div>
               <button className={`menu-item ${(activeMenu === 'dashboard_orga' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('dashboard_orga')}>
-                🛰️ Centre de Contrôle
+                <span className="menu-icon">🛰️</span> <span className="sidebar-text">Centre de Contrôle</span>
               </button>
             </>
           )}
@@ -258,7 +287,11 @@ export default function App() {
 
       <main className="app-main">
         <header className="app-topbar">
-          <button className="hamburger-btn" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>☰</button>
+          {/* Le bouton Burger classique, on le garde UNIQUEMENT pour le mobile */}
+          <button className="hamburger-btn mobile-only" onClick={() => setIsSidebarOpen(true)}>
+            ☰
+          </button>
+          
           <div style={{ flex: 1 }}>
             {view === 'tournament' && currentTourney && (
               <button onClick={() => setView('dashboard')} style={{ background: 'transparent', color: 'var(--text-muted)', border: 'none', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>
@@ -288,7 +321,7 @@ export default function App() {
             )}
             
             {view === 'dashboard' && activeMenu === 'dashboard_orga' && (
-              <Dashboard tournaments={tournaments} setTournaments={setTournaments} setActiveTourneyId={setActiveTourneyId} setView={setView} userRole={userRole} session={session} />
+              <Dashboard tournaments={tournaments} setTournaments={setTournaments} setActiveTourneyId={setActiveTourneyId} setView={setView} userRole={userRole} userSubscription={userSubscription} session={session} />
             )}
             
             {view === 'tournament' && currentTourney && (

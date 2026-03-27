@@ -4,27 +4,34 @@ export default function Mercato({
   availableTeams,
   hasTeam,
   handleJoinTeam,
+  allPlayers, // NOUVEAU : On reçoit la liste de tous les joueurs
   searchQuery,
   setSearchQuery,
-  handleSearchPlayer,
-  searchResults,
   viewPlayerProfile
 }) {
-  // NOUVEL ÉTAT : Barre de recherche pour les équipes
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
-  // NOUVELLE LOGIQUE : On filtre les équipes en fonction de ce qui est tapé (insensible à la casse)
+  // Filtre local pour les équipes (comme tu l'avais fait)
   const filteredTeams = availableTeams.filter(team => 
     team.name.toLowerCase().includes(teamSearchQuery.toLowerCase()) || 
     (team.city && team.city.toLowerCase().includes(teamSearchQuery.toLowerCase()))
   );
+
+  // NOUVEAU : Filtre local pour les joueurs (insensible à la casse)
+  const filteredPlayers = (allPlayers || []).filter(player => 
+    player.full_name && player.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Pour éviter de charger 5000 cartes au démarrage, on limite l'affichage
+  // On affiche tout si on a tapé quelque chose, sinon on n'affiche que les 20 premiers (ou un message)
+  const playersToDisplay = searchQuery.length >= 2 ? filteredPlayers : [];
 
   return (
     <>
       <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px' }}>🤝 Le Mercato</h1>
       <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginTop: '30px' }}>
         
-        {/* COLONNE GAUCHE : RECHERCHER UNE ÉQUIPE (Déjà fait au tour précédent) */}
+        {/* COLONNE GAUCHE : RECHERCHER UNE ÉQUIPE */}
         <div style={{ flex: '1', minWidth: '300px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--success)' }}>Chercher une équipe</h2>
           
@@ -39,7 +46,6 @@ export default function Mercato({
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {/* L'affichage n'apparaît que si l'utilisateur a tapé au moins 2 lettres ! */}
             {teamSearchQuery.length < 2 ? (
               <div style={{ textAlign: 'center', padding: '30px 10px', color: '#555', fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed #333' }}>
                 <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>🕵️‍♂️</span>
@@ -57,7 +63,7 @@ export default function Mercato({
                   <button 
                     onClick={() => {
                         handleJoinTeam(team.id);
-                        setTeamSearchQuery(""); // On vide la recherche après avoir postulé !
+                        setTeamSearchQuery(""); 
                     }} 
                     disabled={hasTeam}
                     style={{ 
@@ -75,33 +81,31 @@ export default function Mercato({
           </div>
         </div>
 
-        {/* COLONNE DROITE : SCOUTER UN JOUEUR (Modifié pour le placeholder) */}
+        {/* COLONNE DROITE : SCOUTER UN JOUEUR */}
         <div style={{ flex: '1', minWidth: '300px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-purple)' }}>🔎 Scouter un joueur</h2>
+          
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {/* Le bouton "CHERCHER" n'existe plus, c'est de l'instantané ! */}
             <input 
               type="text" 
               placeholder="Nom ou Prénom précis..." 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && handleSearchPlayer()} 
               style={{ flex: '1', padding: '10px', borderRadius: '6px', border: '1px solid #444', background: '#222', color: 'white' }} 
             />
-            <button onClick={handleSearchPlayer} style={{ background: 'var(--accent-purple)', color: 'white', border: 'none', padding: '0 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              CHERCHER
-            </button>
           </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {/* L'affichage n'apparaît que si une recherche a été effectuée ! */}
-            {!searchResults || searchResults.length === 0 && !searchQuery ? (
+            {searchQuery.length < 2 ? (
               <div style={{ textAlign: 'center', padding: '30px 10px', color: '#555', fontStyle: 'italic', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px dashed #333' }}>
                 <span style={{ fontSize: '2rem', display: 'block', marginBottom: '10px' }}>🏀</span>
-                Saisis le nom exact du joueur <br/>pour lui faire une offre !
+                Saisis au moins 2 lettres <br/>pour trouver ta future star !
               </div>
-            ) : searchResults.length === 0 ? (
+            ) : playersToDisplay.length === 0 ? (
               <p style={{ color: 'var(--danger)', fontStyle: 'italic', textAlign: 'center' }}>Aucun joueur trouvé pour "{searchQuery}".</p>
             ) : (
-              searchResults.map(player => (
+              playersToDisplay.map(player => (
                 <div key={player.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px' }}>
                   <strong style={{ color: 'white' }}>{player.full_name}</strong>
                   <button onClick={() => viewPlayerProfile(player)} style={{ background: 'transparent', color: 'var(--accent-purple)', border: '1px solid var(--accent-purple)', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>

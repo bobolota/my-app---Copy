@@ -1,5 +1,6 @@
 import React from 'react';
 
+
 export default function MonVestiaire({ 
   session, 
   myTeams, 
@@ -10,7 +11,8 @@ export default function MonVestiaire({
   newTeamName, 
   setNewTeamName, 
   newTeamCity, 
-  setNewTeamCity 
+  setNewTeamCity,
+  cancelPendingRequest // <--- AJOUTE ÇA ICI
 }) {
   return (
     <>
@@ -29,6 +31,7 @@ export default function MonVestiaire({
                   const team = mt.global_teams;
                   const isCaptain = team.captain_id === session.user.id;
                   
+                  // CAS 1 : INVITATION (On ne touche pas à cette carte, car elle a besoin des boutons d'action)
                   if (mt.status === 'invited') {
                     return (
                       <div key={team.id} style={{ background: '#222', padding: '15px', borderRadius: '8px', borderLeft: `4px solid var(--accent-purple)` }}>
@@ -49,9 +52,26 @@ export default function MonVestiaire({
                     );
                   }
 
+                  // CAS 2 : ÉQUIPE ACTIVE OU EN ATTENTE (On rend la carte entière cliquable)
                   const isPending = mt.status === 'pending';
                   return (
-                    <div key={team.id} style={{ background: '#222', padding: '15px', borderRadius: '8px', borderLeft: `4px solid ${isPending ? 'var(--accent-orange)' : 'var(--success)'}` }}>
+                    <div 
+                      key={team.id} 
+                      // NOUVEAU : On ajoute l'événement de clic et la classe CSS sur la div entière
+                      onClick={() => !isPending && openTeamManager(team)}
+                      className={!isPending ? "team-card-interactive" : ""}
+                      style={{ 
+                        background: '#222', 
+                        padding: '15px', 
+                        borderRadius: '8px', 
+                        borderLeft: `4px solid ${isPending ? 'var(--accent-orange)' : 'var(--success)'}`,
+                        // On force la bordure transparente pour que l'effet de survol (qui change la bordure) ne décale pas la carte
+                        borderTop: '1px solid transparent',
+                        borderRight: '1px solid transparent',
+                        borderBottom: '1px solid transparent',
+                        cursor: isPending ? 'default' : 'pointer'
+                      }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                           <strong style={{ fontSize: '1.2rem', display: 'block' }}>{team.name}</strong>
@@ -61,11 +81,22 @@ export default function MonVestiaire({
                       </div>
                       <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div style={{ fontSize: '0.85rem' }}>
-                          {isPending ? <span style={{ color: 'var(--accent-orange)' }}>⏳ En attente...</span> : <span style={{ color: 'var(--success)' }}>✅ Validé</span>}
+                          {isPending ? <span style={{ color: 'var(--accent-orange)' }}>⏳ Candidature en attente...</span> : <span style={{ color: 'var(--success)' }}>✅ Membre actif</span>}
                         </div>
-                        {!isPending && (
-                          <button onClick={() => openTeamManager(team)} style={{ background: isCaptain ? 'var(--accent-blue)' : 'transparent', color: isCaptain ? 'white' : 'var(--accent-blue)', border: isCaptain ? 'none' : '1px solid var(--accent-blue)', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            {isCaptain ? "GÉRER" : "VOIR L'EFFECTIF"}
+                        
+                        {!isPending ? (
+                          <div style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold' }}>
+                            {isCaptain ? "GÉRER ⚙️" : "EFFECTIF 👁️"}
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); // Empêche le clic de déclencher l'ouverture de la carte
+                              cancelPendingRequest(team.id); 
+                            }} 
+                            style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                          >
+                            Annuler
                           </button>
                         )}
                       </div>
@@ -77,12 +108,12 @@ export default function MonVestiaire({
           </div>
         </div>
 
-        {/* COLONNE DROITE : CRÉATION D'ÉQUIPE */}
+        {/* COLONNE DROITE : CRÉATION D'ÉQUIPE (inchangée) */}
         <div style={{ flex: '1', minWidth: '300px' }}>
           {hasTeam ? (
             <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px dashed var(--danger)', textAlign: 'center' }}>
-              <h2 style={{ margin: '0 0 10px 0', color: 'var(--danger)' }}>🚫 Contrat Exclusif</h2>
-              <p style={{ color: '#888', fontSize: '0.9rem' }}>Tu es actuellement engagé avec une franchise. Quitte ton équipe actuelle pour pouvoir en fonder une nouvelle.</p>
+              <h2 style={{ margin: '0 0 10px 0', color: 'var(--danger)' }}>🚫 Limite de franchise atteinte.</h2>
+              <p style={{ color: '#888', fontSize: '0.9rem' }}>Tu es déjà engagé dans 3 équipes maximum. Quitte l'une d'entre elles pour pouvoir en fonder ou en rejoindre une nouvelle</p>
             </div>
           ) : (
             <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px dashed #444' }}>

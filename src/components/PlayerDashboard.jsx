@@ -13,12 +13,17 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamCity, setNewTeamCity] = useState("");
   const [loading, setLoading] = useState(true);
+  const [allPlayers, setAllPlayers] = useState([]); // NOUVEAU : La liste de tous les joueurs
   
   const [careerStats, setCareerStats] = useState(null);
   const [allTournaments, setAllTournaments] = useState([]);
 
   const [managingTeam, setManagingTeam] = useState(null);
   const [roster, setRoster] = useState([]);
+
+  // --- NOUVEAU : On stocke le profil de l'utilisateur (dont son abonnement) ---
+  const [userProfile, setUserProfile] = useState(null);
+  // -------------------------------------------------------------------------
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -32,7 +37,10 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedNewCaptainId, setSelectedNewCaptainId] = useState("");
 
-  const hasTeam = false; 
+  // On compte dans combien d'équipes le joueur est déjà impliqué (accepté ou en attente)
+  const activeTeamCount = myTeams.filter(t => t.status === 'accepted' || t.status === 'pending').length;
+  // S'il atteint 3, la variable passe à TRUE et bloquera automatiquement les boutons "Postuler" et "Créer"
+  const hasTeam = activeTeamCount >= 3;
 
   useEffect(() => {
     fetchData();
@@ -43,7 +51,11 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   }, [currentTab]);
 
   const calculateStats = (playerId, tourneys) => {
-    let stats = { gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0 };
+    let stats = { 
+      gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0,
+      maxPts: 0, maxReb: 0, maxAst: 0, maxStl: 0, maxBlk: 0, maxEff: 0 // Les records
+    };
+    
     tourneys.forEach(tourney => {
       const matches = [...(tourney.schedule || []), ...(tourney.playoffs?.matches || [])];
       matches.forEach(m => {
@@ -52,28 +64,70 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
           if (pStat && (pStat.timePlayed > 0 || pStat.points > 0 || pStat.fouls > 0)) {
             stats.gp += 1;
             stats.pts += (pStat.points || 0);
-            stats.reb += ((pStat.oreb || 0) + (pStat.dreb || 0));
+            
+            const matchReb = (pStat.oreb || 0) + (pStat.dreb || 0);
+            stats.reb += matchReb;
             stats.ast += (pStat.ast || 0);
             stats.blk += (pStat.blk || 0);
             stats.stl += (pStat.stl || 0);
             stats.tov += (pStat.tov || 0);
-            stats.fgm += ((pStat.fg2m || 0) + (pStat.fg3m || 0));
-            stats.fga += ((pStat.fg2a || 0) + (pStat.fg3a || 0));
+            
+            const matchFgm = (pStat.fg2m || 0) + (pStat.fg3m || 0);
+            const matchFga = (pStat.fg2a || 0) + (pStat.fg3a || 0);
+            stats.fgm += matchFgm;
+            stats.fga += matchFga;
+            
             stats.ftm += (pStat.ftm || 0);
             stats.fta += (pStat.fta || 0);
+
+            // NOUVEAU : Traque des records sur 1 match !
+            const matchMissedFG = matchFga - matchFgm;
+            const matchMissedFT = (pStat.fta || 0) - (pStat.ftm || 0);
+            const matchEff = ((pStat.points || 0) + matchReb + (pStat.ast || 0) + (pStat.stl || 0) + (pStat.blk || 0)) - (matchMissedFG + matchMissedFT + (pStat.tov || 0));
+
+            if ((pStat.points || 0) > stats.maxPts) stats.maxPts = (pStat.points || 0);
+            if (matchReb > stats.maxReb) stats.maxReb = matchReb;
+            if ((pStat.ast || 0) > stats.maxAst) stats.maxAst = (pStat.ast || 0);
+            if ((pStat.stl || 0) > stats.maxStl) stats.maxStl = (pStat.stl || 0);
+            if ((pStat.blk || 0) > stats.maxBlk) stats.maxBlk = (pStat.blk || 0);
+            if (matchEff > stats.maxEff) stats.maxEff = matchEff;
           }
         }
       });
     });
+    
     const missedFG = stats.fga - stats.fgm;
     const missedFT = stats.fta - stats.ftm;
     stats.eff = (stats.pts + stats.reb + stats.ast + stats.stl + stats.blk) - (missedFG + missedFT + stats.tov);
+    
+    // NOUVEAU : Pré-calcul des moyennes
+    if (stats.gp > 0) {
+      stats.ptsAvg = (stats.pts / stats.gp).toFixed(1);
+      stats.rebAvg = (stats.reb / stats.gp).toFixed(1);
+      stats.astAvg = (stats.ast / stats.gp).toFixed(1);
+      stats.stlAvg = (stats.stl / stats.gp).toFixed(1);
+      stats.blkAvg = (stats.blk / stats.gp).toFixed(1);
+      stats.effAvg = (stats.eff / stats.gp).toFixed(1);
+    } else {
+      stats.ptsAvg = "0.0"; stats.rebAvg = "0.0"; stats.astAvg = "0.0"; 
+      stats.stlAvg = "0.0"; stats.blkAvg = "0.0"; stats.effAvg = "0.0";
+    }
+
     return stats;
   };
 
   const fetchData = async () => {
     setLoading(true);
     try {
+      // 1. On récupère le profil (pour vérifier s'il est PRO ou FREE)
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      if (profileData) setUserProfile(profileData);
+
+      // 2. On récupère les équipes de l'utilisateur
       const { data: memberData, error: memberError } = await supabase
         .from('team_members')
         .select('status, global_teams (*)')
@@ -81,6 +135,18 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
       if (memberError) throw memberError;
       setMyTeams(memberData || []);
 
+      // 👇 NOUVEAU : RESTAURATION DE L'ÉQUIPE OUVERTE APRÈS UN REFRESH 👇
+      const savedTeamId = localStorage.getItem('managingTeamId');
+      if (savedTeamId && memberData) {
+        const savedTeam = memberData.find(mt => mt.global_teams && mt.global_teams.id === savedTeamId);
+        if (savedTeam) {
+          setManagingTeam(savedTeam.global_teams);
+          loadRoster(savedTeam.global_teams.id); // <--- LA LIGNE MAGIQUE EST ICI !
+        }
+      }
+      // 👆 ------------------------------------------------------------- 👆
+
+      // 3. On récupère toutes les équipes globales
       const { data: teamsData, error: teamsError } = await supabase
         .from('global_teams')
         .select('*')
@@ -88,15 +154,30 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
       if (teamsError) throw teamsError;
       setAllTeams(teamsData || []);
 
+      // ---------------------------------------------------------
+      // 👇 C'EST ICI QU'ON LE MET (L'ÉTAPE 3.5) 👇
+      // ---------------------------------------------------------
+      const { data: playersData, error: playersError } = await supabase
+        .from('profiles')
+        .select('id, full_name, role')
+        .order('full_name');
+      if (!playersError) setAllPlayers(playersData || []);
+      // ---------------------------------------------------------
+
+      // 4. On récupère les tournois pour l'onglet "Explorer"
       const { data: tourneysData, error: tourneysError } = await supabase
         .from('tournaments')
-        .select('id, name, status, date, teams, schedule, playoffs');
-      if (!tourneysError && tourneysData) {
+        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code');
+      
+      if (tourneysError) throw tourneysError;
+      
+      if (tourneysData) {
         setAllTournaments(tourneysData);
         setCareerStats(calculateStats(session.user.id, tourneysData));
       }
+      
     } catch (error) {
-      console.error("Erreur :", error);
+      console.error("Erreur lors du téléchargement des données :", error);
     } finally {
       setLoading(false);
     }
@@ -114,13 +195,46 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
     } catch (error) {}
   };
 
-  const viewPlayerProfile = (player) => {
+  const viewPlayerProfile = async (player) => {
     const pStats = calculateStats(player.id, allTournaments);
-    setSelectedProfile({ ...player, stats: pStats });
+    
+    let relationStatus = null;
+    if (managingTeam && roster.length > 0) {
+      const rosterEntry = roster.find(r => r.player_id === player.id);
+      if (rosterEntry) relationStatus = rosterEntry.status;
+    } else if (myCaptainTeams && myCaptainTeams.length > 0) {
+      const teamIds = myCaptainTeams.map(t => t.id);
+      const { data } = await supabase
+        .from('team_members')
+        .select('status')
+        .eq('player_id', player.id)
+        .in('team_id', teamIds)
+        .limit(1);
+        
+      if (data && data.length > 0) relationStatus = data[0].status;
+    }
+
+    // 👇 NOUVEAU : On récupère la liste des équipes de CE joueur
+    let playerTeams = [];
+    const { data: ptData } = await supabase
+      .from('team_members')
+      .select('global_teams(name)')
+      .eq('player_id', player.id)
+      .eq('status', 'accepted');
+
+    if (ptData) {
+      playerTeams = ptData.map(d => d.global_teams).filter(Boolean); // On nettoie les données
+    }
+    // 👆 ----------------------------------------------------
+
+    setSelectedProfile({ ...player, stats: pStats, relationStatus, playerTeams });
     setInviteTeamId("");
   };
 
   const handleCreateTeam = async (e) => {
+
+if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamCity.trim()) {
       return alert("Le nom ET la ville de l'équipe sont obligatoires !");
@@ -139,6 +253,9 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   };
 
   const handleJoinTeam = async (teamId) => {
+
+    if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: teamId, player_id: session.user.id, status: 'pending' }]);
       if (error && error.code === '23505') alert("Tu as déjà fait une demande pour cette équipe !");
@@ -146,16 +263,32 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
     } catch (error) {}
   };
 
+  const cancelPendingRequest = async (teamId) => {
+    if (!window.confirm("Veux-tu vraiment annuler ta candidature pour cette équipe ?")) return;
+    try {
+      await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
+      fetchData(); // On rafraîchit la page pour faire disparaître la carte
+    } catch (error) {
+      alert("Erreur lors de l'annulation.");
+    }
+  };
+
   const handleInvitePlayer = async (playerId) => {
     if (!inviteTeamId) return alert("Sélectionne une équipe !");
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: inviteTeamId, player_id: playerId, status: 'invited' }]);
-      if (error && error.code === '23505') alert("Ce joueur a déjà une interaction (invitation/candidature) avec cette équipe !");
-      else if (!error) { alert("Offre envoyée !"); setSelectedProfile(null); }
+      if (error && error.code === '23505') {
+        alert("Ce joueur a déjà une interaction (invitation/candidature) avec cette équipe !");
+      } else if (!error) {
+        // NOUVEAU : On ne ferme plus la modale ! On met à jour l'affichage en direct.
+        setSelectedProfile(prev => ({ ...prev, relationStatus: 'invited' }));
+      }
     } catch (error) {}
   };
-
   const respondToInvite = async (teamId, accept) => {
+
+if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+
     try {
       if (accept) {
         await supabase.from('team_members').update({ status: 'accepted' }).eq('team_id', teamId).eq('player_id', session.user.id);
@@ -167,9 +300,10 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
     } catch (error) {}
   };
 
-  const openTeamManager = async (team) => {
+  const openTeamManager = (team) => {
     setManagingTeam(team);
-    await loadRoster(team.id);
+    localStorage.setItem('managingTeamId', team.id); // NOUVEAU : On sauvegarde l'ID en mémoire !
+    loadRoster(team.id); // <--- L'AUTRE LIGNE MAGIQUE !
   };
 
   const loadRoster = async (teamId) => {
@@ -192,7 +326,7 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   };
 
   const removePlayer = async (playerId, isSelfLeave = false) => {
-    if (!window.confirm(isSelfLeave ? "Es-tu sûr de vouloir quitter cette équipe ?" : "Es-tu sûr de vouloir exclure ce joueur ?")) return;
+    if (!window.confirm(isSelfLeave ? "Es-tu sûr de vouloir quitter cette équipe ?" : "Es-tu sûr de vouloir retirer ce joueur (ou annuler son invitation) ?")) return;
     await supabase.from('team_members').delete().eq('team_id', managingTeam.id).eq('player_id', playerId);
     if (isSelfLeave) { setManagingTeam(null); fetchData(); } 
     else { setRoster(prev => prev.filter(p => p.player_id !== playerId)); }
@@ -292,9 +426,12 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
 
     return (
       <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', color: 'white' }}>
-        <button onClick={() => { setManagingTeam(null); fetchData(); }} style={{ background: 'none', border: '1px solid #666', color: '#ccc', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', marginBottom: '20px' }}>
-          ⬅ RETOUR AU VESTIAIRE
-        </button>
+        <button onClick={() => { 
+  setManagingTeam(null); 
+  localStorage.removeItem('managingTeamId'); // NOUVEAU : On vide la mémoire en partant !
+}} className="ton-nom-de-classe-actuel-si-tu-en-as-une">
+  ⬅ RETOUR
+</button>
         
         {/* EN-TÊTE DE LA GESTION D'ÉQUIPE (Modifié avec le bouton unique pour le Capitaine) */}
         <h1 style={{ color: 'var(--accent-blue)', borderBottom: '2px solid #333', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -316,13 +453,15 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginTop: '30px' }}>
           {isCaptainView && (
             <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* BOÎTE EXISTANTE : CANDIDATURES */}
               <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px solid var(--accent-orange)' }}>
                 <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-orange)' }}>⏳ Candidatures ({pendingPlayers.length})</h2>
                 {pendingPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic' }}>Aucune demande.</p> : null}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {pendingPlayers.map(p => (
                     <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px' }}>
-                      <strong>{p.full_name}</strong>
+                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil de ce joueur">{p.full_name}</strong>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={() => acceptPlayer(p.player_id)} style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>ACCEPTER</button>
                         <button onClick={() => removePlayer(p.player_id)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>REFUSER</button>
@@ -331,6 +470,21 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
                   ))}
                 </div>
               </div>
+
+              {/* NOUVELLE BOÎTE : INVITATIONS ENVOYÉES */}
+              <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px dashed var(--accent-blue)' }}>
+                <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>✉️ Invitations envoyées ({invitedPlayers.length})</h2>
+                {invitedPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic', fontSize: '0.9rem' }}>Aucune invitation en attente.</p> : null}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {invitedPlayers.map(p => (
+                    <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px', borderLeft: '3px solid var(--accent-blue)' }}>
+                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil de ce joueur">{p.full_name}</strong>
+                      <button onClick={() => removePlayer(p.player_id)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Annuler</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
           <div style={{ flex: '1', minWidth: '300px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
@@ -341,14 +495,18 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
                 const isTheCaptain = p.player_id === managingTeam.captain_id;
                 return (
                   <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)', flexWrap: 'wrap', gap: '10px' }}>
-                    <strong style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}>{p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}</strong>
+                    <strong 
+  onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })}
+  className="mercato-player-name-interactive"
+  style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}
+  title="Voir le profil de ce joueur"
+>
+  {p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}
+</strong>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      {/* On a enlevé le bouton individuel de Nommer Cap. ici ! */}
-                      {isCaptainView && !isTheCaptain && (
-                        <button onClick={() => removePlayer(p.player_id)} style={{ background: 'transparent', color: '#888', border: '1px solid #444', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Exclure</button>
-                      )}
-                      {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
-                    </div>
+  {/* On ne garde que le bouton pour quitter sa propre équipe */}
+  {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
+</div>
                   </div>
                 );
               })}
@@ -381,17 +539,36 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
             </div>
           </div>
         )}
+{/* MODALE INJECTÉE DANS LE VESTIAIRE */}
+        <PlayerProfileModal 
+          selectedProfile={selectedProfile}
+          setSelectedProfile={setSelectedProfile}
+          session={session}
+          myCaptainTeams={myCaptainTeams}
+          inviteTeamId={inviteTeamId}
+          setInviteTeamId={setInviteTeamId}
+          handleInvitePlayer={handleInvitePlayer}
+          
+          // 👇 CES DEUX LIGNES SONT INDISPENSABLES POUR ACTIVER LE MODE VESTIAIRE 👇
+          managingTeam={managingTeam}
+          removePlayer={removePlayer}
+        />
 
       </div>
     );
   }
-
   // ===============================================
   // AIGUILLAGE PRINCIPAL : SELON LE BOUTON DU MENU
   // ===============================================
   return (
-    <div style={{ padding: '0px', maxWidth: '1200px', margin: '0 auto', color: 'white' }}>
-
+    <div style={{ 
+      padding: '0px', 
+      /* 🛠️ C'EST ICI QU'ON DÉVERROUILLE LA LARGEUR ! */
+      maxWidth: currentTab === 'explorer' ? '100%' : '1200px', 
+      margin: '0 auto', 
+      color: 'white',
+      width: '100%' /* 👈 Assure que ça pousse bien jusqu'au bout */
+    }}>
       {/* --- ONGLET : VESTIAIRE --- */}
       {currentTab === 'vestiaire' && (
         <MonVestiaire 
@@ -405,6 +582,7 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
           setNewTeamName={setNewTeamName}
           newTeamCity={newTeamCity}
           setNewTeamCity={setNewTeamCity}
+          cancelPendingRequest={cancelPendingRequest} // <--- NOUVELLE LIGNE ICI
         />
       )}
 
@@ -414,9 +592,10 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
           availableTeams={availableTeams}
           hasTeam={hasTeam}
           handleJoinTeam={handleJoinTeam}
+          allPlayers={allPlayers} // <--- NOUVELLE LIGNE ICI
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          handleSearchPlayer={handleSearchPlayer}
+          handleSearchPlayer={handleSearchPlayer} // (On va la garder pour éviter de casser les props, même si on ne s'en sert plus vraiment)
           searchResults={searchResults}
           viewPlayerProfile={viewPlayerProfile}
         />
@@ -446,6 +625,9 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
         inviteTeamId={inviteTeamId}
         setInviteTeamId={setInviteTeamId}
         handleInvitePlayer={handleInvitePlayer}
+        // NOUVELLES PROPS POUR LA GESTION :
+        managingTeam={managingTeam}
+        removePlayer={removePlayer}
       />
 
       <TournamentRegistrationModal 
