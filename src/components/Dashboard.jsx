@@ -215,12 +215,16 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
                   <strong style={{fontSize: '0.9rem', color: 'var(--accent-purple)'}}>🛠 Créer un nouveau tournoi</strong>
                   
                   <input 
-                    className="dashboard-input"
-                    placeholder="Nom du tournoi..." 
-                    value={name} 
-                    onChange={e => setName(e.target.value)} 
-                    style={{ width: '100%', marginBottom: '5px' }}
-                  />
+  className="dashboard-input"
+  placeholder="Nom du tournoi..." 
+  value={name} 
+  onChange={e => setName(e.target.value)} 
+  style={{ 
+    width: '100%', 
+    marginBottom: '5px',
+    boxSizing: 'border-box' /* 🛠️ AJOUTE CETTE LIGNE ICI */
+  }}
+/>
                   
                   <div style={{ display: 'flex', gap: '15px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>

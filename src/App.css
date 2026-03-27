@@ -246,7 +246,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .tm-panel { background: var(--bg-panel); padding: 25px; border-radius: var(--radius); margin-bottom: 25px; border: 1px solid #2a2a30; box-shadow: var(--shadow-sm); }
 .tm-tabs { display: flex; gap: 10px; background: #111; padding: 6px; border-radius: 10px; border: 1px solid #222; }
 .tm-tab { border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; }
-.tm-tab.active { background: var(--accent-orange); color: black; box-shadow: 0 2px 8px rgba(255,107,0,0.3); }
+.tm-tab.active { background: var(--accent-orange); color: white; box-shadow: 0 2px 8px rgba(255,107,0,0.3); }
 .tm-tab.inactive { background: transparent; color: var(--text-muted); }
 .tm-tab.inactive:hover { color: white; background: rgba(255,255,255,0.05); }
 
@@ -266,7 +266,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .tm-match-row:hover { border-color: #555; transform: translateY(-2px); box-shadow: var(--shadow-sm); }
 
 .tm-launch-btn { border: none; padding: 8px; font-weight: 700; border-radius: 6px; font-size: 0.8rem; width: 100%; transition: 0.2s; }
-.tm-launch-btn.ready { background: var(--accent-orange); color: black; cursor: pointer; }
+.tm-launch-btn.ready { background: var(--accent-orange); color: white; cursor: pointer; }
 .tm-launch-btn.ready:hover { filter: brightness(1.1); box-shadow: 0 4px 10px rgba(255,107,0,0.3); }
 .tm-launch-btn.not-ready { background: #333; color: #777; cursor: not-allowed; }
 
@@ -287,7 +287,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .sb-btn-reset { background: #444; }
 
 .sb-period-container { margin-top: 20px; }
-.sb-btn-period { background: var(--accent-orange); border: none; color: black; font-weight: 800; padding: 10px 25px; border-radius: 8px; font-size: 1.2rem; transition: 0.2s; }
+.sb-btn-period { background: var(--accent-orange); border: none; color: white; font-weight: 800; padding: 10px 25px; border-radius: 8px; font-size: 1.2rem; transition: 0.2s; }
 .sb-btn-period.clickable:hover { filter: brightness(1.1); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(255,107,0,0.3); }
 
 .sb-action-btn-pts { border: 2px solid var(--accent-orange); color: var(--accent-orange); }
@@ -594,7 +594,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 
 .team-tag:hover {
   background: var(--accent-orange);
-  color: #000; 
+  color: white; 
   transform: translateY(-2px);
   box-shadow: var(--shadow-glow-orange);
 }

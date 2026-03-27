@@ -4,26 +4,29 @@ export default function Mercato({
   availableTeams,
   hasTeam,
   handleJoinTeam,
-  allPlayers, // NOUVEAU : On reçoit la liste de tous les joueurs
+  allPlayers, 
   searchQuery,
   setSearchQuery,
   viewPlayerProfile
 }) {
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
-  // Filtre local pour les équipes (comme tu l'avais fait)
+  // Filtre local pour les équipes
   const filteredTeams = availableTeams.filter(team => 
     team.name.toLowerCase().includes(teamSearchQuery.toLowerCase()) || 
     (team.city && team.city.toLowerCase().includes(teamSearchQuery.toLowerCase()))
   );
 
-  // NOUVEAU : Filtre local pour les joueurs (insensible à la casse)
-  const filteredPlayers = (allPlayers || []).filter(player => 
-    player.full_name && player.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // 🛠️ NOUVEAU : Filtre enrichi pour les joueurs (Nom, Ville, ou Poste)
+  const filteredPlayers = (allPlayers || []).filter(player => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchName = player.full_name && player.full_name.toLowerCase().includes(searchLower);
+    const matchCity = player.city && player.city.toLowerCase().includes(searchLower);
+    const matchPosition = player.position && player.position.toLowerCase().includes(searchLower);
+    
+    return matchName || matchCity || matchPosition;
+  });
 
-  // Pour éviter de charger 5000 cartes au démarrage, on limite l'affichage
-  // On affiche tout si on a tapé quelque chose, sinon on n'affiche que les 20 premiers (ou un message)
   const playersToDisplay = searchQuery.length >= 2 ? filteredPlayers : [];
 
   return (
@@ -86,10 +89,10 @@ export default function Mercato({
           <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-purple)' }}>🔎 Scouter un joueur</h2>
           
           <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            {/* Le bouton "CHERCHER" n'existe plus, c'est de l'instantané ! */}
+            {/* 🛠️ Le placeholder a été mis à jour */}
             <input 
               type="text" 
-              placeholder="Nom ou Prénom précis..." 
+              placeholder="Nom, Ville ou Poste..." 
               value={searchQuery} 
               onChange={e => setSearchQuery(e.target.value)} 
               style={{ flex: '1', padding: '10px', borderRadius: '6px', border: '1px solid #444', background: '#222', color: 'white' }} 
@@ -107,9 +110,18 @@ export default function Mercato({
             ) : (
               playersToDisplay.map(player => (
                 <div key={player.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px' }}>
-                  <strong style={{ color: 'white' }}>{player.full_name}</strong>
-                  <button onClick={() => viewPlayerProfile(player)} style={{ background: 'transparent', color: 'var(--accent-purple)', border: '1px solid var(--accent-purple)', padding: '4px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    VOIR LE PROFIL
+                  {/* 🛠️ Affichage enrichi avec le Poste et la Ville */}
+                  <div>
+                    <strong style={{ display: 'block', color: 'white', fontSize: '1.05rem', marginBottom: '4px' }}>{player.full_name}</strong>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--accent-purple)', fontWeight: 'bold', background: 'rgba(157, 78, 221, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+                      {player.position || 'Poste inconnu'}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', color: '#888', marginLeft: '10px' }}>
+                      📍 {player.city || 'Ville inconnue'}
+                    </span>
+                  </div>
+                  <button onClick={() => viewPlayerProfile(player)} style={{ background: 'transparent', color: 'var(--accent-purple)', border: '1px solid var(--accent-purple)', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                    PROFIL
                   </button>
                 </div>
               ))

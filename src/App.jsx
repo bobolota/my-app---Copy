@@ -67,27 +67,27 @@ export default function App() {
 
   const fetchUserRole = async (userId) => {
     try {
-      // --- NOUVEAU : On récupère aussi l'abonnement ! ---
-      const { data, error } = await supabase.from('profiles').select('role, subscription_tier').eq('id', userId).single();
+      // 🛠️ CORRECTION : On ne sélectionne plus que l'abonnement, "role" n'existe plus !
+      const { data, error } = await supabase.from('profiles').select('subscription_tier').eq('id', userId).single();
+      
       if (!error && data) {
-        setUserRole(data.role);
+        // Si tu as besoin de garder userRole pour ne pas casser le Scoreboard, 
+        // on triche en disant que les PRO sont les nouveaux ADMIN.
+        setUserRole(data.subscription_tier === 'PRO' ? 'ADMIN' : 'PLAYER'); 
         setUserSubscription(data.subscription_tier || 'FREE');
         
-        // On vérifie si l'utilisateur avait déjà un menu d'ouvert
         const savedMenu = localStorage.getItem('basket_active_menu_v3');
         
         if (!savedMenu) {
-          // 1ère connexion : on envoie les VIP vers le dashboard, et les autres au vestiaire
-          if (data.role === 'ADMIN' || data.subscription_tier === 'PRO') setActiveMenu('dashboard_orga');
+          if (data.subscription_tier === 'PRO') setActiveMenu('dashboard_orga');
           else setActiveMenu('vestiaire');
         } 
-        else if (savedMenu === 'dashboard_orga' && data.role !== 'ADMIN' && data.subscription_tier !== 'PRO') {
-          // Sécurité : si un joueur normal a "dashboard_orga" en mémoire, on le renvoie au vestiaire
+        else if (savedMenu === 'dashboard_orga' && data.subscription_tier !== 'PRO') {
           setActiveMenu('vestiaire');
         }
       }
     } catch (error) {
-      console.error("Erreur récupération rôle :", error);
+      console.error("Erreur récupération profil :", error);
     } finally {
       setLoadingAuth(false);
     }
@@ -274,7 +274,8 @@ export default function App() {
             <span className="menu-icon">🌍</span> <span className="sidebar-text">Explorer les tournois</span>
           </button>
 
-          {(userRole === 'ADMIN' || userSubscription === 'PRO') && (
+          {/* 🛠️ CORRECTION : On affiche le menu uniquement pour les abonnés PRO */}
+          {userSubscription === 'PRO' && (
             <>
               <div className="menu-category">ADMINISTRATION</div>
               <button className={`menu-item ${(activeMenu === 'dashboard_orga' && view === 'dashboard') ? 'active' : ''}`} onClick={() => handleMenuClick('dashboard_orga')}>

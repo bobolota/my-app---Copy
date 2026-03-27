@@ -159,7 +159,7 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
       // ---------------------------------------------------------
       const { data: playersData, error: playersError } = await supabase
         .from('profiles')
-        .select('id, full_name, role')
+        .select('id, full_name, position, city') /* 🛠️ CORRIGÉ ICI */
         .order('full_name');
       if (!playersError) setAllPlayers(playersData || []);
       // ---------------------------------------------------------

@@ -8,30 +8,41 @@ export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
   const [message, setMessage] = useState({ text: '', type: '' });
 
-  // NOUVEAUX CHAMPS
-  const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('SPECTATOR');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [city, setCity] = useState('');
+  const [position, setPosition] = useState('');
+
+  const POSITION_OPTIONS = [
+    "Meneur (1)", "Arrière (2)", "Ailier (3)", 
+    "Ailier fort (4)", "Pivot (5)", "Coach / Manager"
+  ];
 
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setMessage({ text: '', type: '' });
 
+    if (!isLogin && !position) {
+      setMessage({ text: 'Veuillez sélectionner votre poste.', type: 'error' });
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
-        // CONNEXION
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // Si succès, App.jsx prendra le relais automatiquement !
       } else {
-        // INSCRIPTION (Avec les métadonnées pour ton Trigger SQL !)
         const { error } = await supabase.auth.signUp({ 
             email, 
             password,
             options: {
                 data: {
-                    full_name: fullName,
-                    role: role
+                    first_name: firstName,
+                    last_name: lastName,
+                    city: city,
+                    position: position
                 }
             }
         });
@@ -48,8 +59,8 @@ export default function Auth() {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#111', color: 'white' }}>
-      <div style={{ background: '#222', padding: '40px', borderRadius: '10px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#111', color: 'white', padding: '20px' }}>
+      <div style={{ background: '#222', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
         <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'var(--accent-orange, #ff6b00)' }}>
           {isLogin ? 'Connexion' : 'Créer un compte'}
         </h2>
@@ -62,60 +73,100 @@ export default function Auth() {
 
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           
-          {/* CHAMPS VISIBLES UNIQUEMENT À L'INSCRIPTION */}
           {!isLogin && (
             <>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input 
+                  type="text" placeholder="Prénom" value={firstName} onChange={(e) => setFirstName(e.target.value)} required
+                  style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white', width: '100%' }}
+                />
+                <input 
+                  type="text" placeholder="Nom" value={lastName} onChange={(e) => setLastName(e.target.value)} required
+                  style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white', width: '100%' }}
+                />
+              </div>
+
               <input 
-                type="text" 
-                placeholder="Votre Prénom et Nom" 
-                value={fullName} 
-                onChange={(e) => setFullName(e.target.value)} 
-                required
-                style={{ padding: '12px', borderRadius: '5px', border: '1px solid #444', background: '#333', color: 'white' }}
+                type="text" placeholder="Ville" value={city} onChange={(e) => setCity(e.target.value)} required
+                style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
               />
-              <select 
-                value={role} 
-                onChange={(e) => setRole(e.target.value)}
-                style={{ padding: '12px', borderRadius: '5px', border: '1px solid #444', background: '#333', color: 'white' }}
-              >
-                <option value="SPECTATOR">Spectateur (Suivre les matchs)</option>
-                <option value="PLAYER">Joueur (Rejoindre une équipe)</option>
-                <option value="OTM">OTM (Tenir la table de marque)</option>
-                <option value="ORGANIZER">Organisateur (Gérer un tournoi)</option>
-              </select>
+
+              {/* 🛠️ ZONE DES POSTES MODIFIÉE (Multilignes sans scroll) */}
+              <div style={{ marginTop: '5px', marginBottom: '5px', width: '100%' }}>
+                <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#aaa', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Votre Poste
+                </p>
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', /* 👈 LA MAGIE EST ICI : Autorise le passage à la ligne */
+                  gap: '8px', 
+                  justifyContent: 'center', /* Centre joliment les boutons restants */
+                  paddingBottom: '5px' 
+                }}>
+                  {POSITION_OPTIONS.map(pos => {
+                    const isSelected = position === pos;
+                    return (
+                      <button
+                        key={pos}
+                        type="button"
+                        onClick={() => setPosition(pos)}
+                        onMouseOver={(e) => {
+                          if (!isSelected) {
+                            e.target.style.background = '#444';
+                            e.target.style.borderColor = '#666';
+                          }
+                        }}
+                        onMouseOut={(e) => {
+                          if (!isSelected) {
+                            e.target.style.background = '#2a2a2a';
+                            e.target.style.borderColor = '#444';
+                          }
+                        }}
+                        style={{
+                          padding: '8px 15px',
+                          borderRadius: '20px',
+                          border: isSelected ? '2px solid var(--accent-orange, #ff6b00)' : '1px solid #444',
+                          background: isSelected ? 'rgba(255, 107, 0, 0.15)' : '#2a2a2a',
+                          color: isSelected ? 'var(--accent-orange, #ff6b00)' : '#ccc',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                          transition: 'all 0.2s ease',
+                          outline: 'none',
+                          /* On enlève le flexShrink inutile vu qu'on passe à la ligne */
+                        }}
+                      >
+                        {pos}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </>
           )}
 
           <input 
-            type="email" 
-            placeholder="Votre adresse email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required
-            style={{ padding: '12px', borderRadius: '5px', border: '1px solid #444', background: '#333', color: 'white' }}
+            type="email" placeholder="Votre adresse email" value={email} onChange={(e) => setEmail(e.target.value)} required
+            style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
           />
           <input 
-            type="password" 
-            placeholder="Votre mot de passe (6 carac. min)" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            required
-            style={{ padding: '12px', borderRadius: '5px', border: '1px solid #444', background: '#333', color: 'white' }}
+            type="password" placeholder="Votre mot de passe (6 carac. min)" value={password} onChange={(e) => setPassword(e.target.value)} required
+            style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
           />
           <button 
             type="submit" 
             disabled={loading}
-            style={{ padding: '12px', borderRadius: '5px', border: 'none', background: 'var(--accent-blue, #0066cc)', color: 'white', fontWeight: 'bold', cursor: loading ? 'wait' : 'pointer', marginTop: '10px' }}
+            style={{ padding: '14px', borderRadius: '8px', border: 'none', background: 'var(--accent-orange, #ff6b00)', color: 'white', fontWeight: 'bold', cursor: loading ? 'wait' : 'pointer', marginTop: '10px', fontSize: '1rem', letterSpacing: '1px', transition: '0.2s' }}
           >
             {loading ? 'Chargement...' : (isLogin ? 'SE CONNECTER' : "S'INSCRIRE")}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.9rem', color: '#888' }}>
+        <p style={{ textAlign: 'center', marginTop: '25px', fontSize: '0.9rem', color: '#888' }}>
           {isLogin ? "Pas encore de compte ?" : "Vous avez déjà un compte ?"}
           <button 
             onClick={() => { setIsLogin(!isLogin); setMessage({text:'', type:''}); }} 
-            style={{ background: 'none', border: 'none', color: 'var(--accent-orange, #ff6b00)', cursor: 'pointer', textDecoration: 'underline', marginLeft: '5px' }}
+            style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline', marginLeft: '5px' }}
           >
             {isLogin ? "S'inscrire" : "Se connecter"}
           </button>

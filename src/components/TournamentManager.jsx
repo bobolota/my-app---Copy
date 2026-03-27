@@ -1029,29 +1029,35 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                              {m.otm && <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '2px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                            </div>
                            
-                           <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                             <button onClick={(e) => {
+                           <div style={{ display: 'flex', gap: '8px', marginTop: '10px', height: '35px' /* 🛠️ Hauteur globale réduite */ }}>
+                              <button onClick={(e) => {
                                                   e.stopPropagation();
                                                   if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
                                                   
                                                   if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
                                                 }}
-                             className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                             style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), flex: 1, margin: 0 }}
-                             disabled={isCanceled || isForfeit}
-                             >
+                              className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
+                              style={{ 
+                                backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), 
+                                flex: 1, 
+                                margin: 0,
+                                padding: '0 10px', /* 🛠️ Padding réduit */
+                                fontSize: '0.8rem', /* 🛠️ Police plus petite */
+                                height: '100%'
+                              }}
+                              disabled={isCanceled || isForfeit}
+                              >
                                   {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
-                             </button>
-                             
-                             {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
-                               <div style={{ display: 'flex', gap: '8px' }}>
-                                 {/* NOUVEAU BOUTON OTM */}
-                                 <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
-                                 <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Annuler le match">❌</button>
-                                 <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Déclarer un forfait">🏳️</button>
-                               </div>
-                             )}
-                           </div>
+                              </button>
+                              
+                              {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Annuler le match">❌</button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Déclarer un forfait">🏳️</button>
+                                </div>
+                              )}
+                            </div>
                         </div>
                       );
                     })}
@@ -1209,29 +1215,35 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                                     ⏩ QUALIFICATION DIRECTE
                                                 </div>
                                             ) : (
-                                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                                                  <button onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!canClick && !isCanceled && !isForfeit) { alert(`Le match n'est pas prêt.`); return; }
-                                  
-                                  if (!isCanceled && !isForfeit) handleLaunchMatch(m.id, canLaunchThisMatch);
-                             }}
-                                                  className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                                                  style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : (['canceled', 'forfeit'].includes(m.status) ? '#333' : ''), flex: 1, margin: 0 }}
-                                                  disabled={['canceled', 'forfeit'].includes(m.status)}
-                                                  >
-                                                    {m.status === 'canceled' ? "ANNULÉ" : m.status === 'forfeit' ? "FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
-                                                  </button>
-
-                                                  {(!isFinished && !['canceled', 'forfeit'].includes(m.status) && canEdit) && (
-                                                    <div style={{ display: 'flex', gap: '8px' }}>
-                                                      {/* NOUVEAU BOUTON OTM */}
-                                                      <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
-                                                      <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Annuler">❌</button>
-                                                      <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: '0.2s' }} title="Forfait">🏳️</button>
-                                                    </div>
-                                                  )}
-                                                </div>
+                                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', height: '35px' /* 🛠️ Hauteur globale réduite */ }}>
+                              <button onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
+                                                  
+                                                  if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
+                                                }}
+                              className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
+                              style={{ 
+                                backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), 
+                                flex: 1, 
+                                margin: 0,
+                                padding: '0 10px', /* 🛠️ Padding réduit */
+                                fontSize: '0.8rem', /* 🛠️ Police plus petite */
+                                height: '100%'
+                              }}
+                              disabled={isCanceled || isForfeit}
+                              >
+                                  {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                              </button>
+                              
+                              {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                                <div style={{ display: 'flex', gap: '6px' }}>
+                                  <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Annuler le match">❌</button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Déclarer un forfait">🏳️</button>
+                                </div>
+                              )}
+                            </div>
                                             )}
                                         </div>
                                     );
@@ -1272,7 +1284,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       {/* --- MODALE D'ASSIGNATION D'OTM --- */}      
       {otmModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-blue)', width: '90%', maxWidth: '400px' }}>
+          <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-blue)', width: '90%', maxWidth: '500px' }}>
             <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👤 Assigner des OTM</h3>
             
             <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Cocher les OTM connectés :</label>
@@ -1306,7 +1318,11 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
               value={customOtm}
               onChange={(e) => setCustomOtm(e.target.value)}
               className="tm-input"
-              style={{ width: '100%', marginBottom: '25px' }}
+              style={{ 
+                width: '100%', 
+                marginBottom: '25px',
+                boxSizing: 'border-box' /* 🛠️ LA CORRECTION EST LÀ */
+              }}
               placeholder="Saisir un texte libre..."
             />
 
