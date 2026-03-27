@@ -337,11 +337,18 @@ export default function App() {
                 savedStatsA={activeMatch.savedStatsA}
                 savedStatsB={activeMatch.savedStatsB}
                 isFinished={activeMatch.status === 'finished'}
-                onExit={() => setView('tournament')} 
+                
+                /* 👇 LA CORRECTION EST ICI 👇 */
+                onExit={() => { 
+                  setView('tournament'); 
+                  setActiveMatch(null); /* 🧹 On vide la mémoire pour forcer le rechargement au prochain clic ! */
+                }} 
+                /* 👆 ---------------------- 👆 */
+
                 onMatchFinished={finishMatch} 
                 userRole={userRole}
                 onLiveUpdate={syncLiveScore}
-                tourney={currentTourney} /* 🛠️ LA LIGNE MAGIQUE À AJOUTER EST ICI */
+                tourney={currentTourney} 
               />
             )}
           </div>

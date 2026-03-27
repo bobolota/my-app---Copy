@@ -164,7 +164,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 @media (max-width: 1100px) { .bento-teams-container { grid-template-columns: 1fr; } }
 .bento-team { background: var(--bg-panel); border-radius: var(--radius); padding: 25px; display: flex; flex-direction: column; gap: 20px; border: 1px solid #2a2a30; box-shadow: var(--shadow-sm); }
 .bento-zone-title { margin: 0 0 10px 0; font-size: 1.4rem; color: var(--text-main); text-transform: uppercase; letter-spacing: 1px; }
-.players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+.players-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 
 /* --- Boxscore (Feuille de Match) --- */
 .boxscore-container { display: flex; flex-direction: column; gap: 20px; }
@@ -178,46 +178,54 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .boxscore-table .stat-highlight { font-weight: 700; color: var(--text-main); font-size: 1.05rem; }
 .boxscore-table .fouls-alert { color: var(--danger); font-weight: 700; }
 
-/* --- Player Card --- */
-.player-card { 
-  background: var(--bg-card); 
-  border-radius: 10px; 
-  padding: 18px; 
-  display: flex; flex-direction: column; gap: 12px; 
+/* =========================================
+   CARTES JOUEURS SCOREBOARD (Mode Compact)
+   ========================================= */
+.pc-card { 
+  background: rgba(255,255,255,0.03); 
   border: 1px solid #333; 
-  transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease; 
-  position: relative; z-index: 1; 
+  border-radius: 8px; 
+  padding: 8px 10px; 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  transition: all 0.2s ease; 
+  position: relative; 
+  box-sizing: border-box;
 }
-.player-card.fouled-out-bench { opacity: 0.4; filter: grayscale(1); cursor: not-allowed !important; }
-.badge-exclu { position: absolute; top: -10px; right: -10px; background: var(--danger); color: white; font-family: var(--font-heading); font-size: 0.75rem; padding: 4px 10px; border-radius: 6px; font-weight: 700; z-index: 2; box-shadow: 0 4px 10px rgba(255, 59, 48, 0.5); }
+.pc-card:hover { border-color: #555; background: rgba(255,255,255,0.06); }
+.pc-target { cursor: pointer; border-color: #777; }
+.pc-target:hover { border-color: var(--accent-blue); transform: translateY(-3px); box-shadow: var(--shadow-glow-blue); z-index: 10; }
+.pc-sub { border-color: var(--accent-purple); background: #2d1b40; transform: scale(1.03); z-index: 10; }
+.pc-pending { border-color: var(--accent-orange); background: #3a2210; transform: scale(1.03); z-index: 10; }
+.pc-excluded { opacity: 0.4; filter: grayscale(1); cursor: not-allowed !important; }
 
-.player-card.is-targetable { cursor: pointer; border-color: #555; }
-.player-card.is-targetable:hover { border-color: var(--accent-blue); background: #2a2a30; transform: translateY(-5px); box-shadow: var(--shadow-md), var(--shadow-glow-blue); z-index: 10; }
-.player-card.is-assist-target { cursor: pointer; border-color: var(--success); }
-.player-card.is-assist-target:hover { background: #2a2a30; transform: translateY(-5px); box-shadow: var(--shadow-md), 0 0 15px rgba(52, 199, 89, 0.3); z-index: 10; }
-.player-card.is-sub-selected { border-color: var(--accent-purple); box-shadow: var(--shadow-glow-purple); transform: scale(1.02); background: #2d1b40; }
-.player-card.pending { border-color: var(--accent-orange); background: #3a2210; transform: scale(1.02); box-shadow: var(--shadow-glow-orange); }
+.pc-badge-exclu { position: absolute; top: -8px; right: -8px; background: var(--danger); color: white; font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; font-weight: normal; z-index: 2; }
 
-.player-header { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-family: var(--font-heading); }
-.player-number { background: var(--text-main); color: var(--bg-dark); border-radius: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem; }
-.player-time { font-size: 0.9rem; color: var(--text-muted); font-family: monospace; font-weight: bold; background: #111; padding: 4px 8px; border-radius: 4px; border: 1px solid #333; }
-.player-stats { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
-.pts { font-family: var(--font-heading); font-size: 2.2rem; color: var(--accent-orange); font-weight: 800; line-height: 1; }
+/* Ligne 1 : Num, Nom, Temps */
+.pc-row-1 { display: flex; align-items: center; gap: 6px; width: 100%; }
+.pc-num { background: #444; color: white; font-size: 0.75rem; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; flex-shrink: 0; }
+.pc-name { font-size: 0.8rem; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; font-weight: normal; }
+.pc-time { font-size: 0.7rem; color: var(--accent-blue); font-family: monospace; }
 
-.fouls-container { display: flex; gap: 5px; }
-.foul-box { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #555; background: #111; }
-.foul-box.filled { background: var(--text-muted); border-color: var(--text-muted); }
-.foul-box.danger { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 5px var(--danger); }
+/* Ligne 2 : Pts & Fautes */
+.pc-row-2 { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.pc-pts { color: var(--accent-orange); font-size: 1.1rem; font-family: var(--font-heading); font-weight: normal; }
+.pc-fouls { display: flex; gap: 3px; }
+.pc-foul-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #555; background: transparent; }
+.pc-foul-dot.filled { background: #888; border-color: #888; }
+.pc-foul-dot.danger { background: var(--danger); border-color: var(--danger); }
 
-.minor-stats { display: flex; gap: 6px; font-size: 0.8rem; color: var(--text-muted); background: #1a1a20; padding: 10px; border-radius: 6px; justify-content: space-around; flex-wrap: wrap; border: 1px solid #333; }
-.minor-stats span span { font-weight: 700; color: var(--text-main); }
+/* Ligne 3 : Stats mineures (1 seule ligne stricte) */
+.pc-row-3 { display: flex; gap: 4px; font-size: 0.65rem; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-items: center; height: 16px; }
+.pc-stat-item { background: rgba(255,255,255,0.05); padding: 2px 4px; border-radius: 3px; }
 
-.validation-overlay { display: flex; gap: 8px; margin-top: 10px; }
-.validation-overlay button { padding: 12px 5px; border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 700; font-size: 1rem; transition: transform 0.1s, filter 0.2s; }
-.validation-overlay button:hover { filter: brightness(1.1); }
-.validation-overlay button:active { transform: scale(0.95); }
-.validation-overlay .btn-validate { background: var(--success); flex: 1; }
-.validation-overlay .btn-miss { background: var(--warning); flex: 1; }
+/* Overlay de validation de score */
+.pc-overlay { display: flex; gap: 5px; margin-top: 5px; }
+.pc-btn-v, .pc-btn-x { flex: 1; border: none; padding: 6px; border-radius: 4px; color: white; cursor: pointer; transition: 0.1s; }
+.pc-btn-v { background: var(--success); }
+.pc-btn-x { background: var(--warning); }
+.pc-btn-v:hover, .pc-btn-x:hover { filter: brightness(1.1); }
 
 /* --- Match Log --- */
 .match-log { background: var(--bg-panel); border-radius: var(--radius); padding: 25px; max-height: 300px; overflow-y: auto; border: 1px solid #2a2a30; }
@@ -683,4 +691,85 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .tm-card:nth-child(5n + 5) { 
   background: linear-gradient(135deg, rgba(255, 59, 48, 0.08) 0%, var(--bg-card) 60%); 
   border-top: 3px solid var(--danger); 
+}
+
+/* =========================================
+   HISTORIQUE DES ACTIONS (Play-by-Play Pro)
+   ========================================= */
+.sb-history-panel {
+  background: var(--bg-panel);
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid #2a2a30;
+  margin-top: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.sb-history-title {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-top: 0;
+  margin-bottom: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #333;
+  padding-bottom: 10px;
+}
+.sb-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 5px;
+}
+.sb-history-item {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.02);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  transition: background 0.2s;
+  border: 1px solid transparent;
+}
+.sb-history-item:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: #333;
+}
+.sb-history-time {
+  font-family: monospace;
+  color: #aaa;
+  background: #111;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  min-width: 50px;
+  text-align: center;
+  margin-right: 12px;
+  border: 1px solid #222;
+}
+.sb-history-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* Le bouton de suppression discret */
+.sb-btn-delete-action {
+  background: transparent;
+  color: #555;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: 0.2s;
+  opacity: 0.3; /* Presque invisible par défaut */
+}
+.sb-history-item:hover .sb-btn-delete-action {
+  opacity: 1; /* Apparaît au survol de la ligne */
+}
+.sb-btn-delete-action:hover {
+  color: var(--danger);
+  background: rgba(255,59,48,0.1);
 }

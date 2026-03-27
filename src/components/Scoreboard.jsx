@@ -89,77 +89,75 @@ const BoxscoreTable = ({ title, players, color }) => {
     </div>
   );
 };
+
 const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit }) => {
   const isSubSelected = pendingSubs && pendingSubs.includes(player.id);
   const isPendingScore = pendingAction?.playerId === player.id;
   
   const isExcluded = player.fouls >= 5 || (player.techFouls || 0) >= 2 || (player.antiFouls || 0) >= 2 || player.isDisqualified;
   let excluReason = '5 FAUTES';
-  if (player.isDisqualified) excluReason = 'DISQUALIFIÉ';
+  if (player.isDisqualified) excluReason = 'DISQ';
   else if ((player.techFouls || 0) >= 2 || (player.antiFouls || 0) >= 2) excluReason = 'EXCLU';
 
   let isTargetable = false;
-  if (canEdit) { // Seulement si l'utilisateur a les droits
-    if (activeActionType === 'STARTERS') {
-        isTargetable = true;
-    } else if (activeActionType === 'SUB') {
-        isTargetable = !(isExcluded && player.status === 'bench');
-    } else if (pendingAssist) {
-        isTargetable = (team === pendingAssist.team && player.id !== pendingAssist.scorerId && player.status === 'court');
-    } else if (hasGlobalAction) {
-        isTargetable = (player.status === 'court' && !isPendingScore);
-    }
+  if (canEdit) {
+    if (activeActionType === 'STARTERS') isTargetable = true;
+    else if (activeActionType === 'SUB') isTargetable = !(isExcluded && player.status === 'bench');
+    else if (pendingAssist) isTargetable = (team === pendingAssist.team && player.id !== pendingAssist.scorerId && player.status === 'court');
+    else if (hasGlobalAction) isTargetable = (player.status === 'court' && !isPendingScore);
   }
+
+  // Astuce : On ne récupère que les stats qui sont supérieures à 0 pour gagner de la place !
+  const minorStats = [
+    { label: 'AS', val: player.ast },
+    { label: 'RB', val: (player.oreb || 0) + (player.dreb || 0) },
+    { label: 'ST', val: player.stl },
+    { label: 'BL', val: player.blk },
+    { label: 'TO', val: player.tov }
+  ].filter(s => s.val > 0);
 
   return (
     <div 
-        className={`player-card ${isSubSelected ? 'is-sub-selected' : ''} ${isPendingScore ? 'pending' : ''} ${isTargetable ? 'is-targetable' : ''} ${(isExcluded && player.status === 'bench') ? 'fouled-out-bench' : ''}`} 
+        className={`pc-card ${isSubSelected ? 'pc-sub' : ''} ${isPendingScore ? 'pc-pending' : ''} ${isTargetable ? 'pc-target' : ''} ${(isExcluded && player.status === 'bench') ? 'pc-excluded' : ''}`} 
         onClick={() => isTargetable && onPlayerClick(activeActionType, team, player.id, null)}
-        style={{ cursor: isTargetable ? 'pointer' : 'default' }}
     >
-      {isExcluded && <div className="badge-exclu">{excluReason}</div>}
-      <div className="player-header">
-        <div className="sb-player-header-info"><span className="player-number">{player.number}</span><span>{player.name}</span></div>
-        <span className="player-time">{`${Math.floor(player.timePlayed / 60).toString().padStart(2, '0')}:${(player.timePlayed % 60).toString().padStart(2, '0')}`}</span>
+      {isExcluded && <div className="pc-badge-exclu">{excluReason}</div>}
+      
+      {/* LIGNE 1 : Numéro, Nom, Temps */}
+      <div className="pc-row-1">
+        <span className="pc-num">{player.number}</span>
+        <span className="pc-name">{player.name}</span>
+        <span className="pc-time">{`${Math.floor(player.timePlayed / 60).toString().padStart(2, '0')}:${(player.timePlayed % 60).toString().padStart(2, '0')}`}</span>
       </div>
-      <div className="player-stats">
-        <span className="pts">{player.points} pts</span>
-        <div className="fouls-container" style={{ display: 'flex', gap: '3px' }}>
+
+      {/* LIGNE 2 : Points et Points de Fautes */}
+      <div className="pc-row-2">
+        <span className="pc-pts">{player.points} <span style={{fontSize: '0.65rem', color: '#888'}}>PTS</span></span>
+        <div className="pc-fouls">
           {[0, 1, 2, 3, 4].map(idx => {
             const isFilled = idx < player.fouls;
-            const foulLetter = isFilled ? (player.foulList?.[idx] || 'P') : '';
             const isDanger = isExcluded && idx === (player.fouls - 1);
-            
-            return (
-              <div 
-                key={idx} 
-                className={`foul-box ${isFilled ? 'filled' : ''} ${isDanger ? 'danger' : ''}`}
-                style={{ 
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                    fontSize: '10px', fontWeight: 'bold', 
-                    color: isDanger ? 'white' : (isFilled ? '#1a1a1a' : 'transparent'),
-                    backgroundColor: isDanger ? 'var(--danger)' : (isFilled ? 'white' : 'transparent'),
-                    width: '16px', height: '16px', borderRadius: '3px',
-                    border: isFilled ? 'none' : '1px solid #555'
-                }}
-              >
-                {foulLetter}
-              </div>
-            );
+            return <div key={idx} className={`pc-foul-dot ${isFilled ? 'filled' : ''} ${isDanger ? 'danger' : ''}`}></div>;
           })}
         </div>
       </div>
-      <div className="minor-stats">
-        <span>AS: <span>{player.ast}</span></span>
-        <span>REB: <span>{player.oreb + player.dreb}</span></span>
-        <span>ST: <span>{player.stl}</span></span>
-        <span>BL: <span>{player.blk}</span></span>
-        <span>TO: <span>{player.tov}</span></span>
+
+      {/* LIGNE 3 : Stats mineures sur une seule ligne (uniquement celles > 0) */}
+      <div className="pc-row-3">
+        {minorStats.length === 0 ? (
+          <span style={{color: '#444'}}>Aucune stat</span>
+        ) : (
+          minorStats.map((stat, i) => (
+            <span key={i} className="pc-stat-item">{stat.label}: <span style={{color: 'white'}}>{stat.val}</span></span>
+          ))
+        )}
       </div>
+
+      {/* VALIDATION SCORE OVERLAY */}
       {isPendingScore && canEdit && (
-        <div className="validation-overlay" onClick={e => e.stopPropagation()}>
-          <button className="btn-validate" onClick={() => onConfirm('VALIDATED')}>V</button>
-          <button className="btn-miss" onClick={() => onConfirm('MISSED')}>X</button>
+        <div className="pc-overlay" onClick={e => e.stopPropagation()}>
+          <button className="pc-btn-v" onClick={() => onConfirm('VALIDATED')}>V</button>
+          <button className="pc-btn-x" onClick={() => onConfirm('MISSED')}>X</button>
         </div>
       )}
     </div>
@@ -943,101 +941,153 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       </div>
 
       {currentView === 'court' ? (
-        <>
-          {canEdit && (
-            <div className={`action-bar-container ${activeAction?.type === 'STARTERS' ? 'success-mode' : (pendingAssist ? 'success-mode' : (activeAction?.type === 'SUB' ? 'sub-mode' : (pendingFoul ? 'danger-mode' : 'active-mode')))}`}>
-              {activeAction?.type === 'STARTERS' ? (
-                  <div className="action-buttons">
-                      <span className="sb-assist-msg">🏀 SÉLECTIONNEZ LES TITULAIRES </span>
-                      <button className="action-btn" style={{background: 'var(--success)', color: 'white', border: 'none', fontWeight: 'bold', padding: '10px 20px'}} onClick={() => {
-                          const courtA = playersA.filter(p=>p.status==='court').length;
-                          const courtB = playersB.filter(p=>p.status==='court').length;
-                          if (courtA !== 5 || courtB !== 5) {
-                              alert(`Il faut exactement 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
-                              return;
-                          }
-                          setActiveAction(null);
-                          setStartersValidated(true); 
-                      }}>
-                          VALIDER LE 5 MAJEUR
-                      </button>
-                  </div>
-              ) : pendingFoul ? (
-                <div className="action-buttons">
-                  <span className="sb-assist-msg">TYPE DE FAUTE ?</span>
-                  <button className="action-btn sb-action-btn-default" onClick={() => handleConfirmFoul('P')}>SIMPLE (P)</button>
-                  <button className="action-btn sb-action-btn-default" onClick={() => handleConfirmFoul('PO')}>OFFENSIVE (PO)</button>
-                  <button className="action-btn sb-action-btn-foul" onClick={() => handleConfirmFoul('T')}>TECHNIQUE (T)</button>
-                  <button className="action-btn sb-action-btn-foul" onClick={() => handleConfirmFoul('U')}>ANTISPORTIVE (U)</button>
-                  <button className="action-btn sb-action-btn-foul" style={{background: 'var(--danger)', color: 'white', border: 'none'}} onClick={() => handleConfirmFoul('D')}>DISQ (D)</button>
-                  <button className="action-btn cancel-btn" onClick={() => setPendingFoul(null)}>ANNULER</button>
-                </div>
-              ) : pendingAssist ? (
-                <div className="action-buttons">
-                  <span className="sb-assist-msg">QUI A FAIT LA PASSE ?</span>
-                  <button className="btn-miss" onClick={() => setPendingAssist(null)}>SANS PASSEUR</button>
-                </div>
-              ) : activeAction?.type === 'SUB' ? (
-                <div className="action-buttons">
-                  <span className="sb-sub-msg">MODE REMPLACEMENT</span>
-                  <button className="btn-sub-validate" onClick={handleConfirmSubs}>VALIDER LES CHANGEMENTS</button>
-                  {!isForcedSub && <button className="action-btn cancel-btn" onClick={() => {setActiveAction(null); setPendingSubs([]);}}>ANNULER</button>}
-                </div>
-              ) : (
-                <div className="action-buttons">
-                  {['PLUS1', 'PLUS2', 'PLUS3'].map(type => (
-                    <button key={type} className={`action-btn sb-action-btn-pts ${activeAction?.type === type ? 'selected' : ''}`} onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}>+{type.replace('PLUS', '')}</button>
-                  ))}
-                  <div className="sb-divider"></div>
-                  {['OREB', 'DREB', 'STL', 'BLK', 'TOV', 'FOUL', 'SUB'].map(type => {
-                    let btnClass = 'sb-action-btn-default';
-                    if (type === 'FOUL') btnClass = 'sb-action-btn-foul';
-                    if (type.includes('REB')) btnClass = 'sb-action-btn-reb';
-                    if (type === 'SUB') btnClass = 'sb-action-btn-sub';
-                    if (type === 'STL' || type === 'BLK') btnClass = 'sb-action-btn-def';
-                    if (type === 'TOV') btnClass = 'sb-action-btn-tov';
-                    return (
-                      <button key={type} className={`action-btn ${btnClass} ${activeAction?.type === type ? 'selected' : ''}`} onClick={() => setActiveAction({type, value: null})}>{type}</button>
-                    );
-                  })}
-                  {activeAction && <button onClick={() => setActiveAction(null)} className="sb-btn-cancel-action">ANNULER X</button>}
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="bento-teams-container">
-            <div className="bento-team">
-                <h3 className="bento-zone-title">{teamA?.name}</h3>
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start', width: '100%' }}>
+            
+            {/* TEAM A (GAUCHE) */}
+            <div className="bento-team" style={{ flex: 1, minWidth: 0, padding: '15px' }}>
+                <h3 className="bento-zone-title" style={{ textAlign: 'center', color: 'var(--accent-orange)' }}>{teamA?.name}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', paddingBottom: '15px' }}>
                   {playersA.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="sb-bench-title">BANC</p>
+                <p className="sb-bench-title" style={{ textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px', color: '#888', margin: '0 0 10px 0', fontSize: '0.85rem', letterSpacing: '1px' }}>BANC</p>
                 <div className="players-grid">
                   {playersA.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
             </div>
-            
-            <div className="bento-team">
-                <h3 className="bento-zone-title">{teamB?.name}</h3>
+
+            {/* BARRE D'ACTION (MILIEU) */}
+            {canEdit && (
+              <div className={`action-bar-container ${activeAction?.type === 'STARTERS' ? 'success-mode' : (pendingAssist ? 'success-mode' : (activeAction?.type === 'SUB' ? 'sub-mode' : (pendingFoul ? 'danger-mode' : 'active-mode')))}`} style={{ width: '180px', flexShrink: 0, position: 'sticky', top: '20px', padding: '15px' }}>
+                {activeAction?.type === 'STARTERS' ? (
+                    <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>🏀 SÉLECTIONNEZ LES TITULAIRES</span>
+                        <button className="action-btn" style={{background: 'var(--success)', color: 'white', border: 'none', padding: '12px 10px', fontSize: '0.85rem', fontWeight: 'bold'}} onClick={() => {
+                            const courtA = playersA.filter(p=>p.status==='court').length;
+                            const courtB = playersB.filter(p=>p.status==='court').length;
+                            if (courtA !== 5 || courtB !== 5) {
+                                alert(`Il faut exactement 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
+                                return;
+                            }
+                            setActiveAction(null);
+                            setStartersValidated(true); 
+                        }}>
+                            VALIDER LE 5 MAJEUR
+                        </button>
+                    </div>
+                ) : pendingFoul ? (
+                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--danger)' }}>TYPE DE FAUTE ?</span>
+                    <button className="action-btn sb-action-btn-default" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('P')}>SIMPLE (P)</button>
+                    <button className="action-btn sb-action-btn-default" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('PO')}>OFFENSIVE (PO)</button>
+                    <button className="action-btn sb-action-btn-foul" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('T')}>TECHNIQUE (T)</button>
+                    <button className="action-btn sb-action-btn-foul" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('U')}>ANTISPORTIVE (U)</button>
+                    <button className="action-btn sb-action-btn-foul" style={{background: 'var(--danger)', color: 'white', border: 'none', padding: '10px', fontSize: '0.85rem'}} onClick={() => handleConfirmFoul('D')}>DISQ (D)</button>
+                    <button className="action-btn cancel-btn" style={{ padding: '10px', fontSize: '0.85rem', marginTop: '10px' }} onClick={() => setPendingFoul(null)}>ANNULER</button>
+                  </div>
+                ) : pendingAssist ? (
+                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>QUI A FAIT LA PASSE ?</span>
+                    <button className="action-btn" style={{ background: '#444', color: 'white', border: 'none', padding: '10px', fontSize: '0.85rem' }} onClick={() => setPendingAssist(null)}>SANS PASSEUR</button>
+                  </div>
+                ) : activeAction?.type === 'SUB' ? (
+                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <span className="sb-sub-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--accent-purple)' }}>MODE REMPLACEMENT</span>
+                    <button className="action-btn" style={{background: 'var(--accent-purple)', color: 'white', padding: '12px 10px', fontSize: '0.85rem', border: 'none', fontWeight: 'bold'}} onClick={handleConfirmSubs}>VALIDER CHANGEMENTS</button>
+                    {!isForcedSub && <button className="action-btn cancel-btn" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => {setActiveAction(null); setPendingSubs([]);}}>ANNULER</button>}
+                  </div>
+                ) : (
+                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      {['PLUS1', 'PLUS2', 'PLUS3'].map(type => (
+                        <button key={type} className={`action-btn sb-action-btn-pts ${activeAction?.type === type ? 'selected' : ''}`} style={{ flex: 1, padding: '10px 0', fontSize: '1rem' }} onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}>+{type.replace('PLUS', '')}</button>
+                      ))}
+                    </div>
+                    
+                    <div style={{ width: '100%', height: '1px', background: '#333', margin: '5px 0' }}></div>
+
+                    {/* LIGNE REBONDS : OREB | DREB */}
+                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                        <button
+                            className={`action-btn sb-action-btn-reb ${activeAction?.type === 'OREB' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'OREB', value: null})}>
+                            OREB
+                        </button>
+                        <button
+                            className={`action-btn sb-action-btn-reb ${activeAction?.type === 'DREB' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'DREB', value: null})}>
+                            DREB
+                        </button>
+                    </div>
+
+                    {/* LIGNE DÉFENSE : STL | BLK */}
+                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                        <button
+                            className={`action-btn sb-action-btn-def ${activeAction?.type === 'STL' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'STL', value: null})}>
+                            STL
+                        </button>
+                        <button
+                            className={`action-btn sb-action-btn-def ${activeAction?.type === 'BLK' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'BLK', value: null})}>
+                            BLK
+                        </button>
+                    </div>
+
+                    {/* LIGNE ERREURS/FAUTES : TOV | FOUL */}
+                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                        <button
+                            className={`action-btn sb-action-btn-tov ${activeAction?.type === 'TOV' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'TOV', value: null})}>
+                            TOV
+                        </button>
+                        <button
+                            className={`action-btn sb-action-btn-foul ${activeAction?.type === 'FOUL' ? 'selected' : ''}`}
+                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            onClick={() => setActiveAction({type: 'FOUL', value: null})}>
+                            FOUL
+                        </button>
+                    </div>
+
+                    {/* BOUTON CHANGEMENT (Seul sur sa ligne) */}
+                    <button
+                        className={`action-btn sb-action-btn-sub ${activeAction?.type === 'SUB' ? 'selected' : ''}`}
+                        style={{ width: '100%', padding: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}
+                        onClick={() => setActiveAction({type: 'SUB', value: null})}>
+                        SUB
+                    </button>
+
+                    {activeAction && <button onClick={() => setActiveAction(null)} className="action-btn cancel-btn" style={{ width: '100%', padding: '10px', fontSize: '0.85rem', marginTop: '10px' }}>ANNULER X</button>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TEAM B (DROITE) */}
+            <div className="bento-team" style={{ flex: 1, minWidth: 0, padding: '15px' }}>
+                <h3 className="bento-zone-title" style={{ textAlign: 'center', color: 'var(--accent-blue)' }}>{teamB?.name}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', paddingBottom: '15px' }}>
                   {playersB.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="sb-bench-title">BANC</p>
+                <p className="sb-bench-title" style={{ textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px', color: '#888', margin: '0 0 10px 0', fontSize: '0.85rem', letterSpacing: '1px' }}>BANC</p>
                 <div className="players-grid">
                   {playersB.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
             </div>
-          </div>
-        </>
+
+        </div>
       ) : (
         <div className="boxscore-container">
           <BoxscoreTable title={teamA?.name} players={playersA} color="var(--accent-orange)" />
@@ -1045,12 +1095,12 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         </div>
       )}
 
-      {/* --- HISTORIQUE --- */}
+      {/* --- HISTORIQUE (Mode Play-by-Play Pro) --- */}
       <div className="sb-history-panel">
-        <h3 className="sb-history-title">HISTORIQUE DES ACTIONS</h3>
+        <h3 className="sb-history-title">🗓️ Play-by-Play (Historique)</h3>
         <div className="sb-history-list">
           {history.length === 0 ? (
-            <p className="sb-history-empty">Aucune action enregistrée</p>
+            <p style={{textAlign: 'center', color: '#666', fontStyle: 'italic', padding: '20px'}}>Aucune action enregistrée</p>
           ) : (
             history.map((act, i) => {
               const teamPlayers = act.team === 'A' ? playersA : playersB;
@@ -1058,30 +1108,44 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
               const actionColor = act.team === 'A' ? 'var(--accent-orange)' : 'var(--accent-blue)';
               
               return (
-                <div key={i} className="sb-history-item" style={{ borderLeft: `4px solid ${actionColor}` }}>
-                  <span className="sb-history-time"><strong>{act.period}</strong> {Math.floor(act.time/60)}:{act.time%60 < 10 ? '0'+act.time%60 : act.time%60}</span>
-                  <span className="sb-history-content">
-                    {act.type === 'SUB' && <span style={{ color: actionColor }}>🔄 REMPLACEMENT {act.details}</span>}
+                <div key={i} className="sb-history-item" style={{ borderLeft: `3px solid ${actionColor}` }}>
+                  <div className="sb-history-time">
+                    <strong style={{color: 'white', marginRight: '4px'}}>{act.period}</strong> 
+                    {Math.floor(act.time/60)}:{act.time%60 < 10 ? '0'+act.time%60 : act.time%60}
+                  </div>
+                  
+                  <div className="sb-history-content">
+                    {act.type === 'SUB' && <span style={{ color: '#aaa' }}>🔄 REMPLACEMENT <span style={{fontSize: '0.75rem', marginLeft: '6px', color: '#666'}}>{act.details}</span></span>}
+                    
                     {act.type === 'SCORE' && (
                       <span style={{ color: actionColor }}>
-                        {act.value === 1 ? '✅ LANCER FRANC RÉUSSI (+1pt)' : act.value === 3 ? '✅ 3 POINTS RÉUSSI (+3pts)' : '✅ TIR RÉUSSI (+2pts)'} — #{playerInfo?.number} {playerInfo?.name}
+                        {act.value === 1 ? '🎯 LF RÉUSSI (+1)' : act.value === 3 ? '🔥 3 PTS RÉUSSI (+3)' : '🏀 TIR RÉUSSI (+2)'} 
+                        <strong style={{color: 'white', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>
                       </span>
                     )}
+                    
                     {act.type === 'MISS' && (
-                      <span style={{ color: 'var(--text-muted)' }}>
-                        {act.value === 1 ? '❌ LANCER FRANC MANQUÉ' : act.value === 3 ? '❌ 3 POINTS MANQUÉ' : '❌ TIR MANQUÉ (2pts)'} — #{playerInfo?.number} {playerInfo?.name}
+                      <span style={{ color: '#777' }}>
+                        {act.value === 1 ? '❌ LF MANQUÉ' : act.value === 3 ? '❌ 3 PTS MANQUÉ' : '❌ TIR MANQUÉ'} 
+                        <strong style={{color: '#aaa', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>
                       </span>
                     )}
+                    
                     {!['SUB', 'SCORE', 'MISS'].includes(act.type) && (
                       <span style={{ color: actionColor }}>
-                        {act.type === 'TIMEOUT' ? '⏱️ TEMPS MORT DEMANDÉ' : 
-                         act.type === 'FOUL' ? `⚠️ FAUTE ${act.foulType === 'PO' ? 'OFFENSIVE' : act.foulType === 'T' ? 'TECHNIQUE' : act.foulType === 'U' ? 'ANTISPORTIVE' : act.foulType === 'D' ? 'DISQUALIFIANTE' : 'PERSONNELLE'} — #${playerInfo?.number} ${playerInfo?.name}` :
-                         `${act.type === 'AST' ? 'ASSIST' : act.type} — #${playerInfo?.number} ${playerInfo?.name}`}
+                        {act.type === 'TIMEOUT' ? '⏱️ TEMPS MORT' : 
+                         act.type === 'FOUL' ? `⚠️ FAUTE ${act.foulType === 'PO' ? 'OFFENSIVE' : act.foulType === 'T' ? 'TECHNIQUE' : act.foulType === 'U' ? 'ANTISPORTIVE' : act.foulType === 'D' ? 'DISQUALIFIANTE' : 'PERSONNELLE'}` :
+                         `${act.type === 'AST' ? '🤝 PASS D.' : act.type === 'OREB' ? '🛡️ REB OFF' : act.type === 'DREB' ? '🛡️ REB DEF' : act.type === 'STL' ? '🥷 INTERCEPTION' : act.type === 'BLK' ? '🧱 CONTRE' : act.type === 'TOV' ? '🗑️ BALLE PERDUE' : act.type}`}
+                         
+                         {act.type !== 'TIMEOUT' && <strong style={{color: 'white', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>}
                       </span>
                     )}
-                  </span>
+                  </div>
+                  
                   {(!isMatchOver && canEdit) && (
-                    <button onClick={() => { if(window.confirm("Supprimer cette action ?")) deleteAction(i) }} className="sb-btn-delete-action">SUPPRIMER X</button>
+                    <button onClick={() => { if(window.confirm("Supprimer cette action ?")) deleteAction(i) }} className="sb-btn-delete-action" title="Supprimer l'action">
+                      ✕
+                    </button>
                   )}
                 </div>
               );
