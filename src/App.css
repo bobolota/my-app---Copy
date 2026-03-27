@@ -3,6 +3,24 @@
 /* --- 1. IMPORTS GOOGLE FONTS --- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800;900&display=swap');
 
+:root {
+  /* Paramètres Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.05); /* Fond blanc très léger */
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-blur: blur(12px);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+/* La classe magique à appliquer partout */
+.glass-effect {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur); /* Support Safari */
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 15px; /* Optionnel, mais recommandé pour l'effet "panneau" */
+}
+
 /* --- 2. DESIGN SYSTEM (VARIABLES) --- */
 :root {
   /* Couleurs de fond (Profondeur) */
@@ -772,4 +790,10 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .sb-btn-delete-action:hover {
   color: var(--danger);
   background: rgba(255,59,48,0.1);
+}
+
+.tm-card {
+  background: rgba(255, 255, 255, 0.03); /* Encore plus léger pour les sous-éléments */
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }

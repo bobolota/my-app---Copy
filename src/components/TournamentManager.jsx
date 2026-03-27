@@ -836,7 +836,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
             
             {/* 1. ÉQUIPES ET LICENCES */}
-            <div className="tm-panel" style={{ padding: '20px', margin: 0 }}>
+            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0 }}>
               <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>1. Équipes et Licences</h3>
               {canEdit && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -932,7 +932,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
             </div>
 
             {/* 2. PLANNING & GROUPES */}
-            <div className="tm-panel" style={{ padding: '20px', margin: 0, borderLeft: '4px solid var(--accent-purple)' }}>
+            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0, borderLeft: '4px solid var(--accent-purple)' }}>
               <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>2. Planning & Groupes</h3>
               {canEdit && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -1031,7 +1031,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       )}
 
       {activeTab === "finale" && (
-        <div className="tm-panel">
+        <div className="tm-panel glass-effect">
           <div className="tm-flex-between" style={{ marginBottom: '20px' }}>
             <h3>🏆 Phase Finale</h3>
             {(tourney.playoffs && canEdit) && <button onClick={() => update({playoffs: null})} style={{ background: 'none', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>RESET TABLEAU</button>}
@@ -1225,7 +1225,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       )}
 
       {activeTab === "stats" && (
-        <div className="tm-panel">
+        <div className="tm-panel glass-effect">
           <div className="tm-flex-between" style={{ marginBottom: '20px' }}>
             <h3>📈 Leaderboards du Tournoi</h3>
             <span style={{ fontSize: '0.8rem', color: '#888' }}>Statistiques basées sur les matchs terminés</span>

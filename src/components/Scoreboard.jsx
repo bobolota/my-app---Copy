@@ -851,7 +851,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         </div>
       </div>
       
-      <div className="header-stats">
+      <div className="header-stats" style={{ marginBottom: '40px' }}>
         <div className="score-board" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <h2>{teamA?.name}</h2>
             <p className="score-text team-score" style={{ marginBottom: '5px' }}>{scoreA}</p>
@@ -1067,7 +1067,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                         SUB
                     </button>
 
-                    {activeAction && <button onClick={() => setActiveAction(null)} className="action-btn cancel-btn" style={{ width: '100%', padding: '10px', fontSize: '0.85rem', marginTop: '10px' }}>ANNULER X</button>}
+                    {activeAction && <button onClick={() => setActiveAction(null)} className="action-btn cancel-btn" style={{ width: '100%', padding: '10px', fontSize: '0.85rem', marginTop: '10px' }}>ANNULER</button>}
                   </div>
                 )}
               </div>
@@ -1098,7 +1098,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       )}
 
       {/* --- HISTORIQUE (Mode Play-by-Play Pro) --- */}
-      <div className="sb-history-panel">
+      <div className="sb-history-panel" style={{ marginTop: '50px' }}>
         <h3 className="sb-history-title">🗓️ Play-by-Play (Historique)</h3>
         <div className="sb-history-list">
           {history.length === 0 ? (
