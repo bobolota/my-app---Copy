@@ -126,14 +126,22 @@ export default function App() {
 
   const launchMatch = (matchId) => {
     if (!currentTourney) return;
-    let match = currentTourney.schedule.find(m => m.id === matchId);
-    if (!match && currentTourney.playoffs) {
-      match = currentTourney.playoffs.matches.find(m => m.id === matchId);
-    }
-    if (match) {
-      setActiveMatch({ ...match, tourneyId: activeTourneyId });
-      setView('match');
-    }
+    
+    // 🛠️ ÉTAPE 1 : On vide le match actif pour forcer React à "éteindre" le Scoreboard
+    setActiveMatch(null);
+
+    // 🛠️ ÉTAPE 2 : On attend un micro-délai (10ms) pour que React valide le nettoyage
+    setTimeout(() => {
+      let match = currentTourney.schedule?.find(m => m.id === matchId);
+      if (!match && currentTourney.playoffs) {
+        match = currentTourney.playoffs.matches?.find(m => m.id === matchId);
+      }
+      
+      if (match) {
+        setActiveMatch({ ...match, tourneyId: activeTourneyId });
+        setView('match');
+      }
+    }, 10);
   };
 
   const finishMatch = async (scoreA, scoreB, playersA, playersB) => {
@@ -331,24 +339,21 @@ export default function App() {
             
             {view === 'match' && activeMatch && (
               <Scoreboard 
+                key={activeMatch.id} // 🛠️ LA CLÉ UNIQUE ICI
                 matchId={activeMatch.id}
-                teamA={activeMatch.teamA} 
+                teamA={activeMatch.teamA}                
                 teamB={activeMatch.teamB} 
                 savedStatsA={activeMatch.savedStatsA}
                 savedStatsB={activeMatch.savedStatsB}
                 isFinished={activeMatch.status === 'finished'}
-                
-                /* 👇 LA CORRECTION EST ICI 👇 */
                 onExit={() => { 
                   setView('tournament'); 
-                  setActiveMatch(null); /* 🧹 On vide la mémoire pour forcer le rechargement au prochain clic ! */
-                }} 
-                /* 👆 ---------------------- 👆 */
-
+                  setActiveMatch(null); // 🛠️ On nettoie ici aussi !
+                }}
                 onMatchFinished={finishMatch} 
                 userRole={userRole}
                 onLiveUpdate={syncLiveScore}
-                tourney={currentTourney} 
+                tourney={currentTourney} /* 🛠️ LA LIGNE MAGIQUE À AJOUTER EST ICI */
               />
             )}
           </div>

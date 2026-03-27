@@ -349,7 +349,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                 livePeriod: period,
                 liveHistory: history,
                 livePossession: possession,
-                startersValidated: startersValidated, // <--- C'EST ICI QU'ON L'AJOUTE AUSSI !
+                startersValidated: startersValidated,
                 scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
                 scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
             };
@@ -369,7 +369,9 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         }
     }, 1500); 
 
-    // ATTENTION : On ajoute bien startersValidated à la fin de cette ligne 👇
+    // 🛠️ AJOUTE CETTE LIGNE ICI POUR NETTOYER LA MÉMOIRE EN QUITTANT :
+    return () => clearTimeout(timeoutId);
+
   }, [history, startersValidated]); 
   // ---------------------------------------------
 

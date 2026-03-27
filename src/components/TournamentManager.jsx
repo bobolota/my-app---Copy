@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 export default function TournamentManager({ tourney, setTournaments, onLaunchMatch, userRole, session }) {
   const isOwner = tourney.organizer_id === session?.user?.id;
   const isInvitedOtm = tourney.otm_ids?.includes(session?.user?.id);
+  const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
   const canEdit = userRole === 'ADMIN' || isOwner;
   const canManageMatch = canEdit || isInvitedOtm; 
@@ -189,7 +190,22 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       const newMatches = tourney.playoffs.matches.map(m => 
         m.id === matchId ? { ...m, status, scoreA, scoreB } : m
       );
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+      
+      // 🛠️ FIX : On met à jour l'objet complet des playoffs pour déclencher le useEffect de progression
+      update({ 
+        playoffs: { 
+          ...tourney.playoffs, 
+          matches: newMatches,
+          // On change le status global temporairement pour forcer React à recalculer l'arbre
+          status: 'updating' 
+        } 
+      });
+
+      // On repasse en 'started' juste après
+      setTimeout(() => {
+        update({ playoffs: { ...tourney.playoffs, matches: newMatches, status: 'started' } });
+      }, 100);
+
     } else {
       const newSchedule = tourney.schedule.map(m => 
         m.id === matchId ? { ...m, status, scoreA, scoreB } : m
@@ -352,62 +368,29 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     setTeamName("");
   };
 
-  const importGlobalTeam = async () => {
-    if (!canEdit || !selectedGlobalTeamId) return;
-    const gTeam = globalTeams.find(t => t.id === selectedGlobalTeamId);
-    if (!gTeam) return;
-
+  const handleDirectImport = async (gTeam) => {
+    if (!canEdit || !gTeam) return;
     if (tourney.teams.some(t => t.global_id === gTeam.id)) {
-      alert("Cette équipe a déjà été importée dans le tournoi !");
+      alert("Cette équipe a déjà été importée !");
       return;
     }
-
     try {
-      const { data: members, error: membersError } = await supabase
-        .from('team_members')
-        .select('player_id')
-        .eq('team_id', gTeam.id)
-        .eq('status', 'accepted');
-
-      if (membersError) throw membersError;
-
+      const { data: members } = await supabase.from('team_members').select('player_id').eq('team_id', gTeam.id).eq('status', 'accepted');
       let newPlayers = [];
       if (members && members.length > 0) {
-        const playerIds = members.map(m => m.player_id);
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .in('id', playerIds);
-
-        if (profilesError) throw profilesError;
-
+        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', members.map(m => m.player_id));
         newPlayers = members.map((m, i) => {
           const prof = profiles.find(p => p.id === m.player_id);
-          return {
-            id: m.player_id, 
-            name: prof?.full_name || "Joueur Inconnu",
-            number: String(i + 4), 
-            licenseStatus: 'to_check', 
-            paid: 0,
-            totalDue: 20
-          };
+          return { id: m.player_id, name: prof?.full_name || "Joueur Inconnu", number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20 };
         });
       }
+      update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), global_id: gTeam.id, name: gTeam.name, players: newPlayers, groupId: null }] });
+      setTeamSearchQuery("");
+    } catch (error) { alert("Erreur d'import : " + error.message); }
+  };
 
-      const newTeam = {
-        id: "tm_" + Date.now(),
-        global_id: gTeam.id, 
-        name: gTeam.name,
-        players: newPlayers,
-        groupId: null
-      };
-
-      update({ teams: [...tourney.teams, newTeam] });
-      setSelectedGlobalTeamId("");
-      alert(`L'équipe ${gTeam.name} et ses ${newPlayers.length} joueurs ont été importés avec succès ! ✅`);
-    } catch (error) {
-      alert("Erreur lors de l'importation : " + error.message);
-    }
+  const importGlobalTeam = () => {
+    // Cette fonction reste vide ou peut être supprimée car handleDirectImport prend le relais
   };
 
   const handleDraftChange = (index, field, value) => {
@@ -855,21 +838,36 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                   <button onClick={addTeam} className="tm-btn-success">AJOUTER</button>
                 </div>
 
-                <div style={{ flex: 1, minWidth: '300px', display: 'flex', gap: '10px', background: 'rgba(0, 102, 204, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-blue)' }}>
-                  <select 
-                    value={selectedGlobalTeamId} 
-                    onChange={e => setSelectedGlobalTeamId(e.target.value)}
+                <div style={{ flex: 1, minWidth: '300px', position: 'relative', background: 'rgba(0, 102, 204, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-blue)', boxSizing: 'border-box' }}>
+                  <input 
                     className="tm-input" 
-                    style={{ flex: 1 }}
-                  >
-                    <option value="">-- Choisir une équipe du réseau --</option>
-                    {globalTeams.map(t => (
-                      <option key={t.id} value={t.id}>{t.name} {t.city ? `(${t.city})` : ''}</option>
-                    ))}
-                  </select>
-                  <button onClick={importGlobalTeam} style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', padding: '0 15px', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }}>
-                    ⬇️ IMPORTER
-                  </button>
+                    placeholder="🔍 Taper le nom d'une équipe du réseau..." 
+                    value={teamSearchQuery} 
+                    onChange={(e) => setTeamSearchQuery(e.target.value)} 
+                    style={{ width: '100%', boxSizing: 'border-box' }} 
+                  />
+                  {teamSearchQuery.length >= 2 && (
+                    <div style={{ 
+                      position: 'absolute', top: '100%', left: 0, right: 0, 
+                      background: '#1a1a1a', border: '1px solid var(--accent-blue)', 
+                      borderRadius: '0 0 8px 8px', zIndex: 100, maxHeight: '200px', 
+                      overflowY: 'auto', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' 
+                    }}>
+                      {globalTeams
+                        .filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase()))
+                        .map(gt => (
+                        <div 
+                          key={gt.id} 
+                          onClick={() => handleDirectImport(gt)} 
+                          style={{ padding: '12px', cursor: 'pointer', borderBottom: '1px solid #333', fontSize: '0.9rem', color: 'white' }}
+                          onMouseOver={e => e.target.style.background = 'var(--accent-blue)'}
+                          onMouseOut={e => e.target.style.background = 'transparent'}
+                        >
+                          🏀 {gt.name} <span style={{ color: '#aaa', fontSize: '0.75rem' }}>({gt.city || 'Ville non renseignée'})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1240,7 +1238,12 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
                                 <div style={{ display: 'flex', gap: '6px' }}>
                                   <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
                                   <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Annuler le match">❌</button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Déclarer un forfait">🏳️</button>
+                                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} 
+                                  style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s', position: 'relative', // 🛠️ Crucial pour le clic
+                                  
+                                    // zIndex: 5             // 🛠️ Assure que le bouton est "au-dessus"
+                                  }}
+                                    title="Forfait">🏳️</button>
                                 </div>
                               )}
                             </div>
