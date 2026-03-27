@@ -284,17 +284,16 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     let maxTimeouts = 0;
     let periodsInCurrentHalf = [];
 
-    if (period === 'Q1' || period === 'Q2') {
-      maxTimeouts = settings.timeoutsHalf1; 
-      periodsInCurrentHalf = ['Q1', 'Q2'];
-    } 
-    else if (period === 'Q3' || period === 'Q4') {
-      maxTimeouts = settings.timeoutsHalf2; 
-      periodsInCurrentHalf = ['Q3', 'Q4'];
-    } 
-    else if (period && period.startsWith('OT')) {
-      maxTimeouts = 1; 
-      periodsInCurrentHalf = [period]; 
+    if (settings.periodCount === 2) {
+      // 🏀 CAS 2 MI-TEMPS
+      if (period === 'Q1') { maxTimeouts = settings.timeoutsHalf1; periodsInCurrentHalf = ['Q1']; }
+      else if (period === 'Q2') { maxTimeouts = settings.timeoutsHalf2; periodsInCurrentHalf = ['Q2']; }
+      else if (period && period.startsWith('OT')) { maxTimeouts = 1; periodsInCurrentHalf = [period]; }
+    } else {
+      // 🏀 CAS 4 QUARTS-TEMPS (Défaut)
+      if (period === 'Q1' || period === 'Q2') { maxTimeouts = settings.timeoutsHalf1; periodsInCurrentHalf = ['Q1', 'Q2']; } 
+      else if (period === 'Q3' || period === 'Q4') { maxTimeouts = settings.timeoutsHalf2; periodsInCurrentHalf = ['Q3', 'Q4']; } 
+      else if (period && period.startsWith('OT')) { maxTimeouts = 1; periodsInCurrentHalf = [period]; }
     }
 
     const timeoutsTakenThisHalf = history.filter(
@@ -447,14 +446,26 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const nextPeriod = () => {
     if (!canEdit) return; 
     let nextP;
-    if (period === 'Q1') nextP = 'Q2';
-    else if (period === 'Q2') nextP = 'Q3';
-    else if (period === 'Q3') nextP = 'Q4';
-    else if (period === 'Q4' || period.startsWith('OT')) {
-      const otNumber = period === 'Q4' ? 1 : parseInt(period.replace('OT', '')) + 1;
-      nextP = `OT${otNumber}`;
+    
+    if (settings.periodCount === 2) {
+      // 🏀 PASSAGE POUR 2 MI-TEMPS
+      if (period === 'Q1') nextP = 'Q2';
+      else if (period === 'Q2' || period.startsWith('OT')) {
+        const otNumber = period === 'Q2' ? 1 : parseInt(period.replace('OT', '')) + 1;
+        nextP = `OT${otNumber}`;
+      }
+    } else {
+      // 🏀 PASSAGE POUR 4 QUARTS-TEMPS
+      if (period === 'Q1') nextP = 'Q2';
+      else if (period === 'Q2') nextP = 'Q3';
+      else if (period === 'Q3') nextP = 'Q4';
+      else if (period === 'Q4' || period.startsWith('OT')) {
+        const otNumber = period === 'Q4' ? 1 : parseInt(period.replace('OT', '')) + 1;
+        nextP = `OT${otNumber}`;
+      }
     }
-    if (window.confirm(`Passer à ${nextP} et remettre le chrono à 10:00 ?`)) {
+
+    if (window.confirm(`Passer à ${nextP} et remettre le chrono à ${settings.periodDuration}:00 ?`)) {
       setPeriod(nextP); setTime(settings.periodDuration * 60); setIsRunning(false);
     }
   };

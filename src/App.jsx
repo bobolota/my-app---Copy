@@ -341,6 +341,7 @@ export default function App() {
                 onMatchFinished={finishMatch} 
                 userRole={userRole}
                 onLiveUpdate={syncLiveScore}
+                tourney={currentTourney} /* 🛠️ LA LIGNE MAGIQUE À AJOUTER EST ICI */
               />
             )}
           </div>
