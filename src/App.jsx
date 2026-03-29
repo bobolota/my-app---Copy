@@ -7,6 +7,8 @@ import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import PlayerDashboard from './components/PlayerDashboard';
 import { Toaster } from 'react-hot-toast';
+import ConfirmModal from './components/ConfirmModal';
+import PromptModal from './components/PromptModal';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -17,6 +19,12 @@ export default function App() {
 
   const [activeMenu, setActiveMenu] = useState(() => localStorage.getItem('basket_active_menu_v3') || 'vestiaire');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
+  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
+
+  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
 
   const [view, setView] = useState(() => localStorage.getItem('basket_view_v3') || 'dashboard');
   const [tournaments, setTournaments] = useState([]);
@@ -94,10 +102,18 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    if(window.confirm("Es-tu sûr de vouloir te déconnecter ?")) {
-      await supabase.auth.signOut();
-    }
+  const handleLogout = () => {
+    setConfirmData({
+      isOpen: true,
+      title: "Déconnexion",
+      message: "Êtes-vous sûr de vouloir vous déconnecter ?",
+      isDanger: true, // Mets 'true' pour que le bouton valider soit rouge
+      onConfirm: async () => {
+        
+        await supabase.auth.signOut();
+        toast.success("Vous êtes déconnecté !");
+      }
+    });
   };
 
   const fetchTournaments = async () => {
@@ -179,7 +195,7 @@ export default function App() {
 
     if (error) {
       console.error("Erreur de sauvegarde Supabase :", error);
-      alert("Erreur réseau lors de la sauvegarde du match !");
+      toast.error("Erreur réseau lors de la sauvegarde du match !");
       return;
     }
 
@@ -366,6 +382,30 @@ export default function App() {
         <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
       )}
 
-    </div>
+      {/* --- MODALES GLOBALES DU DASHBOARD --- */}
+      <ConfirmModal 
+        isOpen={confirmData.isOpen}
+        title={confirmData.title}
+        message={confirmData.message}
+        onConfirm={() => {
+          if (confirmData.onConfirm) confirmData.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmData.isDanger}
+      />
+
+      <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
+    </div> // (Ou </>) - C'est la fin de ton composant App
   );
 }

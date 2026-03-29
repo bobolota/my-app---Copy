@@ -6,6 +6,8 @@ import PlayoffsTab from './PlayoffsTab';
 import GroupStageTab from './GroupStageTab';
 import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
+import PromptModal from './PromptModal';
+import ChoiceModal from './ChoiceModal';
 // FIN DE LA MODIFICATION
 
 
@@ -35,12 +37,16 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   
   const [globalTeams, setGlobalTeams] = useState([]);
   const [selectedGlobalTeamId, setSelectedGlobalTeamId] = useState("");
+  const [choiceData, setChoiceData] = useState({ isOpen: false, title: '', message: '', optionA: '', optionB: '', onChoose: null });
+  const closeChoice = () => setChoiceData(prev => ({ ...prev, isOpen: false }));
 
   // --- ÉTATS POUR LA MODALE OTM ---
   const [otmProfiles, setOtmProfiles] = useState([]);
   const [otmModal, setOtmModal] = useState(null);
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
+   const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
   const [selectedOtms, setSelectedOtms] = useState([]); // Pour les cases à cocher
   const [customOtm, setCustomOtm] = useState("");       // Pour le texte libre
 
@@ -277,15 +283,24 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
          }
        });
     } else if (actionType === 'forfeit') {
-       // On garde le window.prompt natif pour l'instant car il nécessite une saisie clavier
-       const res = window.prompt(`Qui déclare FORFAIT ?\n\nTapez 1 pour : ${match.teamA?.name}\nTapez 2 pour : ${match.teamB?.name}`);
-       if (res === '1') {
-         updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
-         toast.success("Forfait enregistré");
-       } else if (res === '2') {
-         updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
-         toast.success("Forfait enregistré");
-       }
+       setChoiceData({
+         isOpen: true,
+         title: "Déclarer un Forfait 🏳️",
+         message: "Quelle équipe n'a pas pu se présenter ou a déclaré forfait ?",
+         optionA: match.teamA?.name || "Équipe A",
+         optionB: match.teamB?.name || "Équipe B",
+         onChoose: (choice) => {
+           if (choice === 'A') {
+             // Si A fait forfait, B gagne 20 à 0
+             updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
+             toast.success(`Forfait de ${match.teamA?.name} enregistré`);
+           } else if (choice === 'B') {
+             // Si B fait forfait, A gagne 20 à 0
+             updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
+             toast.success(`Forfait de ${match.teamB?.name} enregistré`);
+           }
+         }
+       });
     }
   };
 
@@ -374,11 +389,13 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     });
   };
 
+  // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx
+
   const generatePlayoffs = () => {
     if (!canEdit) return;
 
     if (!tourney.schedule || tourney.schedule.length === 0) {
-      alert("Impossible : Aucun match de poule n'a été généré. Veuillez d'abord créer le planning des poules.");
+      toast.error("Impossible : Aucun match de poule n'a été généré. Veuillez d'abord créer le planning des poules.");
       return;
     }
 
@@ -387,94 +404,111 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
     if (resolvedMatches < totalMatches) {
       const remaining = totalMatches - resolvedMatches;
-      alert(`Impossible de générer la phase finale 🛑\n\nTous les matchs de poule doivent être terminés (ou annulés/forfaits).\nIl reste actuellement ${remaining} match(s) en attente.`);
+      toast.error(`Impossible de générer la phase finale 🛑\n\nTous les matchs de poule doivent être terminés (ou annulés/forfaits).\nIl reste actuellement ${remaining} match(s) en attente.`);
       return;
     }
 
-    if (tourney.playoffs && !window.confirm("Écraser la phase finale existante ?")) return;
-    
-    const qualifiedTeams = [];
-    const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
-    
-    let maxLimit = 0;
-    savedGroupIds.forEach(gNum => {
-      const limit = getGroupLimit(tourney, gNum);
-      if(limit > maxLimit) maxLimit = limit;
-    });
-
-    for(let rank = 0; rank < maxLimit; rank++) {
+    // NOUVEAU : La fonction qui fait vraiment le calcul
+    const executeGeneration = () => {
+      const qualifiedTeams = [];
+      const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
+      
+      let maxLimit = 0;
       savedGroupIds.forEach(gNum => {
         const limit = getGroupLimit(tourney, gNum);
-        if (rank < limit) {
-          const standings = getGroupStandings(gNum);
-          if (standings[rank]) qualifiedTeams.push(standings[rank]);
-        }
+        if(limit > maxLimit) maxLimit = limit;
       });
-    }
 
-    const totalTeams = qualifiedTeams.length;
-    if (totalTeams < 2) { alert("Il faut au moins 2 équipes qualifiées."); return; }
+      for(let rank = 0; rank < maxLimit; rank++) {
+        savedGroupIds.forEach(gNum => {
+          const limit = getGroupLimit(tourney, gNum);
+          if (rank < limit) {
+            const standings = getGroupStandings(gNum);
+            if (standings[rank]) qualifiedTeams.push(standings[rank]);
+          }
+        });
+      }
 
-    let size = 2;
-    while (size < totalTeams && size <= 1024) size *= 2;
+      const totalTeams = qualifiedTeams.length;
+      if (totalTeams < 2) { toast.error("Il faut au moins 2 équipes qualifiées."); return; }
 
-    const seeded = new Array(size).fill(null);
-    for(let i=0; i<totalTeams; i++) seeded[i] = qualifiedTeams[i];
-    for(let i=totalTeams; i<size; i++) seeded[i] = { id: `bye_${i}`, name: 'EXEMPTÉ', isBye: true };
+      let size = 2;
+      while (size < totalTeams && size <= 1024) size *= 2;
 
-    const getRoundLabel = (matchesCount, matchIdx) => {
-      if (matchesCount === 1) return "FINALE";
-      if (matchesCount === 2) return `DEMI-FINALE ${matchIdx + 1}`;
-      if (matchesCount === 4) return `QUART DE FINALE ${matchIdx + 1}`;
-      if (matchesCount === 8) return `8ÈME DE FINALE ${matchIdx + 1}`;
-      if (matchesCount === 16) return `16ÈME DE FINALE ${matchIdx + 1}`;
-      return `MATCH ${matchIdx + 1}`;
-    };
+      const seeded = new Array(size).fill(null);
+      for(let i=0; i<totalTeams; i++) seeded[i] = qualifiedTeams[i];
+      for(let i=totalTeams; i<size; i++) seeded[i] = { id: `bye_${i}`, name: 'EXEMPTÉ', isBye: true };
 
-    const matches = [];
-    let numMatchesInRound = size / 2;
-    let roundNum = 1;
-    const ts = Date.now();
+      const getRoundLabel = (matchesCount, matchIdx) => {
+        if (matchesCount === 1) return "FINALE";
+        if (matchesCount === 2) return `DEMI-FINALE ${matchIdx + 1}`;
+        if (matchesCount === 4) return `QUART DE FINALE ${matchIdx + 1}`;
+        if (matchesCount === 8) return `8ÈME DE FINALE ${matchIdx + 1}`;
+        if (matchesCount === 16) return `16ÈME DE FINALE ${matchIdx + 1}`;
+        return `MATCH ${matchIdx + 1}`;
+      };
 
-    for (let i = 0; i < numMatchesInRound; i++) {
-      const tA = seeded[i];
-      const tB = seeded[size - 1 - i];
-      const hasBye = tA.isBye || tB.isBye;
+      const matches = [];
+      let numMatchesInRound = size / 2;
+      let roundNum = 1;
+      const ts = Date.now();
 
-      matches.push({
-        id: `p_${ts}_r${roundNum}_m${i}`,
-        round: roundNum,
-        teamA: tA, teamB: tB, 
-        scoreA: 0, scoreB: 0, 
-        status: hasBye ? 'finished' : 'pending',
-        label: getRoundLabel(numMatchesInRound, i),
-        nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-        nextSlot: i % 2 === 0 ? 'teamA' : 'teamB' 
-      });
-    }
-
-    numMatchesInRound /= 2;
-    roundNum++;
-
-    while (numMatchesInRound >= 1) {
       for (let i = 0; i < numMatchesInRound; i++) {
+        const tA = seeded[i];
+        const tB = seeded[size - 1 - i];
+        const hasBye = tA.isBye || tB.isBye;
+
         matches.push({
           id: `p_${ts}_r${roundNum}_m${i}`,
           round: roundNum,
-          teamA: null, teamB: null, 
-          scoreA: 0, scoreB: 0, status: 'pending',
+          teamA: tA, teamB: tB, 
+          scoreA: 0, scoreB: 0, 
+          status: hasBye ? 'finished' : 'pending',
           label: getRoundLabel(numMatchesInRound, i),
           nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-          nextSlot: i % 2 === 0 ? 'teamA' : 'teamB'
+          nextSlot: i % 2 === 0 ? 'teamA' : 'teamB' 
         });
       }
+
       numMatchesInRound /= 2;
       roundNum++;
-    }
 
-    update({ playoffs: { size, matches, status: 'started' } });
-    setActiveTab("finale");
+      while (numMatchesInRound >= 1) {
+        for (let i = 0; i < numMatchesInRound; i++) {
+          matches.push({
+            id: `p_${ts}_r${roundNum}_m${i}`,
+            round: roundNum,
+            teamA: null, teamB: null, 
+            scoreA: 0, scoreB: 0, status: 'pending',
+            label: getRoundLabel(numMatchesInRound, i),
+            nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
+            nextSlot: i % 2 === 0 ? 'teamA' : 'teamB'
+          });
+        }
+        numMatchesInRound /= 2;
+        roundNum++;
+      }
+
+      update({ playoffs: { size, matches, status: 'started' } });
+      setActiveTab("finale");
+      toast.success("Phase finale générée avec succès !");
+    }; // FIN DE executeGeneration
+
+    // NOUVEAU : La logique d'ouverture de la modale
+    if (tourney.playoffs) {
+       setConfirmData({
+         isOpen: true,
+         title: "Écraser la phase finale ?",
+         message: "Une phase finale existe déjà. Voulez-vous la régénérer et écraser l'actuelle ?",
+         isDanger: true,
+         onConfirm: executeGeneration
+       });
+    } else {
+       executeGeneration();
+    }
   };
+
+// FIN DE LA MODIFICATION
 
   const addTeam = () => {
     if (!canEdit || !teamName.trim()) return;
@@ -485,7 +519,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const handleDirectImport = async (gTeam) => {
     if (!canEdit || !gTeam) return;
     if (tourney.teams.some(t => t.global_id === gTeam.id)) {
-      alert("Cette équipe a déjà été importée !");
+      toast.error("Cette équipe a déjà été importée !");
       return;
     }
     try {
@@ -500,7 +534,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       }
       update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), global_id: gTeam.id, name: gTeam.name, players: newPlayers, groupId: null }] });
       setTeamSearchQuery("");
-    } catch (error) { alert("Erreur d'import : " + error.message); }
+    } catch (error) { toast.error("Erreur d'import : " + error.message); }
   };
 
   const importGlobalTeam = () => {
@@ -525,7 +559,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     if (!canEdit) return;
     
     const validPlayers = playersDraft.filter(p => p.name.trim() !== "");
-    if (validPlayers.length === 0) return alert("Veuillez remplir au moins un nom !");
+    if (validPlayers.length === 0) return toast.error("Veuillez remplir au moins un nom !");
     
     const newPlayers = validPlayers.map((p, index) => ({
       id: "p_" + Date.now() + "_" + index, 
@@ -647,26 +681,30 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     });
   };
 
-  const handleUnlockOtm = async () => {
-    const pin = window.prompt("Entrez le code PIN fourni par l'organisateur pour débloquer la Table de Marque :");
-    if (!pin) return;
-
-    try {
-      const { error } = await supabase.rpc('join_as_otm', { pin: pin.trim().toUpperCase() });
-      if (error) throw error;
-      
-      alert("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
-      
-      setTournaments(prev => prev.map(t => {
-        if (t.id === tourney.id) {
-          return { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] };
+  const handleUnlockOtm = () => {
+    setPromptData({
+      isOpen: true,
+      title: "Accès Table de Marque",
+      message: "Entrez le code PIN fourni par l'organisateur pour débloquer la gestion du match :",
+      placeholder: "Code PIN (ex: 1234)",
+      onConfirm: async (pin) => {
+        if (!pin) return;
+        try {
+          const { error } = await supabase.rpc('join_as_otm', { pin: pin.trim().toUpperCase() });
+          if (error) throw error;
+          
+          toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
+          setTournaments(prev => prev.map(t => {
+            if (t.id === tourney.id) {
+              return { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] };
+            }
+            return t;
+          }));
+        } catch (err) {
+          toast.error("Code PIN invalide ou erreur réseau.");
         }
-        return t;
-      }));
-
-    } catch (err) {
-      alert("Code PIN invalide ou erreur réseau.");
-    }
+      }
+    });
   };
 
   const renderPlayerColumn = (title, status, color, team) => {
@@ -797,7 +835,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           {renderPlayerColumn("EN ATTENTE", "pending", "var(--accent-orange)", team)}
           {renderPlayerColumn("VALIDÉ", "validated", "var(--success)", team)}
         </div>
-
+                
         <ConfirmModal 
           isOpen={confirmData.isOpen}
           title={confirmData.title}
@@ -809,7 +847,32 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           onCancel={closeConfirm}
           isDanger={confirmData.isDanger}
         />
-        
+
+        <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
+
+      <ChoiceModal 
+          isOpen={choiceData.isOpen}
+          title={choiceData.title}
+          message={choiceData.message}
+          optionA={choiceData.optionA}
+          optionB={choiceData.optionB}
+          onChoose={(choice) => {
+            if (choiceData.onChoose) choiceData.onChoose(choice);
+            closeChoice();
+          }}
+          onCancel={closeChoice}
+        />
+
       </div>
     );
   }
@@ -984,6 +1047,31 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         isDanger={confirmData.isDanger}
       />
       
+      <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
+
+      <ChoiceModal 
+          isOpen={choiceData.isOpen}
+          title={choiceData.title}
+          message={choiceData.message}
+          optionA={choiceData.optionA}
+          optionB={choiceData.optionB}
+          onChoose={(choice) => {
+            if (choiceData.onChoose) choiceData.onChoose(choice);
+            closeChoice();
+          }}
+          onCancel={closeChoice}
+        />
+
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import useMatchSync from '../hooks/useMatchSync';
+import toast from 'react-hot-toast';
+import ConfirmModal from './ConfirmModal';
+import PromptModal from './PromptModal';
 
 // --- COMPOSANTS INTERNES ---
 
@@ -187,6 +190,12 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   
   const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
 
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
+  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
+
+  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
+
   // --- ARCHITECTURE MODERNE : Rôles contextuels ---
   // Soit l'utilisateur est le créateur absolu de l'app (ADMIN)
   // Soit le TournamentManager lui a donné l'autorisation stricte pour CE match (Créateur du tournoi ou OTM assigné)
@@ -299,11 +308,20 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       if (!canEdit || isMatchOver) return; 
       if (type === 'TIMEOUT') {
           const left = team === 'A' ? timeoutsA : timeoutsB;
-          if (left <= 0) { alert("Plus de temps mort disponible !"); return; }
-          if (window.confirm(`Accorder un Temps Mort à l'équipe ${team === 'A' ? teamA?.name : teamB?.name} ?`)) {
-              setHistory([{ team, playerId: null, type: 'TIMEOUT', time, period }, ...history]);
-              setIsRunning(false);
-          }
+          if (left <= 0) { toast.error("Plus de temps mort disponible !"); return; }
+
+    setConfirmData({
+      isOpen: true,
+      title: "Temps Mort ⏱️",
+      message: `Accorder un Temps Mort à l'équipe ${team === 'A' ? teamA?.name : teamB?.name} ?`,
+      isDanger: false,
+      onConfirm: () => {
+        setHistory([{ team, playerId: null, type: 'TIMEOUT', time, period }, ...history]);
+        setIsRunning(false);
+        toast.success(`Temps mort accordé à ${team === 'A' ? teamA?.name : teamB?.name}`);
+      }
+    });
+
       }
   };
 
@@ -421,14 +439,23 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
 
     // NOUVEAU : Anti-crash de fin de match
     if (!isOnline) {
-      alert("⚠️ Vous êtes HORS-LIGNE !\n\nLe match est bien sauvegardé dans la tablette, mais vous devez retrouver une connexion internet (pastille verte) avant de cliquer sur 'Terminer le match' pour l'envoyer dans le cloud.");
+      toast.error("⚠️ Vous êtes HORS-LIGNE !\n\nLe match est bien sauvegardé dans la tablette, mais vous devez retrouver une connexion internet (pastille verte) avant de cliquer sur 'Terminer le match' pour l'envoyer dans le cloud.");
       return;
     }
 
-    if (window.confirm("Terminer définitivement le match et sauvegarder les stats ?")) {
-      setIsRunning(false); setIsMatchOver(true); setCurrentView('boxscore');
-      if (onMatchFinished) onMatchFinished(scoreA, scoreB, playersA, playersB);
-    }
+    setConfirmData({
+      isOpen: true,
+      title: "Terminer le match 🏁",
+      message: "Voulez-vous terminer définitivement le match et sauvegarder les statistiques ? (Cette action est irréversible)",
+      isDanger: true, // En rouge pour éviter les erreurs
+      onConfirm: () => {
+        setIsRunning(false); 
+        setIsMatchOver(true); 
+        setCurrentView('boxscore');
+        if (onMatchFinished) onMatchFinished(scoreA, scoreB, playersA, playersB);
+        toast.success("Match terminé et statistiques sauvegardées !");
+      }
+    });
   };
 
   const handleSaveTime = (e) => { e.stopPropagation(); setTime(parseInt(editMin || 0) * 60 + parseInt(editSec || 0)); setIsEditing(false); };
@@ -456,9 +483,18 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       }
     }
 
-    if (window.confirm(`Passer à ${nextP} et remettre le chrono à ${settings.periodDuration}:00 ?`)) {
-      setPeriod(nextP); setTime(settings.periodDuration * 60); setIsRunning(false);
-    }
+    setConfirmData({
+      isOpen: true,
+      title: "Période suivante 🏀",
+      message: `Passer à ${nextP} et remettre le chrono à ${settings.periodDuration}:00 ?`,
+      isDanger: false,
+      onConfirm: () => {
+        setPeriod(nextP); 
+        setTime(settings.periodDuration * 60); 
+        setIsRunning(false);
+        toast.success(`C'est parti pour ${nextP} !`);
+      }
+    });
   };
 
   const deleteAction = (index) => {
@@ -560,7 +596,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         const courtCount = currentPlayers.filter(p => p.status === 'court').length;
         
         if (targetPlayer?.status === 'bench' && courtCount >= 5) {
-            alert("Il y a déjà 5 titulaires ! Enlevez-en un d'abord.");
+            toast.error("Il y a déjà 5 titulaires ! Enlevez-en un d'abord.");
             return;
         }
         set(prev => prev.map(p => p.id === pid ? { ...p, status: p.status === 'court' ? 'bench' : 'court' } : p));
@@ -581,12 +617,12 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       const clickedPlayer = teamPlayers.find(x => x.id === pid);
       if (pendingSubs.includes(pid)) {
         if (clickedPlayer && clickedPlayer.fouls >= 5 && clickedPlayer.status === 'court') {
-           alert("Ce joueur a 5 fautes, il doit obligatoirement sortir."); return;
+           toast.error("Ce joueur a 5 fautes, il doit obligatoirement sortir."); return;
         }
         setPendingSubs(prev => prev.filter(id => id !== pid));
       } else {
         if (clickedPlayer && clickedPlayer.fouls >= 5 && clickedPlayer.status === 'bench') {
-           alert("Ce joueur est exclu (5 fautes) et ne peut plus jouer."); return;
+           toast.error("Ce joueur est exclu (5 fautes) et ne peut plus jouer."); return;
         }
         setPendingSubs(prev => [...prev, pid]);
       }
@@ -657,7 +693,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         setActiveAction({type:'SUB'});
         setPendingSubs([player.id]);
         const reason = newD ? "Faute Disqualifiante" : (newT >= 2 ? "2 Fautes Techniques" : (newU >= 2 ? "2 Fautes Antisportives" : "5ème Faute"));
-        setTimeout(() => alert(`EXCLUSION (${reason}) pour ${player.name} ! Il doit quitter le terrain.`), 10);
+        setTimeout(() => toast.error(`EXCLUSION (${reason}) pour ${player.name} ! Il doit quitter le terrain.`), 10);
     }
     
     setHistory([{ team, playerId, type: 'FOUL', foulType, time, period }, ...history]);
@@ -678,12 +714,12 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         p.status === 'bench' && p.fouls < 5 && (p.techFouls || 0) < 2 && (p.antiFouls || 0) < 2 && !p.isDisqualified && !pendingSubs.includes(p.id)
     ).length;
 
-    if (newCourtCount > 5) { alert(`Remplacement invalide : L'équipe se retrouverait avec ${newCourtCount} joueurs.`); return; }
+    if (newCourtCount > 5) { toast.error(`Remplacement invalide : L'équipe se retrouverait avec ${newCourtCount} joueurs.`); return; }
     if (pOut.length > pIn.length) {
-        if (availableBench > 0) { alert(`Remplacement incomplet : Il reste ${availableBench} remplaçant(s) valide(s).`); return; }
+        if (availableBench > 0) { toast.error(`Remplacement incomplet : Il reste ${availableBench} remplaçant(s) valide(s).`); return; }
         const fouledOuts = pOut.filter(p => p.fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified).length;
         const unreplacedOuts = pOut.length - pIn.length;
-        if (unreplacedOuts > fouledOuts) { alert("Action interdite : Seuls les joueurs exclus peuvent ne pas être remplacés."); return; }
+        if (unreplacedOuts > fouledOuts) { toast.error("Action interdite : Seuls les joueurs exclus peuvent ne pas être remplacés."); return; }
     }
 
     const updateStatus = (list) => list.map(p => {
@@ -766,7 +802,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       
     } catch (err) {
       console.error("Erreur lors de la génération du PDF :", err);
-      alert("Une erreur est survenue lors de la création du PDF.");
+      toast.error("Une erreur est survenue lors de la création du PDF.");
     } finally {
       // On recache le composant pour ne pas polluer l'écran
       element.style.display = 'none';
@@ -925,7 +961,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                             const courtA = playersA.filter(p=>p.status==='court').length;
                             const courtB = playersB.filter(p=>p.status==='court').length;
                             if (courtA !== 5 || courtB !== 5) {
-                                alert(`Il faut exactement 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
+                                toast.error(`Il faut exactement 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
                                 return;
                             }
                             setActiveAction(null);
@@ -1099,7 +1135,18 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
                   </div>
                   
                   {(!isMatchOver && canEdit) && (
-                    <button onClick={() => { if(window.confirm("Supprimer cette action ?")) deleteAction(i) }} className="sb-btn-delete-action" title="Supprimer l'action">
+                    <button onClick={() => { 
+  setConfirmData({
+    isOpen: true,
+    title: "Supprimer l'action",
+    message: "Voulez-vous vraiment supprimer cette action de l'historique ? Le score et les fautes seront recalculés.",
+    isDanger: true,
+    onConfirm: () => {
+      deleteAction(i);
+      toast.success("Action supprimée avec succès");
+    }
+  });
+}} className="sb-btn-delete-action" title="Supprimer l'action">
                       ✕
                     </button>
                   )}
@@ -1194,6 +1241,30 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         
       </div>
 
-    </div>
+      {/* --- MODALES DU SCOREBOARD --- */}
+      <ConfirmModal 
+        isOpen={confirmData.isOpen}
+        title={confirmData.title}
+        message={confirmData.message}
+        onConfirm={() => {
+          if (confirmData.onConfirm) confirmData.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmData.isDanger}
+      />
+
+      <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
+    </div> // <-- Ta dernière div fermante
   );
 }

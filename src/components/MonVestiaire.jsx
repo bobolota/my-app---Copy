@@ -1,8 +1,7 @@
 import React from 'react';
 
-
 export default function MonVestiaire({ 
-  session, 
+    session, 
   myTeams, 
   hasTeam, 
   respondToInvite, 
@@ -13,7 +12,9 @@ export default function MonVestiaire({
   newTeamCity, 
   setNewTeamCity,
   cancelPendingRequest // <--- AJOUTE ÇA ICI
+  
 }) {
+
   return (
     <>
       <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px' }}>👟 Mon Vestiaire</h1>

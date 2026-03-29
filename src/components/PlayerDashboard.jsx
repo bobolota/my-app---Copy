@@ -6,6 +6,9 @@ import MonVestiaire from './MonVestiaire';
 import Mercato from './Mercato';
 import PlayerProfileModal from './PlayerProfileModal';
 import TournamentRegistrationModal from './TournamentRegistrationModal';
+import toast from 'react-hot-toast';
+import ConfirmModal from './ConfirmModal';
+import PromptModal from './PromptModal';
 
 export default function PlayerDashboard({ session, currentTab, setActiveTourneyId, setView }) {
   const [myTeams, setMyTeams] = useState([]);
@@ -14,6 +17,12 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
   const [newTeamCity, setNewTeamCity] = useState("");
   const [loading, setLoading] = useState(true);
   const [allPlayers, setAllPlayers] = useState([]); // NOUVEAU : La liste de tous les joueurs
+
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
+  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
+
+  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
   
   const [careerStats, setCareerStats] = useState(null);
   const [allTournaments, setAllTournaments] = useState([]);
@@ -233,11 +242,11 @@ export default function PlayerDashboard({ session, currentTab, setActiveTourneyI
 
   const handleCreateTeam = async (e) => {
 
-if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamCity.trim()) {
-      return alert("Le nom ET la ville de l'équipe sont obligatoires !");
+      return toast.error("Le nom ET la ville de l'équipe sont obligatoires !");
     }
 
     try {
@@ -248,37 +257,45 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
         .from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
       if (memberError) throw memberError;
       setNewTeamName(""); setNewTeamCity(""); fetchData(); 
-      alert("Ton équipe a été créée avec succès ! 🎉");
-    } catch (error) { alert("Erreur : " + error.message); }
+      toast.success("Ton équipe a été créée avec succès ! 🎉");
+    } catch (error) { toast.error("Erreur : " + error.message); }
   };
 
   const handleJoinTeam = async (teamId) => {
 
-    if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+    if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: teamId, player_id: session.user.id, status: 'pending' }]);
-      if (error && error.code === '23505') alert("Tu as déjà fait une demande pour cette équipe !");
-      else if (!error) { alert("Demande envoyée !"); fetchData(); }
+      if (error && error.code === '23505') toast.error("Tu as déjà fait une demande pour cette équipe !");
+      else if (!error) { toast.success("Demande envoyée !"); fetchData(); }
     } catch (error) {}
   };
 
-  const cancelPendingRequest = async (teamId) => {
-    if (!window.confirm("Veux-tu vraiment annuler ta candidature pour cette équipe ?")) return;
-    try {
-      await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
-      fetchData(); // On rafraîchit la page pour faire disparaître la carte
-    } catch (error) {
-      alert("Erreur lors de l'annulation.");
-    }
+  const cancelPendingRequest = (teamId) => {
+    setConfirmData({
+      isOpen: true,
+      title: "Annuler la candidature ?",
+      message: "Veux-tu vraiment annuler ta candidature pour cette équipe ?",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
+          toast.success("Candidature annulée.");
+          fetchData(); // On rafraîchit la page pour faire disparaître la carte
+        } catch (error) {
+          toast.error("Erreur lors de l'annulation.");
+        }
+      }
+    });
   };
 
   const handleInvitePlayer = async (playerId) => {
-    if (!inviteTeamId) return alert("Sélectionne une équipe !");
+    if (!inviteTeamId) return toast.error("Sélectionne une équipe !");
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: inviteTeamId, player_id: playerId, status: 'invited' }]);
       if (error && error.code === '23505') {
-        alert("Ce joueur a déjà une interaction (invitation/candidature) avec cette équipe !");
+        toast.error("Ce joueur a déjà une interaction (invitation/candidature) avec cette équipe !");
       } else if (!error) {
         // NOUVEAU : On ne ferme plus la modale ! On met à jour l'affichage en direct.
         setSelectedProfile(prev => ({ ...prev, relationStatus: 'invited' }));
@@ -287,12 +304,12 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
   };
   const respondToInvite = async (teamId, accept) => {
 
-if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
+if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
     try {
       if (accept) {
         await supabase.from('team_members').update({ status: 'accepted' }).eq('team_id', teamId).eq('player_id', session.user.id);
-        alert("Bienvenue dans l'équipe !");
+        toast.success("Bienvenue dans l'équipe !");
       } else {
         await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
       }
@@ -325,52 +342,81 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
     setRoster(prev => prev.map(p => p.player_id === playerId ? { ...p, status: 'accepted' } : p));
   };
 
-  const removePlayer = async (playerId, isSelfLeave = false) => {
-    if (!window.confirm(isSelfLeave ? "Es-tu sûr de vouloir quitter cette équipe ?" : "Es-tu sûr de vouloir retirer ce joueur (ou annuler son invitation) ?")) return;
-    await supabase.from('team_members').delete().eq('team_id', managingTeam.id).eq('player_id', playerId);
-    if (isSelfLeave) { setManagingTeam(null); fetchData(); } 
-    else { setRoster(prev => prev.filter(p => p.player_id !== playerId)); }
+  const removePlayer = (playerId, isSelfLeave = false) => {
+    setConfirmData({
+      isOpen: true,
+      title: isSelfLeave ? "Quitter l'équipe ? 🚪" : "Retirer le joueur ?",
+      message: isSelfLeave 
+        ? "Es-tu sûr de vouloir quitter cette équipe ?" 
+        : "Es-tu sûr de vouloir retirer ce joueur (ou annuler son invitation) ?",
+      isDanger: true,
+      onConfirm: async () => {
+        await supabase.from('team_members').delete().eq('team_id', managingTeam.id).eq('player_id', playerId);
+        
+        toast.success(isSelfLeave ? "Tu as quitté l'équipe." : "Joueur retiré avec succès.");
+        
+        if (isSelfLeave) { 
+          setManagingTeam(null); 
+          fetchData(); 
+        } else { 
+          setRoster(prev => prev.filter(p => p.player_id !== playerId)); 
+        }
+      }
+    });
   };
 
   // --- MODIFIÉ : FONCTION TRANSFERT AVEC MODALE ---
-  const handleTransferCaptaincy = async () => {
-    if (!selectedNewCaptainId) return alert("Sélectionne un joueur dans la liste !");
+  const handleTransferCaptaincy = () => {
+    if (!selectedNewCaptainId) return toast.error("Sélectionne un joueur dans la liste !");
     
     const newCap = roster.find(p => p.player_id === selectedNewCaptainId);
-    if (!window.confirm(`Es-tu sûr de vouloir léguer le rôle de Capitaine à ${newCap.full_name} ?\nTu deviendras un simple joueur et n'auras plus accès à la gestion de l'équipe.`)) return;
     
-    try {
-      const { error } = await supabase.from('global_teams').update({ captain_id: selectedNewCaptainId }).eq('id', managingTeam.id);
-      if (error) throw error;
-      
-      alert(`${newCap.full_name} est le nouveau Capitaine de l'équipe ! 👑`);
-      setManagingTeam({ ...managingTeam, captain_id: selectedNewCaptainId });
-      setTransferModalOpen(false);
-      setSelectedNewCaptainId("");
-      fetchData();
-    } catch (error) {
-      alert("Erreur lors du transfert : " + error.message);
-    }
+    setConfirmData({
+      isOpen: true,
+      title: "Transférer le brassard ? 👑",
+      message: `Es-tu sûr de vouloir léguer le rôle de Capitaine à ${newCap.full_name} ?\n\nTu deviendras un simple joueur et n'auras plus accès à la gestion de l'équipe.`,
+      isDanger: true, // Rouge, car on perd ses droits de capitaine !
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('global_teams').update({ captain_id: selectedNewCaptainId }).eq('id', managingTeam.id);
+          if (error) throw error;
+          
+          toast.success(`${newCap.full_name} est le nouveau Capitaine de l'équipe ! 👑`);
+          setManagingTeam({ ...managingTeam, captain_id: selectedNewCaptainId });
+          setTransferModalOpen(false);
+          setSelectedNewCaptainId("");
+          fetchData();
+        } catch (error) {
+          toast.error("Erreur lors du transfert : " + error.message);
+        }
+      }
+    });
   };
 
-  const handleDeleteTeam = async () => {
-    if (!window.confirm("🚨 ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?\n\nCette action va renvoyer tous les joueurs dans la section Mercato. (L'historique dans les anciens tournois sera conservé).")) return;
-    
-    try {
-      const { error } = await supabase.from('global_teams').delete().eq('id', managingTeam.id);
-      if (error) throw error;
-      
-      alert("L'équipe a été dissoute avec succès. 💥");
-      setManagingTeam(null);
-      fetchData();
-    } catch (error) {
-      alert("Erreur lors de la dissolution : " + error.message);
-    }
+  const handleDeleteTeam = () => {
+    setConfirmData({
+      isOpen: true,
+      title: "Dissoudre l'équipe ? 🚨",
+      message: "ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?\n\nCette action va renvoyer tous les joueurs dans la section Mercato. (L'historique dans les anciens tournois sera conservé).",
+      isDanger: true,
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('global_teams').delete().eq('id', managingTeam.id);
+          if (error) throw error;
+          
+          toast.success("L'équipe a été dissoute avec succès. 💥");
+          setManagingTeam(null);
+          fetchData();
+        } catch (error) {
+          toast.error("Erreur lors de la dissolution : " + error.message);
+        }
+      }
+    });
   };
   // ---------------------------------------------
 
   const submitRegistration = async () => {
-    if (!selectedTeamToRegister) return alert("Sélectionne une équipe !");
+    if (!selectedTeamToRegister) return toast.error("Sélectionne une équipe !");
     try {
       const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
       
@@ -389,7 +435,7 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
         const overlappingMember = members.find(m => alreadyRegisteredPlayerIds.has(m.player_id));
         if (overlappingMember) {
             const badPlayerName = profiles?.find(p => p.id === overlappingMember.player_id)?.full_name || "Un joueur";
-            alert(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe ! Un joueur ne peut pas affronter sa propre équipe.`);
+            toast.error(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe ! Un joueur ne peut pas affronter sa propre équipe.`);
             return;
         }
 
@@ -402,12 +448,12 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
       const newTeamObj = { id: "tm_" + Date.now(), global_id: teamToReg.id, name: teamToReg.name, players: newPlayers, groupId: null };
       await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: newTeamObj });
       
-      alert(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
+      toast.success(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
       setRegisterModalTourney(null); setSelectedTeamToRegister(""); fetchData();
 
     } catch(err) {
       console.error(err);
-      alert("Une erreur s'est produite lors de l'inscription.");
+      toast.error("Une erreur s'est produite lors de l'inscription.");
     }
   };
 
@@ -554,6 +600,30 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
           removePlayer={removePlayer}
         />
 
+        <ConfirmModal 
+          isOpen={confirmData.isOpen}
+          title={confirmData.title}
+          message={confirmData.message}
+          onConfirm={() => {
+            if (confirmData.onConfirm) confirmData.onConfirm();
+            closeConfirm();
+          }}
+          onCancel={closeConfirm}
+          isDanger={confirmData.isDanger}
+        />
+
+        <PromptModal 
+          isOpen={promptData.isOpen}
+          title={promptData.title}
+          message={promptData.message}
+          placeholder={promptData.placeholder}
+          onConfirm={(value) => {
+            if (promptData.onConfirm) promptData.onConfirm(value);
+            closePrompt();
+          }}
+          onCancel={closePrompt}
+        />
+
       </div>
     );
   }
@@ -638,6 +708,31 @@ if (hasTeam) return alert("Tu as atteint la limite de 3 équipes !");
         myCaptainTeams={myCaptainTeams}
         submitRegistration={submitRegistration}
       />
+
+      <ConfirmModal 
+        isOpen={confirmData.isOpen}
+        title={confirmData.title}
+        message={confirmData.message}
+        onConfirm={() => {
+          if (confirmData.onConfirm) confirmData.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmData.isDanger}
+      />
+
+      <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
+      
     </div>
   );
 }

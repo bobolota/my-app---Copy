@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient'; 
+import { supabase } from '../supabaseClient';
+import toast from 'react-hot-toast';
+import ConfirmModal from './ConfirmModal';
+import PromptModal from './PromptModal';
 
 export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView, userRole, userSubscription, session }) {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [pinCode, setPinCode] = useState("");
+
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
+  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
+  
+  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
 
   const [periodCount, setPeriodCount] = useState(4);
   const [periodDuration, setPeriodDuration] = useState(10);
@@ -135,25 +144,32 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
     }
   };
 
-  const deleteTourney = async (e, id) => {
-    e.stopPropagation();
+  const deleteTourney = (e, id) => {
+    e.stopPropagation(); // On empêche le clic d'ouvrir le tournoi
     
-    if (window.confirm("Cacher ce tournoi DÉFINITIVEMENT pour tous les utilisateurs ?")) {
-      // 1. On le retire visuellement de l'écran immédiatement
-      setTournaments(tournaments.filter(t => t.id !== id));
+    setConfirmData({
+      isOpen: true,
+      title: "Supprimer le tournoi ? 🙈",
+      message: "Veux-tu supprimer ce tournoi DÉFINITIVEMENT ?",
+      isDanger: true, // Bouton rouge !
+      onConfirm: async () => {
+        // 1. On le retire visuellement de l'écran immédiatement
+        setTournaments(tournaments.filter(t => t.id !== id));
 
-      // 2. On ruse : au lieu de .delete(), on fait un .update() pour le cacher.
-      // Comme tu as le droit de modification, Supabase va accepter sans broncher !
-      const { error } = await supabase
-        .from('tournaments')
-        .update({ status: 'deleted' })
-        .eq('id', id);
+        // 2. On ruse : au lieu de .delete(), on fait un .update() pour le cacher.
+        const { error } = await supabase
+          .from('tournaments')
+          .update({ status: 'deleted' })
+          .eq('id', id);
 
-      if (error) {
-        console.error("Erreur lors de la mise à jour du statut :", error);
-        alert("Erreur de connexion avec le cloud.");
+        if (error) {
+          console.error("Erreur lors de la mise à jour du statut :", error);
+          toast.error("Erreur de connexion avec le cloud."); // 👈 Remplacement du alert()
+        } else {
+          toast.success("Le tournoi a été supprimé !"); // Petit bonus UX ✨
+        }
       }
-    }
+    });
   };
 
   const renderColumn = (title, status, color) => (
@@ -266,6 +282,32 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
         {renderColumn("EN COURS", "ongoing", "var(--accent-orange)")}
         {renderColumn("TERMINÉ", "finished", "var(--success)")}
       </div>
+
+      {/* --- MODALES DU SCOREBOARD --- */}
+            <ConfirmModal 
+              isOpen={confirmData.isOpen}
+              title={confirmData.title}
+              message={confirmData.message}
+              onConfirm={() => {
+                if (confirmData.onConfirm) confirmData.onConfirm();
+                closeConfirm();
+              }}
+              onCancel={closeConfirm}
+              isDanger={confirmData.isDanger}
+            />
+      
+            <PromptModal 
+              isOpen={promptData.isOpen}
+              title={promptData.title}
+              message={promptData.message}
+              placeholder={promptData.placeholder}
+              onConfirm={(value) => {
+                if (promptData.onConfirm) promptData.onConfirm(value);
+                closePrompt();
+              }}
+              onCancel={closePrompt}
+            />
+
     </div>
   );
 }
