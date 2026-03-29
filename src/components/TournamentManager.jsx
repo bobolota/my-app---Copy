@@ -8,10 +8,15 @@ import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
 import PromptModal from './PromptModal';
 import ChoiceModal from './ChoiceModal';
+import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 // FIN DE LA MODIFICATION
 
 
-export default function TournamentManager({ tourney, setTournaments, onLaunchMatch, userRole, session }) {
+export default function TournamentManager() {
+  const { session } = useAuth();
+  const { currentTourney: tourney, setTournaments, userRole, launchMatch: onLaunchMatch } = useAppContext();
+  
   const isOwner = tourney.organizer_id === session?.user?.id;
   const isInvitedOtm = tourney.otm_ids?.includes(session?.user?.id);
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
@@ -22,6 +27,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const canManageMatch = canEdit || isInvitedOtm; 
 
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('tm_active_tab') || "poules");
+  
 
   useEffect(() => {
     localStorage.setItem('tm_active_tab', activeTab);
@@ -29,6 +35,7 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const [teamName, setTeamName] = useState("");
   const [editId, setEditId] = useState(null);
+  
   
   // Le brouillon d'ajout multiple
   const [playersDraft, setPlayersDraft] = useState([{ name: "", number: "" }]);

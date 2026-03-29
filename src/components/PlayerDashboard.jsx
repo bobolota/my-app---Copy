@@ -9,9 +9,15 @@ import TournamentRegistrationModal from './TournamentRegistrationModal';
 import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
 import PromptModal from './PromptModal';
+import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 
-export default function PlayerDashboard({ session, currentTab, setActiveTourneyId, setView }) {
+export default function PlayerDashboard() {
   const [myTeams, setMyTeams] = useState([]);
+  const { session } = useAuth(); // Ça, c'est ce qu'on a fait tout à l'heure
+  
+  // 👇 NOUVEAU : On récupère les variables du Nuage Central
+  const { activeMenu: currentTab, setActiveTourneyId, setView } = useAppContext();
   const [allTeams, setAllTeams] = useState([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamCity, setNewTeamCity] = useState("");
@@ -588,8 +594,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 {/* MODALE INJECTÉE DANS LE VESTIAIRE */}
         <PlayerProfileModal 
           selectedProfile={selectedProfile}
-          setSelectedProfile={setSelectedProfile}
-          session={session}
+          setSelectedProfile={setSelectedProfile}          
           myCaptainTeams={myCaptainTeams}
           inviteTeamId={inviteTeamId}
           setInviteTeamId={setInviteTeamId}
@@ -641,8 +646,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     }}>
       {/* --- ONGLET : VESTIAIRE --- */}
       {currentTab === 'vestiaire' && (
-        <MonVestiaire 
-          session={session}
+        <MonVestiaire          
           myTeams={myTeams}
           hasTeam={hasTeam}
           respondToInvite={respondToInvite}
@@ -676,8 +680,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
       {/* --- ONGLET : EXPLORER --- */}
       {currentTab === 'explorer' && (
-        <ExplorerTournois 
-          session={session} 
+        <ExplorerTournois           
           allTournaments={allTournaments} 
           myTeams={myTeams} 
           setRegisterModalTourney={setRegisterModalTourney} 
@@ -689,8 +692,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
       {/* --- MODALS (FENÊTRES POP-UP) --- */}
       <PlayerProfileModal 
         selectedProfile={selectedProfile}
-        setSelectedProfile={setSelectedProfile}
-        session={session}
+        setSelectedProfile={setSelectedProfile}        
         myCaptainTeams={myCaptainTeams}
         inviteTeamId={inviteTeamId}
         setInviteTeamId={setInviteTeamId}

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function PlayerProfileModal({
   selectedProfile,
   setSelectedProfile,
-  session,
   myCaptainTeams,
   inviteTeamId,
   setInviteTeamId,
@@ -13,6 +13,7 @@ export default function PlayerProfileModal({
 }) {
   // NOUVEAU : On gère l'onglet actif pour les statistiques
   const [activeStatsTab, setActiveStatsTab] = useState('moyennes'); // 'moyennes', 'records', ou 'totaux'
+  const { session } = useAuth();
 
   if (!selectedProfile) return null;
 

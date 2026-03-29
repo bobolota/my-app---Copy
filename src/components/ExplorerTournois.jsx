@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 
-export default function ExplorerTournois({ session, allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView }) {
+export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView }) {
   
   // Filtre pour la colonne "Terminés"
   const [filterFinished, setFilterFinished] = useState('all');
+  const { session } = useAuth();
 
   const myCaptainTeams = myTeams
     .filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted')

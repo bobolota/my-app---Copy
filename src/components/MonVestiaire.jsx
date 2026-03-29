@@ -1,7 +1,7 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 
-export default function MonVestiaire({ 
-    session, 
+export default function MonVestiaire({    
   myTeams, 
   hasTeam, 
   respondToInvite, 
@@ -14,6 +14,8 @@ export default function MonVestiaire({
   cancelPendingRequest // <--- AJOUTE ÇA ICI
   
 }) {
+
+  const { session } = useAuth();
 
   return (
     <>

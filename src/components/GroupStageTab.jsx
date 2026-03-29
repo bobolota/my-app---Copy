@@ -1,6 +1,7 @@
 // DEBUT DE LA MODIFICATION - src/components/GroupStageTab.jsx
 
 import React from 'react';
+import toast from 'react-hot-toast';
 
 export default function GroupStageTab({
   tourney, canEdit, savedGroupIds, generateMatches, currentUserName,
@@ -182,7 +183,10 @@ export default function GroupStageTab({
                                <button 
                                  onClick={(e) => {
                                    e.stopPropagation();
-                                   if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
+                                   if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { 
+                                    toast.error("Impossible de lancer : il manque des joueurs.");
+                                    return; 
+                                  }
                                    if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
                                  }}
                                  className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 

@@ -1,5 +1,8 @@
 // DEBUT DE LA MODIFICATION - NOUVEAU FICHIER : src/components/PlayoffsTab.jsx
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
+import { useAppContext } from '../context/AppContext';
+
 
 export default function PlayoffsTab({
   tourney,
@@ -14,6 +17,7 @@ export default function PlayoffsTab({
 }) {
   // Le state du Drag & Drop est maintenant isolé ici !
   const [draggedMatchId, setDraggedMatchId] = useState(null);
+  const { setConfirmData } = useAppContext();
 
   // --- CALCULS DE L'ARBRE (Déplacés depuis TournamentManager) ---
   const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
@@ -204,7 +208,10 @@ export default function PlayoffsTab({
                                             <div style={{ display: 'flex', gap: '8px', marginTop: '10px', height: '35px' }}>
                                               <button onClick={(e) => {
                                                   e.stopPropagation();
-                                                  if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
+                                                  if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { 
+                                                  toast.error("Impossible de lancer : il manque des joueurs.");
+                                                  return; 
+                                                }
                                                   if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
                                               }}
                                               className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 

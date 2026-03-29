@@ -3,11 +3,17 @@ import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
 import PromptModal from './PromptModal';
+import { useAuth } from '../context/AuthContext';
+import { useAppContext } from '../context/AppContext';
 
-export default function Dashboard({ tournaments, setTournaments, setActiveTourneyId, setView, userRole, userSubscription, session }) {
+export default function Dashboard() {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [pinCode, setPinCode] = useState("");
+  const { session } = useAuth(); // Ça, c'est ce qu'on a fait tout à l'heure
+  
+  // 👇 AJOUTE CETTE LIGNE : On aspire tout le reste !
+  const { tournaments, setTournaments, setActiveTourneyId, setView, userRole, userSubscription } = useAppContext();
 
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
@@ -66,7 +72,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) {
       console.error("Erreur de sauvegarde :", error);
-      alert("Erreur lors de la création du tournoi dans le cloud.");
+      Toast.error("Erreur lors de la création du tournoi dans le cloud.");
     }
   };
 
@@ -78,11 +84,11 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
       
       if (error) throw error;
       
-      alert("Succès ! Vous êtes maintenant OTM sur ce tournoi.");
+      Toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi.");
       setPinCode("");
       
     } catch (error) {
-      alert(error.message || "Code PIN invalide.");
+      Toast.error(error.message || "Code PIN invalide.");
     }
   };
 
@@ -130,7 +136,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
 
     const tourney = tournaments.find(t => t.id === id);
     if (userRole !== 'ADMIN' && tourney.organizer_id !== session.user.id) {
-        alert("Seul l'organisateur peut déplacer le tournoi.");
+        Toast.error("Seul l'organisateur peut déplacer le tournoi.");
         return;
     }
 
@@ -140,7 +146,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
     const { error } = await supabase.from('tournaments').update({ status: newStatus }).eq('id', id);
     if (error) {
       console.error("Erreur de mise à jour :", error);
-      alert("Erreur lors du déplacement du tournoi.");
+      Toast.error("Erreur lors du déplacement du tournoi.");
     }
   };
 
@@ -164,7 +170,7 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
 
         if (error) {
           console.error("Erreur lors de la mise à jour du statut :", error);
-          toast.error("Erreur de connexion avec le cloud."); // 👈 Remplacement du alert()
+          toast.error("Erreur de connexion avec le cloud.");
         } else {
           toast.success("Le tournoi a été supprimé !"); // Petit bonus UX ✨
         }
