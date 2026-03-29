@@ -1,5 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; 
+import { supabase } from '../supabaseClient';
+// DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx (Ligne 3)
+import TournamentStats from './TournamentStats';
+import PlayoffsTab from './PlayoffsTab';
+import GroupStageTab from './GroupStageTab';
+import toast from 'react-hot-toast';
+import ConfirmModal from './ConfirmModal';
+// FIN DE LA MODIFICATION
+
 
 export default function TournamentManager({ tourney, setTournaments, onLaunchMatch, userRole, session }) {
   const isOwner = tourney.organizer_id === session?.user?.id;
@@ -24,14 +32,15 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
   const [playersDraft, setPlayersDraft] = useState([{ name: "", number: "" }]);
   const [groupCount, setGroupCount] = useState(1);
   const [draggedPlayerId, setDraggedPlayerId] = useState(null);
-  const [draggedMatchId, setDraggedMatchId] = useState(null);
-
+  
   const [globalTeams, setGlobalTeams] = useState([]);
   const [selectedGlobalTeamId, setSelectedGlobalTeamId] = useState("");
 
   // --- ÉTATS POUR LA MODALE OTM ---
   const [otmProfiles, setOtmProfiles] = useState([]);
   const [otmModal, setOtmModal] = useState(null);
+  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
+  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
   const [selectedOtms, setSelectedOtms] = useState([]); // Pour les cases à cocher
   const [customOtm, setCustomOtm] = useState("");       // Pour le texte libre
 
@@ -91,13 +100,20 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
       .eq('id', tourney.id)
       .select();
 
+    // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx (Fonction update)
+
     if (error) {
       console.error("Erreur de sauvegarde Supabase :", error);
-      alert("Erreur de synchronisation avec le cloud.");
+      toast.error("Erreur de synchronisation avec le cloud."); // 👈 CHANGÉ
     } else if (!updatedRows || updatedRows.length === 0) {
-      alert("🚨 BLOCAGE SILENCIEUX SUPABASE 🚨\n\nL'application a essayé de sauvegarder, mais Supabase a refusé (0 ligne modifiée) sans envoyer d'erreur.\n\nC'est un problème de droits (RLS) sur la table 'tournaments'.");
+      toast.error("Blocage silencieux Supabase (Problème de droits RLS).", { duration: 6000 }); // 👈 CHANGÉ
+    } else {
+      // Optionnel : Un petit toast de succès discret quand ça sauvegarde bien !
+      toast.success("Sauvegardé", { position: 'bottom-right', duration: 1500, style: { fontSize: '0.8rem', padding: '4px 8px' }});
     }
   };
+
+// FIN DE LA MODIFICATION
 
   const getGroupLimit = (t, gNum) => {
     const val = t?.qualifiedSettings?.[gNum];
@@ -114,21 +130,94 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         const s = isA ? m.scoreA : m.scoreB; 
         const o = isA ? m.scoreB : m.scoreA;
         
-        if (m.status === 'forfeit') {
-          if (s > o) points += 2; 
-          else points += 0;       
-        } else {
-          if (s > o) points += 2; else points += 1; 
-        }
-        diff += (s - o);
-      });
-      return { ...team, points, diff };
-    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
-  };
+        // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx
 
-  useEffect(() => {
-    if (!canEdit) return; 
-    if (!tourney.playoffs || !tourney.playoffs.matches) return;
+        if (m.status === 'forfeit') {
+          if (s > o) points += 2; 
+          else points += 0;       
+        } else {
+          if (s > o) points += 2; else points += 1; 
+        }
+        diff += (s - o);
+      });
+      return { ...team, points, diff };
+    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
+  };
+
+  // ---------------------------------------------------------
+  // 👇 VOICI LA FONCTION QU'IL MANQUAIT (getStandings) 👇
+  // ---------------------------------------------------------
+  const getStandings = (groupId) => {
+    const groupTeams = (tourney.teams || []).filter(t => t.groupId === groupId);
+    const standings = groupTeams.map(team => {
+      const matches = (tourney.schedule || []).filter(m => 
+        (m.teamA?.id === team.id || m.teamB?.id === team.id) && m.status === 'finished'
+      );
+      
+      let points = 0;
+      let won = 0;
+      let lost = 0;
+      let pointsFor = 0;
+      let pointsAgainst = 0;
+
+      matches.forEach(m => {
+        const isTeamA = m.teamA?.id === team.id;
+        const myScore = isTeamA ? m.scoreA : m.scoreB;
+        const theirScore = isTeamA ? m.scoreB : m.scoreA;
+        
+        pointsFor += myScore;
+        pointsAgainst += theirScore;
+
+        if (myScore > theirScore) {
+          points += 2; // Victoire = 2 pts
+          won += 1;
+        } else {
+          points += 1; // Défaite = 1 pt
+          lost += 1;
+        }
+      });
+
+      // Gestion des forfaits (qui donnent 0 pt au lieu de 1)
+      const forfeits = (tourney.schedule || []).filter(m => 
+        (m.teamA?.id === team.id || m.teamB?.id === team.id) && m.status === 'forfeit'
+      );
+      forfeits.forEach(m => {
+        const isTeamA = m.teamA?.id === team.id;
+        // Si c'est l'autre équipe qui a forfait, on a gagné (2 pts). Sinon on a 0 pt.
+        const myScore = isTeamA ? m.scoreA : m.scoreB;
+        if(myScore > 0) {
+            points += 2;
+            won += 1;
+            pointsFor += 20; // Score forfait classique
+        } else {
+            lost += 1;
+            pointsAgainst += 20;
+        }
+      });
+
+      return {
+        ...team,
+        points,
+        played: won + lost,
+        won,
+        lost,
+        diff: pointsFor - pointsAgainst
+      };
+    });
+
+    // Tri par points, puis différence de points
+    return standings.sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return b.diff - a.diff;
+    });
+  };
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    if (!canEdit) return; 
+    if (!tourney.playoffs || !tourney.playoffs.matches) return;
+
+// FIN DE LA MODIFICATION
     
     let updated = false;
     const newMatches = [...tourney.playoffs.matches];
@@ -159,6 +248,8 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     }
   }, [tourney.playoffs]);
 
+  
+
   const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
     let match = (tourney.schedule || []).find(m => m.id === matchId);
     if (!match && tourney.playoffs) {
@@ -175,17 +266,29 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
     
     if (actionType === 'cancel') {
-       if (!window.confirm("Annuler ce match ? Il sera considéré comme nul (0-0) et ne rapportera aucun point.")) return;
-       updateMatchState(matchId, isPlayoff, 'canceled', 0, 0);
+       setConfirmData({
+         isOpen: true,
+         title: "Annuler ce match ?",
+         message: "Ce match sera considéré comme nul (0-0) et ne rapportera aucun point au classement.",
+         isDanger: true,
+         onConfirm: () => {
+           updateMatchState(matchId, isPlayoff, 'canceled', 0, 0);
+           toast.success("Match annulé");
+         }
+       });
     } else if (actionType === 'forfeit') {
+       // On garde le window.prompt natif pour l'instant car il nécessite une saisie clavier
        const res = window.prompt(`Qui déclare FORFAIT ?\n\nTapez 1 pour : ${match.teamA?.name}\nTapez 2 pour : ${match.teamB?.name}`);
        if (res === '1') {
          updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
+         toast.success("Forfait enregistré");
        } else if (res === '2') {
          updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
+         toast.success("Forfait enregistré");
        }
     }
   };
+
 
   const updateMatchState = (matchId, isPlayoff, status, scoreA, scoreB) => {
     if (isPlayoff) {
@@ -229,36 +332,45 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
     setCustomOtm(currentOtmsArray.filter(name => !knownProfiles.includes(name)).join(' - '));
   };
 
+
   const generateDrawAndSchedule = () => {
     if (!canEdit) return;
-    if (!window.confirm("Cela va écraser les poules et le planning actuels. Continuer ?")) return;
+    
+    setConfirmData({
+      isOpen: true,
+      title: "Générer le planning ?",
+      message: "⚠️ Attention, cela va écraser les poules et le planning actuels. Voulez-vous continuer ?",
+      isDanger: true,
+      onConfirm: () => {
+        const n = parseInt(groupCount);
+        if (isNaN(n) || n < 1) return;
 
-    const n = parseInt(groupCount);
-    if (isNaN(n) || n < 1) return;
+        const shuffled = [...tourney.teams].sort(() => Math.random() - 0.5);
+        const updatedTeams = shuffled.map((t, i) => ({ ...t, groupId: (i % n) + 1 }));
 
-    const shuffled = [...tourney.teams].sort(() => Math.random() - 0.5);
-    const updatedTeams = shuffled.map((t, i) => ({ ...t, groupId: (i % n) + 1 }));
-
-    const newSchedule = [];
-    for (let g = 1; g <= n; g++) {
-      const gTeams = updatedTeams.filter(t => t.groupId === g);
-      for (let i = 0; i < gTeams.length; i++) {
-        for (let j = i + 1; j < gTeams.length; j++) {
-          newSchedule.push({ 
-            id: `m_${Date.now()}_g${g}_${i}${j}`, 
-            group: g, 
-            teamA: gTeams[i], teamB: gTeams[j], 
-            status: 'pending', scoreA: 0, scoreB: 0 
-          });
+        const newSchedule = [];
+        for (let g = 1; g <= n; g++) {
+          const gTeams = updatedTeams.filter(t => t.groupId === g);
+          for (let i = 0; i < gTeams.length; i++) {
+            for (let j = i + 1; j < gTeams.length; j++) {
+              newSchedule.push({ 
+                id: `m_${Date.now()}_g${g}_${i}${j}`, 
+                group: g, 
+                teamA: gTeams[i], teamB: gTeams[j], 
+                status: 'pending', scoreA: 0, scoreB: 0 
+              });
+            }
+          }
         }
-      }
-    }
 
-    update({ 
-      teams: updatedTeams, 
-      schedule: newSchedule, 
-      qualifiedSettings: Object.fromEntries(Array.from({length:n}, (_,i)=>[i+1,2])),
-      playoffs: null 
+        update({ 
+          teams: updatedTeams, 
+          schedule: newSchedule, 
+          qualifiedSettings: Object.fromEntries(Array.from({length:n}, (_,i)=>[i+1,2])),
+          playoffs: null 
+        });
+        toast.success("Planning généré avec succès !");
+      }
     });
   };
 
@@ -492,33 +604,47 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const deletePlayer = (teamId, playerId) => {
     if (!canEdit) return;
-    if(window.confirm("Supprimer définitivement ce joueur ?")) {
-      const team = tourney.teams.find(t => t.id === teamId);
-      update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: team.players.filter(p => p.id !== playerId) } : t) });
-    }
+    setConfirmData({
+      isOpen: true,
+      title: "Supprimer le joueur ?",
+      message: "Voulez-vous supprimer définitivement ce joueur ?",
+      isDanger: true,
+      onConfirm: () => {
+        const team = tourney.teams.find(t => t.id === teamId);
+        update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: team.players.filter(p => p.id !== playerId) } : t) });
+        toast.success("Joueur supprimé");
+      }
+    });
   };
 
   const deleteTeam = (teamId) => {
     if (!canEdit) return;
-    if(window.confirm("Supprimer définitivement cette équipe du tournoi ?")) {
-      const newTeams = tourney.teams.filter(t => t.id !== teamId);
-      const newSchedule = (tourney.schedule || []).filter(match => {
-        const aId = match.teamA?.id || null;
-        const bId = match.teamB?.id || null;
-        return aId !== teamId && bId !== teamId;
-      });
-
-      let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
-      if (newPlayoffs && newPlayoffs.matches) {
-        newPlayoffs.matches = newPlayoffs.matches.map(m => {
-          if (m.teamA?.id === teamId) m.teamA = null;
-          if (m.teamB?.id === teamId) m.teamB = null;
-          return m;
+    setConfirmData({
+      isOpen: true,
+      title: "Supprimer l'équipe ?",
+      message: "Voulez-vous supprimer définitivement cette équipe du tournoi ?",
+      isDanger: true,
+      onConfirm: () => {
+        const newTeams = tourney.teams.filter(t => t.id !== teamId);
+        const newSchedule = (tourney.schedule || []).filter(match => {
+          const aId = match.teamA?.id || null;
+          const bId = match.teamB?.id || null;
+          return aId !== teamId && bId !== teamId;
         });
-      }
 
-      update({ teams: newTeams, schedule: newSchedule, playoffs: newPlayoffs });
-    }
+        let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
+        if (newPlayoffs && newPlayoffs.matches) {
+          newPlayoffs.matches = newPlayoffs.matches.map(m => {
+            if (m.teamA?.id === teamId) m.teamA = null;
+            if (m.teamB?.id === teamId) m.teamB = null;
+            return m;
+          });
+        }
+
+        update({ teams: newTeams, schedule: newSchedule, playoffs: newPlayoffs });
+        toast.success("Équipe supprimée");
+      }
+    });
   };
 
   const handleUnlockOtm = async () => {
@@ -603,110 +729,21 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
 
   const validateAllPlayers = (teamId) => {
     if (!canEdit) return;
-    if(window.confirm("Passer tous les joueurs de cette équipe en 'VALIDÉ' ?")) {
-      const team = tourney.teams.find(t => t.id === teamId);
-      const updatedPlayers = team.players.map(p => ({ ...p, licenseStatus: 'validated' }));
-      update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: updatedPlayers } : t) });
-    }
-  };
-
-  const getPlayerStats = () => {
-    const statsMap = {};
-    const allMatches = [
-      ...(tourney.schedule || []),
-      ...(tourney.playoffs?.matches || [])
-    ].filter(m => m.status === 'finished' && m.savedStatsA && m.savedStatsB);
-
-    const processTeam = (players, teamName) => {
-      if (!players) return;
-      players.forEach(p => {
-        const hasPlayed = p.timePlayed > 0 || p.points > 0 || p.fouls > 0 || p.ast > 0 || p.oreb > 0 || p.dreb > 0 || p.stl > 0 || p.blk > 0 || p.fg2a > 0 || p.fg3a > 0 || p.fta > 0 || p.tov > 0;
-        
-        if (hasPlayed) {
-          if (!statsMap[p.id]) {
-            statsMap[p.id] = {
-              id: p.id, name: p.name, number: p.number, teamName: teamName,
-              gamesPlayed: 0, points: 0, ast: 0, oreb: 0, dreb: 0, stl: 0, blk: 0, tov: 0, fouls: 0,
-              fg2m: 0, fg2a: 0, fg3m: 0, fg3a: 0, ftm: 0, fta: 0
-            };
-          }
-          const s = statsMap[p.id];
-          s.gamesPlayed += 1;
-          s.points += (p.points || 0);
-          s.ast += (p.ast || 0);
-          s.oreb += (p.oreb || 0);
-          s.dreb += (p.dreb || 0);
-          s.stl += (p.stl || 0);
-          s.blk += (p.blk || 0);
-          s.tov += (p.tov || 0);
-          s.fouls += (p.fouls || 0);
-          s.fg2m += (p.fg2m || 0); s.fg2a += (p.fg2a || 0);
-          s.fg3m += (p.fg3m || 0); s.fg3a += (p.fg3a || 0);
-          s.ftm += (p.ftm || 0); s.fta += (p.fta || 0);
-        }
-      });
-    };
-
-    allMatches.forEach(match => {
-      processTeam(match.savedStatsA, match.teamA?.name);
-      processTeam(match.savedStatsB, match.teamB?.name);
-    });
-
-    return Object.values(statsMap).map(s => {
-      s.reb = s.oreb + s.dreb;
-      const fgm = s.fg2m + s.fg3m;
-      const fga = s.fg2a + s.fg3a;
-      const missedFG = fga - fgm;
-      const missedFT = s.fta - s.ftm;
-      
-      s.eff = (s.points + s.reb + s.ast + s.stl + s.blk) - (missedFG + missedFT + s.tov);
-      s.ptsAvg = (s.points / s.gamesPlayed).toFixed(1);
-      s.rebAvg = (s.reb / s.gamesPlayed).toFixed(1);
-      s.astAvg = (s.ast / s.gamesPlayed).toFixed(1);
-      s.effAvg = (s.eff / s.gamesPlayed).toFixed(1);
-
-      s.fgPct = fga > 0 ? parseFloat(((fgm / fga) * 100).toFixed(1)) : 0;
-      s.fg2Pct = s.fg2a > 0 ? parseFloat(((s.fg2m / s.fg2a) * 100).toFixed(1)) : 0;
-      s.fg3Pct = s.fg3a > 0 ? parseFloat(((s.fg3m / s.fg3a) * 100).toFixed(1)) : 0;
-      s.ftPct = s.fta > 0 ? parseFloat(((s.ftm / s.fta) * 100).toFixed(1)) : 0;
-
-      s.fgPctDisplay = s.fgPct > 0 ? `${s.fgPct}%` : '0%';
-      s.fg2PctDisplay = s.fg2Pct > 0 ? `${s.fg2Pct}%` : '0%';
-      s.fg3PctDisplay = s.fg3Pct > 0 ? `${s.fg3Pct}%` : '0%';
-      s.ftPctDisplay = s.ftPct > 0 ? `${s.ftPct}%` : '0%';
-
-      s.fga = fga;
-
-      return s;
+    setConfirmData({
+      isOpen: true,
+      title: "Tout valider ?",
+      message: "Passer tous les joueurs de cette équipe en 'VALIDÉ' ?",
+      isDanger: false,
+      onConfirm: () => {
+        const team = tourney.teams.find(t => t.id === teamId);
+        const updatedPlayers = team.players.map(p => ({ ...p, licenseStatus: 'validated' }));
+        update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: updatedPlayers } : t) });
+        toast.success("Joueurs validés");
+      }
     });
   };
 
-  const renderTop5 = (title, players, sortKey, displayKey, color, suffix = "") => {
-    const top5 = [...players].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 5);
-    return (
-      <div className="stat-card" style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', flex: '1', minWidth: '280px', border: '1px solid #333' }}>
-        <h3 style={{ color: color, textAlign: 'center', borderBottom: `2px solid ${color}`, paddingBottom: '10px', marginBottom: '15px', fontSize: '1.1rem' }}>{title}</h3>
-        {top5.length === 0 ? <p style={{textAlign:'center', color:'#666', fontStyle: 'italic'}}>Aucune donnée disponible</p> : 
-          top5.map((p, i) => (
-            <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: i < 4 ? '1px solid #222' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontWeight: 'bold', fontSize: '1.2rem', color: i === 0 ? color : '#666', width: '20px', textAlign: 'right' }}>{i + 1}.</span>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontWeight: 'bold', color: i === 0 ? 'white' : '#ccc' }}>{p.name}</span>
-                  <span style={{ fontSize: '0.7rem', color: '#888' }}>{p.teamName} • {p.gamesPlayed} match{p.gamesPlayed > 1 ? 's' : ''}</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <strong style={{ color: 'white', fontSize: '1.2rem' }}>{p[displayKey]}</strong>
-                <span style={{ fontSize: '0.8rem', color: '#888', marginLeft: '4px' }}>{suffix}</span>
-              </div>
-            </div>
-          ))
-        }
-      </div>
-    );
-  };
-
+    
   if (editId) {
     const team = (tourney.teams || []).find(t => t.id === editId);
     return (
@@ -760,37 +797,26 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           {renderPlayerColumn("EN ATTENTE", "pending", "var(--accent-orange)", team)}
           {renderPlayerColumn("VALIDÉ", "validated", "var(--success)", team)}
         </div>
+
+        <ConfirmModal 
+          isOpen={confirmData.isOpen}
+          title={confirmData.title}
+          message={confirmData.message}
+          onConfirm={() => {
+            if (confirmData.onConfirm) confirmData.onConfirm();
+            closeConfirm();
+          }}
+          onCancel={closeConfirm}
+          isDanger={confirmData.isDanger}
+        />
+        
       </div>
     );
   }
 
   const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
 
-  const totalQualified = savedGroupIds.reduce((sum, gNum) => sum + getGroupLimit(tourney, gNum), 0);
   
-  let bracketSize = 2;
-  while (bracketSize < totalQualified && bracketSize <= 1024) { 
-    bracketSize *= 2; 
-  }
-  const numByes = Math.max(0, bracketSize - totalQualified);
-
-  const getStartRoundName = (size) => {
-      if (size === 2) return "LA FINALE";
-      if (size === 4) return "LES DEMI-FINALES";
-      if (size === 8) return "LES QUARTS DE FINALE";
-      if (size === 16) return "LES 8ÈMES DE FINALE";
-      if (size === 32) return "LES 16ÈMES DE FINALE";
-      return "LA PHASE FINALE";
-  };
-
-  const playoffRounds = [];
-  if (tourney.playoffs && tourney.playoffs.matches) {
-      const maxRound = Math.max(1, ...tourney.playoffs.matches.map(m => m.round || 1));
-      for (let r = 1; r <= maxRound; r++) {
-          playoffRounds.push(tourney.playoffs.matches.filter(m => (m.round || 1) === r));
-      }
-  }
-
   return (
     <div className="tm-container">
       <div className="tm-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
@@ -829,424 +855,57 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
         </div>
       </div>
 
+
       {activeTab === "poules" && (
-        <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: '30px', alignItems: 'flex-start' }}>
+        <GroupStageTab 
+          tourney={tourney}
+          canEdit={canEdit}
+          savedGroupIds={savedGroupIds}
+          generateMatches={generateDrawAndSchedule}
+          currentUserName={currentUserName}
+          handleLaunchMatch={handleLaunchMatch}
+          handleAssignOtm={handleAssignOtm}
+          handleMatchException={handleMatchException}
+          teamName={teamName}
+          setTeamName={setTeamName}
+          addTeam={addTeam}
+          teamSearchQuery={teamSearchQuery}
+          setTeamSearchQuery={setTeamSearchQuery}
+          globalTeams={globalTeams}
+          handleDirectImport={handleDirectImport}
+          teamPage={teamPage}
+          setTeamPage={setTeamPage}
+          teamsPerPage={teamsPerPage}
+          setEditId={setEditId}
+          deleteTeam={deleteTeam}
+          groupCount={groupCount}
+          setGroupCount={setGroupCount}
+          update={update}
+          getGroupStandings={getGroupStandings}
+          getGroupLimit={getGroupLimit}
+        />
+      )}
+
           
-          {/* COLONNE GAUCHE : CONFIGURATION (1 & 2) - ÉLARGIE */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-            
-            {/* 1. ÉQUIPES ET LICENCES */}
-            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0 }}>
-              <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>1. Équipes et Licences</h3>
-              {canEdit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input className="tm-input" style={{ flex: 1 }} placeholder="Nom manuel..." value={teamName} onChange={(e) => setTeamName(e.target.value)} />
-                    <button onClick={addTeam} className="tm-btn-success">AJOUTER</button>
-                  </div>
-
-                  <div style={{ position: 'relative' }}>
-                    <input 
-                      className="tm-input" 
-                      placeholder="🔍 Chercher équipe réseau..." 
-                      value={teamSearchQuery} 
-                      onChange={(e) => setTeamSearchQuery(e.target.value)} 
-                      style={{ width: '100%', boxSizing: 'border-box' }} 
-                    />
-                    {teamSearchQuery.length >= 2 && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', border: '1px solid var(--accent-blue)', zIndex: 100, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-                        {globalTeams.filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase())).map(gt => (
-                          <div key={gt.id} onClick={() => handleDirectImport(gt)} style={{ padding: '12px', cursor: 'pointer', borderBottom: '1px solid #333', fontSize: '0.9rem', color: 'white' }} onMouseOver={e => e.target.style.background = 'var(--accent-blue)'} onMouseOut={e => e.target.style.background = 'transparent'}>
-                            🏀 {gt.name} <span style={{ color: '#aaa', fontSize: '0.75rem' }}>({gt.city || '...'})</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* GRILLE D'ÉQUIPES LIMITÉE À 6 (AVEC PAGINATION) */}
-              <div style={{ marginTop: '15px' }}>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr', 
-                  gap: '10px', 
-                  minHeight: '160px' // Maintient une hauteur stable
-                }}>
-                  {(tourney.teams || [])
-                    .slice(teamPage * teamsPerPage, (teamPage + 1) * teamsPerPage)
-                    .map(t => (
-                    <div 
-                      key={t.id} 
-                      onClick={() => setEditId(t.id)} 
-                      className="tm-card" 
-                      style={{ position: 'relative', margin: 0, padding: '10px 12px', cursor: 'pointer', border: '1px solid #333', minHeight: 'auto', transition: '0.2s' }}
-                      onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-                      onMouseOut={e => e.currentTarget.style.borderColor = '#333'}
-                    >
-                      {t.global_id && <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-blue)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.6rem' }}>🌐</div>}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '85%' }}>
-                          <b style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</b>
-                          <span style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '2px' }}>
-                             {t.players.filter(p => p.licenseStatus === 'validated').length}/{t.players.length} OK
-                          </span>
-                        </div>
-                        {canEdit && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); deleteTeam(t.id); }} 
-                            style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '1rem', padding: '0 0 0 8px' }}
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* BOUTONS DE PAGINATION (Affichés seulement si > 6 équipes) */}
-                {tourney.teams?.length > teamsPerPage && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '15px', padding: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                    <button 
-                      disabled={teamPage === 0} 
-                      onClick={() => setTeamPage(p => p - 1)}
-                      style={{ background: 'none', border: '1px solid #444', color: teamPage === 0 ? '#444' : 'white', cursor: teamPage === 0 ? 'default' : 'pointer', borderRadius: '4px', padding: '2px 8px' }}
-                    >
-                      ◀
-                    </button>
-                    <span style={{ fontSize: '0.75rem', color: '#888' }}>
-                      Page {teamPage + 1} / {Math.ceil(tourney.teams.length / teamsPerPage)}
-                    </span>
-                    <button 
-                      disabled={(teamPage + 1) * teamsPerPage >= tourney.teams?.length} 
-                      onClick={() => setTeamPage(p => p + 1)}
-                      style={{ background: 'none', border: '1px solid #444', color: (teamPage + 1) * teamsPerPage >= tourney.teams?.length ? '#444' : 'white', cursor: (teamPage + 1) * teamsPerPage >= tourney.teams?.length ? 'default' : 'pointer', borderRadius: '4px', padding: '2px 8px' }}
-                    >
-                      ▶
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 2. PLANNING & GROUPES */}
-            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0, borderLeft: '4px solid var(--accent-purple)' }}>
-              <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>2. Planning & Groupes</h3>
-              {canEdit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <label style={{ fontSize: '0.9rem' }}>Nombre de poules :</label>
-                      <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="tm-input" style={{ width: '60px' }} />
-                    </div>
-                    <button onClick={generateDrawAndSchedule} className="tm-btn-success tm-btn-purple" style={{ width: '100%', padding: '12px', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                      🎲 GÉNÉRER LE PLANNING AUTO
-                    </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* COLONNE DROITE : POULES ET PLANNING */}
-          <div style={{ display: 'flex', overflowX: 'auto', gap: '25px', alignItems: 'flex-start', paddingBottom: '20px' }}>
-            {savedGroupIds.map(gNum => {
-                const standings = getGroupStandings(gNum);
-                const limit = getGroupLimit(tourney, gNum);
-                return (
-                  <div key={gNum} className="tm-group-col" style={{ minWidth: '400px', flexShrink: 0 }}>
-                    <div className="tm-flex-between" style={{ marginBottom: '12px' }}>
-                      <h4 style={{ margin: 0, fontSize: '1.1rem' }}>POULE {gNum}</h4>
-                      <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>Qualifiés :</span>
-                        <input type="number" disabled={!canEdit} value={tourney.qualifiedSettings?.[gNum] ?? 2} onChange={(e) => update({ qualifiedSettings: { ...(tourney.qualifiedSettings || {}), [gNum]: parseInt(e.target.value) || 0 } })} className="tm-mini-input" style={{ width: '45px' }} />
-                      </div>
-                    </div>
-                    
-                    <table style={{ width: '100%', fontSize: '0.8rem', marginBottom: '18px' }}>
-                      <thead><tr style={{ color: '#666', fontSize: '0.7rem' }}><th align="left">NOM</th><th align="right">PTS</th><th align="right">+/-</th></tr></thead>
-                      <tbody>
-                        {standings.map((team, idx) => (
-                          <tr key={team.id} style={{ color: idx < limit ? '#fff' : '#444' }}>
-                            <td style={{ padding: '6px 0' }}>{idx + 1}. {team.name} {idx < limit && "⭐"}</td>
-                            <td align="right">{team.points}</td>
-                            <td align="right" style={{ color: team.diff > 0 ? 'var(--success)' : (team.diff < 0 ? 'var(--danger)' : '#666') }}>{team.diff > 0 ? `+${team.diff}` : team.diff}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
-                        const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
-                        const isFinished = m.status === 'finished';
-                        const isCanceled = m.status === 'canceled';
-                        const isForfeit = m.status === 'forfeit';
-                        const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
-                        const canClick = isReady || isFinished;
-                        const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
-                        const canLaunchThisMatch = canEdit || isAssignedOtm;
-
-                        return (
-                          <div key={m.id} className="tm-match-row" style={{ padding: '12px', borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--success)' : 'var(--danger)'))}`, position: 'relative' }}>
-                             {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem' }}>⠿</div>}
-                             
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '40px' }}>
-                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}><span style={{ fontSize: '0.9rem', color: isFinished ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white' }}>{m.teamA?.name || 'Équipe A'}</span>{isFinished && <b>{m.scoreA}</b>}</div>
-                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}><span style={{ fontSize: '0.9rem', color: isFinished ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white' }}>{m.teamB?.name || 'Équipe B'}</span>{isFinished && <b>{m.scoreB}</b>}</div>
-                               {m.otm && <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
-                             </div>
-                             
-                             <div style={{ display: 'flex', gap: '10px', marginTop: '12px', height: '36px' }}>
-                               <button 
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
-                                   if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
-                                 }}
-                                 className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                                 style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), flex: 1, margin: 0, padding: '0 10px', fontSize: '0.8rem', height: '100%' }}
-                                 disabled={isCanceled || isForfeit}
-                               >
-                                  {isCanceled ? "ANNULÉ" : isForfeit ? "FORFAIT" : (isFinished ? "STATS" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE" : "LANCER LE MATCH") : "DIRECT"))}
-                               </button>
-                               
-                               {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
-                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                   <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="OTM">👤</button>
-                                   <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="Annuler">❌</button>
-                                   <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="Forfait">🏳️</button>
-                                 </div>
-                               )}
-                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-            })}
-          </div>
-        </div>
-      )}
-
       {activeTab === "finale" && (
-        <div className="tm-panel glass-effect">
-          <div className="tm-flex-between" style={{ marginBottom: '20px' }}>
-            <h3>🏆 Phase Finale</h3>
-            {(tourney.playoffs && canEdit) && <button onClick={() => update({playoffs: null})} style={{ background: 'none', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>RESET TABLEAU</button>}
-          </div>
-          {!tourney.playoffs ? (
-            <div style={{ textAlign: 'center', padding: '40px', border: '1px dashed #333', borderRadius: '12px' }}>
-                <p style={{ marginBottom: '20px', fontSize: '1.1rem' }}>
-                    <b>{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages.
-                </p>
-                {totalQualified >= 2 ? (
-                    <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
-                        {numByes > 0 ? (
-                            <span style={{ color: 'var(--accent-orange)' }}>
-                                L'arbre sera de <b>{bracketSize} places</b>. <br/>Les <b>{numByes} meilleures équipes</b> (1ers de poule) sauteront le premier tour !
-                            </span>
-                        ) : (
-                            <span style={{ color: 'var(--success)' }}>Le format est parfait pour un tableau symétrique !</span>
-                        )}
-                        {canEdit && (
-                          <button onClick={generatePlayoffs} className="tm-btn-success" style={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '10px' }}>
-                              🚀 GÉNÉRER {getStartRoundName(bracketSize)}
-                          </button>
-                        )}
-                    </div>
-                ) : (
-                    <div style={{ color: 'var(--danger)' }}>Il faut au moins 2 équipes qualifiées.</div>
-                )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '40px', overflowX: 'auto', padding: '20px 10px', minHeight: '500px' }}>
-                {playoffRounds.map((roundMatches, rIdx) => {
-                    const matchCount = roundMatches.length;
-                    let colTitle = `TOUR ${rIdx + 1}`;
-                    if (matchCount === 1) colTitle = "FINALE 🏆";
-                    else if (matchCount === 2) colTitle = "DEMI-FINALES";
-                    else if (matchCount === 4) colTitle = "QUARTS DE FINALE";
-                    else if (matchCount === 8) colTitle = "8ÈMES DE FINALE";
-                    else if (matchCount === 16) colTitle = "16ÈMES DE FINALE";
-
-                    return (
-                        <div key={rIdx} style={{ display: 'flex', flexDirection: 'column', minWidth: '280px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', padding: '15px' }}>
-                            <h3 style={{ textAlign: 'center', color: 'var(--accent-orange)', margin: '0 0 25px 0', borderBottom: '2px solid #333', paddingBottom: '15px', fontSize: '1.1rem' }}>
-                                {colTitle}
-                            </h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-around', gap: '30px', flex: 1 }}>
-                                {roundMatches.map(m => {
-                                    const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
-                                    const isFinished = m.status === 'finished';
-                                    const isCanceled = m.status === 'canceled';
-                                    const isForfeit = m.status === 'forfeit';
-                                    const isOngoing = !isFinished && !isCanceled && !isForfeit && !!localStorage.getItem(`basketMatchSave_${m.id}`);
-                                    const canClick = isReady || isFinished;
-                                    
-                                    // Vérification des droits spécifiques au match
-                                    const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
-                                    const canLaunchThisMatch = canEdit || isAssignedOtm;
-                                    
-                                    return (
-                                        <div 
-                                          key={m.id} 
-                                          className="tm-match-row"
-                                          draggable={canEdit}
-                                          onDragStart={(e) => {
-                                              if(!canEdit) return;
-                                              setDraggedMatchId(m.id);
-                                              e.dataTransfer.setData("matchId", m.id);
-                                              e.dataTransfer.effectAllowed = "move";
-                                          }}
-                                          onDragEnd={(e) => {
-                                              setDraggedMatchId(null);
-                                          }}
-                                          onDragOver={(e) => {
-                                              if(!canEdit) return;
-                                              e.preventDefault();
-                                              if(draggedMatchId && draggedMatchId !== m.id) {
-                                                  e.currentTarget.style.transform = "scale(1.02)";
-                                                  e.currentTarget.style.boxShadow = "0 0 15px rgba(255, 165, 0, 0.4)";
-                                              }
-                                          }}
-                                          onDragLeave={(e) => {
-                                              if(!canEdit) return;
-                                              // FIX: On réinitialise purement le style !
-                                              e.currentTarget.style.transform = "";
-                                              e.currentTarget.style.boxShadow = "";
-                                          }}
-                                          onDrop={(e) => {
-                                              if(!canEdit) return;
-                                              e.preventDefault();
-                                              // FIX: Nettoyage immédiat au drop
-                                              e.currentTarget.style.transform = "";
-                                              e.currentTarget.style.boxShadow = "";
-                                              
-                                              const sourceMatchId = e.dataTransfer.getData("matchId");
-                                              if (!sourceMatchId || sourceMatchId === m.id) return;
-                                              
-                                              const newMatches = [...tourney.playoffs.matches];
-                                              const sourceIndex = newMatches.findIndex(x => x.id === sourceMatchId);
-                                              const targetIndex = newMatches.findIndex(x => x.id === m.id);
-                                              
-                                              if (sourceIndex > -1 && targetIndex > -1) {
-                                                  const temp = newMatches[sourceIndex];
-                                                  newMatches[sourceIndex] = newMatches[targetIndex];
-                                                  newMatches[targetIndex] = temp;
-                                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                              }
-                                          }}
-                                          style={{ 
-                                              padding: '15px', 
-                                              background: isFinished ? '#1a1a1a' : '#111', 
-                                              borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--accent-orange)' : 'var(--danger)'))}`,
-                                              position: 'relative',
-                                              cursor: canEdit ? (draggedMatchId === m.id ? 'grabbing' : 'grab') : 'default',
-                                              opacity: draggedMatchId === m.id ? 0.4 : (isCanceled ? 0.6 : 1),
-                                              transition: 'all 0.2s ease'
-                                          }}
-                                        >
-                                            {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem' }} title="Glisser pour intervertir">⠿</div>}
-
-                                            {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
-                                            {isFinished && <div className="tm-ribbon-finished">TERMINÉ</div>}
-                                            {isCanceled && <div className="tm-ribbon-finished" style={{background: '#555'}}>ANNULÉ</div>}
-                                            {isForfeit && <div className="tm-ribbon-finished" style={{background: 'var(--danger)'}}>FORFAIT</div>}
-                                            <div style={{ fontSize: '0.7rem', color: 'var(--accent-orange)', fontWeight: 'bold', marginBottom: '10px' }}>{m.label}</div>
-                                            
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
-                                                <span style={{ color: (isFinished || isForfeit) ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: (isFinished || isForfeit) && m.scoreA > m.scoreB ? 'bold' : 'normal', textDecoration: isCanceled ? 'line-through' : 'none' }}>
-                                                    {m.teamA?.name || <span style={{color: '#555', fontStyle: 'italic'}}>À déterminer...</span>}
-                                                </span>
-                                                {(isFinished || isCanceled || isForfeit) && <b>{m.scoreA}</b>}
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px' }}>
-                                                <span style={{ color: (isFinished || isForfeit) ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white', fontWeight: (isFinished || isForfeit) && m.scoreB > m.scoreA ? 'bold' : 'normal', textDecoration: isCanceled ? 'line-through' : 'none' }}>
-                                                    {m.teamB?.name || <span style={{color: '#555', fontStyle: 'italic'}}>À déterminer...</span>}
-                                                </span>
-                                                {(isFinished || isCanceled || isForfeit) && <b>{m.scoreB}</b>}
-                                            </div>
-                                            
-                                            {/* AFFICHAGE DE L'OTM */}
-                                            {m.otm && <div style={{ fontSize: '0.7rem', color: '#aaa', marginBottom: '10px' }}>📋 OTM : <span style={{color: 'var(--accent-orange)', fontWeight: 'bold'}}>{m.otm}</span></div>}
-                                            
-                                            {(m.teamA?.isBye || m.teamB?.isBye) ? (
-                                                <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#888', marginTop: '10px', padding: '6px', background: '#222', borderRadius: '4px', border: '1px dashed #444' }}>
-                                                    ⏩ QUALIFICATION DIRECTE
-                                                </div>
-                                            ) : (
-                                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', height: '35px' /* 🛠️ Hauteur globale réduite */ }}>
-                              <button onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { alert(`Impossible de lancer : il manque des joueurs.`); return; }
-                                                  
-                                                  if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
-                                                }}
-                              className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                              style={{ 
-                                backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), 
-                                flex: 1, 
-                                margin: 0,
-                                padding: '0 10px', /* 🛠️ Padding réduit */
-                                fontSize: '0.8rem', /* 🛠️ Police plus petite */
-                                height: '100%'
-                              }}
-                              disabled={isCanceled || isForfeit}
-                              >
-                                  {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE PAR FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER LE MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
-                              </button>
-                              
-                              {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
-                                <div style={{ display: 'flex', gap: '6px' }}>
-                                  <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Assigner un OTM">👤</button>
-                                  <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s' }} title="Annuler le match">❌</button>
-                                  <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} 
-                                  style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', transition: '0.2s', position: 'relative', // 🛠️ Crucial pour le clic
-                                  
-                                    // zIndex: 5             // 🛠️ Assure que le bouton est "au-dessus"
-                                  }}
-                                    title="Forfait">🏳️</button>
-                                </div>
-                              )}
-                            </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-          )}
-        </div>
+        <PlayoffsTab 
+          tourney={tourney}
+          canEdit={canEdit}
+          update={update}
+          generatePlayoffs={generatePlayoffs}
+          currentUserName={currentUserName}
+          handleLaunchMatch={handleLaunchMatch}
+          handleAssignOtm={handleAssignOtm}
+          handleMatchException={handleMatchException}
+          getGroupLimit={getGroupLimit}
+        />
       )}
+
 
       {activeTab === "stats" && (
-        <div className="tm-panel glass-effect">
-          <div className="tm-flex-between" style={{ marginBottom: '20px' }}>
-            <h3>📈 Leaderboards du Tournoi</h3>
-            <span style={{ fontSize: '0.8rem', color: '#888' }}>Statistiques basées sur les matchs terminés</span>
-          </div>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-            {renderTop5("🌟 MVP (Meilleure Évaluation)", getPlayerStats(), "eff", "eff", "var(--accent-orange)")}
-            {renderTop5("🎯 Top Marqueurs (PTS)", getPlayerStats(), "points", "points", "#ff4444", "pts")}
-            {renderTop5("🛡️ Top Rebondeurs", getPlayerStats(), "reb", "reb", "var(--accent-blue)", "reb")}
-            {renderTop5("🤝 Top Passeurs", getPlayerStats(), "ast", "ast", "var(--success)", "ast")}
-            {renderTop5("🥷 Top Intercepteurs", getPlayerStats(), "stl", "stl", "#f1c40f", "stl")}
-            {renderTop5("🧱 Top Contreurs", getPlayerStats(), "blk", "blk", "var(--accent-purple)", "blk")}
-            
-            {/* Nouveaux : Adresse au tir (avec minimum de tentatives pour être classé) */}
-            {renderTop5("🔥 Plus Adroit (Général)", getPlayerStats().filter(p => p.fga >= 5), "fgPct", "fgPctDisplay", "#e74c3c")}
-            {renderTop5("🎯 Sniper 2 Pts", getPlayerStats().filter(p => p.fg2a >= 3), "fg2Pct", "fg2PctDisplay", "#2ecc71")}
-            {renderTop5("🏹 Sniper 3 Pts", getPlayerStats().filter(p => p.fg3a >= 3), "fg3Pct", "fg3PctDisplay", "#3498db")}
-            {renderTop5("⚖️ Métronome Lancers Francs", getPlayerStats().filter(p => p.fta >= 3), "ftPct", "ftPctDisplay", "#95a5a6")}
-          </div>
-        </div>
+        <TournamentStats tourney={tourney} />
       )}
+
 
       {/* --- MODALE D'ASSIGNATION D'OTM --- */}      
       {otmModal && (
@@ -1312,6 +971,19 @@ export default function TournamentManager({ tourney, setTournaments, onLaunchMat
           </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={confirmData.isOpen}
+        title={confirmData.title}
+        message={confirmData.message}
+        onConfirm={() => {
+          if (confirmData.onConfirm) confirmData.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmData.isDanger}
+      />
+      
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../supabaseClient';
-import jsPDF from 'jspdf'; // NOUVEAU
-import html2canvas from 'html2canvas'; // NOUVEAU
+import useMatchSync from '../hooks/useMatchSync';
 
 // --- COMPOSANTS INTERNES ---
 
-const BoxscoreTable = ({ title, players, color }) => {
+// DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx
+
+const BoxscoreTable = React.memo(({ title, players, color }) => {
   const formatPlayerTime = (sec) => {
     const safeSec = Number(sec) || 0;
     return `${Math.floor(safeSec / 60).toString().padStart(2, '0')}:${(safeSec % 60).toString().padStart(2, '0')}`;
@@ -88,9 +89,23 @@ const BoxscoreTable = ({ title, players, color }) => {
       </table>
     </div>
   );
+});
+
+// NOUVEAU : Fonction de comparaison personnalisée pour bloquer les rendus inutiles liés au chrono
+const playerCardAreEqual = (prevProps, nextProps) => {
+  return (
+    prevProps.player === nextProps.player &&
+    prevProps.team === nextProps.team &&
+    prevProps.canEdit === nextProps.canEdit &&
+    prevProps.hasGlobalAction === nextProps.hasGlobalAction &&
+    prevProps.activeActionType === nextProps.activeActionType &&
+    prevProps.pendingAssist === nextProps.pendingAssist &&
+    prevProps.pendingAction === nextProps.pendingAction &&
+    prevProps.pendingSubs === nextProps.pendingSubs
+  );
 };
 
-const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit }) => {
+const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit }) => {
   const isSubSelected = pendingSubs && pendingSubs.includes(player.id);
   const isPendingScore = pendingAction?.playerId === player.id;
   
@@ -162,7 +177,9 @@ const PlayerCard = ({ team, player, onPlayerClick, pendingSubs, pendingAction, o
       )}
     </div>
   );
-};
+}, playerCardAreEqual); // <-- Ajout de la fonction de comparaison ici
+
+// FIN DE LA MODIFICATION
 
 // --- COMPOSANT PRINCIPAL ---
 
@@ -238,33 +255,7 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   const [editMin, setEditMin] = useState(0);
   const [editSec, setEditSec] = useState(0);
 
-  // --- NOUVEAU : ÉTAT ET DÉTECTION HORS-LIGNE ---
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Synchronisation magique dès que le réseau revient
-      if (canEdit && !isMatchOver) {
-        supabase.channel(`match_live_${matchId}`).send({
-          type: 'broadcast', event: 'sync',
-          payload: { playersA, playersB, time, period, history, isRunning }
-        });
-      }
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [canEdit, isMatchOver, matchId, playersA, playersB, time, period, history, isRunning]);
-  // ----------------------------------------------
-
-  const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
+    const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
   const scoreB = playersB.reduce((sum, p) => sum + p.points, 0);
 
   const getTeamFouls = (team) => {
@@ -541,67 +532,23 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
   }, [isRunning]);
 
   const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });
-  const isRemoteUpdate = useRef(false);
-
+  
   useEffect(() => {
     stateRef.current = { playersA, playersB, time, period, history, isRunning, startersValidated };
   }, [playersA, playersB, time, period, history, isRunning, startersValidated]);
 
-  useEffect(() => {
-    const channel = supabase.channel(`match_live_${matchId}`);
-    
-    channel.on('broadcast', { event: 'sync' }, ({ payload }) => {
-      if (canEdit) isRemoteUpdate.current = true; 
-      setPlayersA(payload.playersA);
-      setPlayersB(payload.playersB);
-      setTime(payload.time);
-      setPeriod(payload.period);
-      setHistory(payload.history);
-      setIsRunning(payload.isRunning);
+  // DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx (Déclaration du Hook)
 
-      // --- NOUVEAU : Si la tablette principale a déjà validé, on ferme le panneau ici aussi ! ---
-      if (payload.startersValidated || payload.history?.length > 0 || payload.playersA?.some(p => p.status === 'court')) {
-          setStartersValidated(true);
-          setActiveAction(prev => prev?.type === 'STARTERS' ? null : prev);
-      }
-    });
+  const { isOnline } = useMatchSync(
+    matchId,
+    canEdit,
+    { playersA, playersB, time, period, history, isRunning, startersValidated }, // Les valeurs
+    { setPlayersA, setPlayersB, setTime, setPeriod, setHistory, setIsRunning, setStartersValidated, setActiveAction }, // Les modificateurs
+    stateRef
+  );
 
-    if (canEdit) {
-      channel.on('broadcast', { event: 'request_sync' }, () => {
-        // --- NOUVEAU : On répond à l'appel même si le match est à 0-0 mais que le 5 majeur est prêt ---
-        const hasStarted = stateRef.current.history.length > 0 || stateRef.current.playersA.some(p => p.points > 0) || stateRef.current.startersValidated;
-        if (hasStarted) {
-            channel.send({
-              type: 'broadcast', event: 'sync',
-              payload: stateRef.current
-            });
-        }
-      });
-    }
-
-    channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED' && canEdit) {
-            channel.send({ type: 'broadcast', event: 'request_sync' });
-        }
-    });
-
-    return () => { supabase.removeChannel(channel); };
-  }, [matchId, canEdit]);
-
-  useEffect(() => {
-    if (canEdit && isOnline) {
-      if (isRemoteUpdate.current) {
-         isRemoteUpdate.current = false;
-         return;
-      }
-      supabase.channel(`match_live_${matchId}`).send({
-        type: 'broadcast', event: 'sync',
-        // NOUVEAU : On inclut l'état startersValidated dans l'envoi en direct
-        payload: { playersA, playersB, time, period, history, isRunning, startersValidated }
-      });
-    }
-  }, [canEdit, isOnline, matchId, playersA, playersB, time, period, history, isRunning, startersValidated]);
-
+// FIN DE LA MODIFICATION
+  
   const handleAction = (incomingType, team, pid, incomingValue) => {
     if (!canEdit || isMatchOver) return; 
 
@@ -790,7 +737,8 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     setPendingAction(null); setActiveAction(null);
   };
 
-  // 👇 AJOUTE LA FONCTION PDF JUSTE ICI 👇
+  // DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx (fonction handleGeneratePDF)
+
   const handleGeneratePDF = async () => {
     const element = document.getElementById('pdf-scoresheet-template');
     if (!element) return;
@@ -799,6 +747,11 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
     element.style.display = 'block';
     
     try {
+      // 🚀 IMPORT DYNAMIQUE (LAZY LOADING) : 
+      // On télécharge ces grosses librairies uniquement au moment où l'utilisateur clique !
+      const { default: html2canvas } = await import('html2canvas');
+      const { default: jsPDF } = await import('jspdf');
+
       // On génère une image haute qualité (scale: 2) de la zone HTML
       const canvas = await html2canvas(element, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/png');
@@ -819,7 +772,8 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
       element.style.display = 'none';
     }
   };
-  // 👆 -------------------------------- 👆
+
+// FIN DE LA MODIFICATION
 
   return (
     <div className="scoreboard-container">

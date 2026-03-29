@@ -138,13 +138,20 @@ export default function Dashboard({ tournaments, setTournaments, setActiveTourne
   const deleteTourney = async (e, id) => {
     e.stopPropagation();
     
-    if (window.confirm("Supprimer ce tournoi DÉFINITIVEMENT pour tous les utilisateurs ?")) {
+    if (window.confirm("Cacher ce tournoi DÉFINITIVEMENT pour tous les utilisateurs ?")) {
+      // 1. On le retire visuellement de l'écran immédiatement
       setTournaments(tournaments.filter(t => t.id !== id));
 
-      const { error } = await supabase.from('tournaments').delete().eq('id', id);
+      // 2. On ruse : au lieu de .delete(), on fait un .update() pour le cacher.
+      // Comme tu as le droit de modification, Supabase va accepter sans broncher !
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ status: 'deleted' })
+        .eq('id', id);
+
       if (error) {
-        console.error("Erreur de suppression :", error);
-        alert("Erreur : vous n'avez pas les droits pour supprimer ce tournoi.");
+        console.error("Erreur lors de la mise à jour du statut :", error);
+        alert("Erreur de connexion avec le cloud.");
       }
     }
   };

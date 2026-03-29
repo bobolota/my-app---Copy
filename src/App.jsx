@@ -6,6 +6,7 @@ import Scoreboard from './components/Scoreboard';
 import { supabase } from './supabaseClient';
 import Auth from './components/Auth';
 import PlayerDashboard from './components/PlayerDashboard';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -233,6 +234,7 @@ export default function App() {
 
   return (
     <div className="app-layout">
+      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff' } }} />
       
       <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isSidebarOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-header">
