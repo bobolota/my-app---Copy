@@ -14,15 +14,14 @@ import { useAppContext } from '../context/AppContext';
 
 export default function PlayerDashboard() {
   const [myTeams, setMyTeams] = useState([]);
-  const { session } = useAuth(); // Ça, c'est ce qu'on a fait tout à l'heure
+  const { session } = useAuth(); 
   
-  // 👇 NOUVEAU : On récupère les variables du Nuage Central
   const { activeMenu: currentTab, setActiveTourneyId, setView } = useAppContext();
   const [allTeams, setAllTeams] = useState([]);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamCity, setNewTeamCity] = useState("");
   const [loading, setLoading] = useState(true);
-  const [allPlayers, setAllPlayers] = useState([]); // NOUVEAU : La liste de tous les joueurs
+  const [allPlayers, setAllPlayers] = useState([]); 
 
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
@@ -35,10 +34,11 @@ export default function PlayerDashboard() {
 
   const [managingTeam, setManagingTeam] = useState(null);
   const [roster, setRoster] = useState([]);
+  
+  // 👇 NOUVEAU : État pour le nom du joueur manuel
+  const [newGhostName, setNewGhostName] = useState("");
 
-  // --- NOUVEAU : On stocke le profil de l'utilisateur (dont son abonnement) ---
   const [userProfile, setUserProfile] = useState(null);
-  // -------------------------------------------------------------------------
 
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -48,13 +48,10 @@ export default function PlayerDashboard() {
   const [registerModalTourney, setRegisterModalTourney] = useState(null);
   const [selectedTeamToRegister, setSelectedTeamToRegister] = useState("");
 
-  // NOUVEAU : États pour la modale de changement de capitaine
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedNewCaptainId, setSelectedNewCaptainId] = useState("");
 
-  // On compte dans combien d'équipes le joueur est déjà impliqué (accepté ou en attente)
   const activeTeamCount = myTeams.filter(t => t.status === 'accepted' || t.status === 'pending').length;
-  // S'il atteint 3, la variable passe à TRUE et bloquera automatiquement les boutons "Postuler" et "Créer"
   const hasTeam = activeTeamCount >= 3;
 
   useEffect(() => {
@@ -68,7 +65,7 @@ export default function PlayerDashboard() {
   const calculateStats = (playerId, tourneys) => {
     let stats = { 
       gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0,
-      maxPts: 0, maxReb: 0, maxAst: 0, maxStl: 0, maxBlk: 0, maxEff: 0 // Les records
+      maxPts: 0, maxReb: 0, maxAst: 0, maxStl: 0, maxBlk: 0, maxEff: 0
     };
     
     tourneys.forEach(tourney => {
@@ -95,7 +92,6 @@ export default function PlayerDashboard() {
             stats.ftm += (pStat.ftm || 0);
             stats.fta += (pStat.fta || 0);
 
-            // NOUVEAU : Traque des records sur 1 match !
             const matchMissedFG = matchFga - matchFgm;
             const matchMissedFT = (pStat.fta || 0) - (pStat.ftm || 0);
             const matchEff = ((pStat.points || 0) + matchReb + (pStat.ast || 0) + (pStat.stl || 0) + (pStat.blk || 0)) - (matchMissedFG + matchMissedFT + (pStat.tov || 0));
@@ -115,7 +111,6 @@ export default function PlayerDashboard() {
     const missedFT = stats.fta - stats.ftm;
     stats.eff = (stats.pts + stats.reb + stats.ast + stats.stl + stats.blk) - (missedFG + missedFT + stats.tov);
     
-    // NOUVEAU : Pré-calcul des moyennes
     if (stats.gp > 0) {
       stats.ptsAvg = (stats.pts / stats.gp).toFixed(1);
       stats.rebAvg = (stats.reb / stats.gp).toFixed(1);
@@ -134,58 +129,32 @@ export default function PlayerDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. On récupère le profil (pour vérifier s'il est PRO ou FREE)
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
       if (profileData) setUserProfile(profileData);
 
-      // 2. On récupère les équipes de l'utilisateur
-      const { data: memberData, error: memberError } = await supabase
-        .from('team_members')
-        .select('status, global_teams (*)')
-        .eq('player_id', session.user.id);
+      const { data: memberData, error: memberError } = await supabase.from('team_members').select('status, global_teams (*)').eq('player_id', session.user.id);
       if (memberError) throw memberError;
       setMyTeams(memberData || []);
 
-      // 👇 NOUVEAU : RESTAURATION DE L'ÉQUIPE OUVERTE APRÈS UN REFRESH 👇
       const savedTeamId = localStorage.getItem('managingTeamId');
       if (savedTeamId && memberData) {
         const savedTeam = memberData.find(mt => mt.global_teams && mt.global_teams.id === savedTeamId);
         if (savedTeam) {
           setManagingTeam(savedTeam.global_teams);
-          loadRoster(savedTeam.global_teams.id); // <--- LA LIGNE MAGIQUE EST ICI !
+          loadRoster(savedTeam.global_teams.id); 
         }
       }
-      // 👆 ------------------------------------------------------------- 👆
 
-      // 3. On récupère toutes les équipes globales
-      const { data: teamsData, error: teamsError } = await supabase
-        .from('global_teams')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const { data: teamsData, error: teamsError } = await supabase.from('global_teams').select('*').order('created_at', { ascending: false });
       if (teamsError) throw teamsError;
       setAllTeams(teamsData || []);
 
-      // ---------------------------------------------------------
-      // 👇 C'EST ICI QU'ON LE MET (L'ÉTAPE 3.5) 👇
-      // ---------------------------------------------------------
-      const { data: playersData, error: playersError } = await supabase
-        .from('profiles')
-        .select('id, full_name, position, city') /* 🛠️ CORRIGÉ ICI */
-        .order('full_name');
+      const { data: playersData, error: playersError } = await supabase.from('profiles').select('id, full_name, position, city').order('full_name');
       if (!playersError) setAllPlayers(playersData || []);
-      // ---------------------------------------------------------
 
-      // 4. On récupère les tournois pour l'onglet "Explorer"
-      
-      // 4. On récupère les tournois pour l'onglet "Explorer"
-      const { data: tourneysData, error: tourneysError } = await supabase
-        .from('tournaments')
+      const { data: tourneysData, error: tourneysError } = await supabase.from('tournaments')
         .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code')
-        .in('status', ['preparing', 'ongoing', 'finished']); // 🛡️ ON NE PREND QUE CEUX-LÀ !
+        .in('status', ['preparing', 'ongoing', 'finished']);
       
       if (tourneysError) throw tourneysError;
       
@@ -195,7 +164,7 @@ export default function PlayerDashboard() {
       }
       
     } catch (error) {
-      console.error("Erreur lors du téléchargement des données :", error);
+      console.error("Erreur téléchargement :", error);
     } finally {
       setLoading(false);
     }
@@ -204,66 +173,41 @@ export default function PlayerDashboard() {
   const handleSearchPlayer = async () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, role')
-        .ilike('full_name', `%${searchQuery}%`)
-        .limit(10);
+      const { data, error } = await supabase.from('profiles').select('id, full_name, role').ilike('full_name', `%${searchQuery}%`).limit(10);
       if (!error) setSearchResults(data || []);
     } catch (error) {}
   };
 
   const viewPlayerProfile = async (player) => {
     const pStats = calculateStats(player.id, allTournaments);
-    
     let relationStatus = null;
+    
     if (managingTeam && roster.length > 0) {
       const rosterEntry = roster.find(r => r.player_id === player.id);
       if (rosterEntry) relationStatus = rosterEntry.status;
     } else if (myCaptainTeams && myCaptainTeams.length > 0) {
       const teamIds = myCaptainTeams.map(t => t.id);
-      const { data } = await supabase
-        .from('team_members')
-        .select('status')
-        .eq('player_id', player.id)
-        .in('team_id', teamIds)
-        .limit(1);
-        
+      const { data } = await supabase.from('team_members').select('status').eq('player_id', player.id).in('team_id', teamIds).limit(1);
       if (data && data.length > 0) relationStatus = data[0].status;
     }
 
-    // 👇 NOUVEAU : On récupère la liste des équipes de CE joueur
     let playerTeams = [];
-    const { data: ptData } = await supabase
-      .from('team_members')
-      .select('global_teams(name)')
-      .eq('player_id', player.id)
-      .eq('status', 'accepted');
-
-    if (ptData) {
-      playerTeams = ptData.map(d => d.global_teams).filter(Boolean); // On nettoie les données
-    }
-    // 👆 ----------------------------------------------------
+    const { data: ptData } = await supabase.from('team_members').select('global_teams(name)').eq('player_id', player.id).eq('status', 'accepted');
+    if (ptData) playerTeams = ptData.map(d => d.global_teams).filter(Boolean);
 
     setSelectedProfile({ ...player, stats: pStats, relationStatus, playerTeams });
     setInviteTeamId("");
   };
 
   const handleCreateTeam = async (e) => {
-
-if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
-
+    if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     e.preventDefault();
-    if (!newTeamName.trim() || !newTeamCity.trim()) {
-      return toast.error("Le nom ET la ville de l'équipe sont obligatoires !");
-    }
+    if (!newTeamName.trim() || !newTeamCity.trim()) return toast.error("Le nom ET la ville sont obligatoires !");
 
     try {
-      const { data: teamData, error: teamError } = await supabase
-        .from('global_teams').insert([{ name: newTeamName, city: newTeamCity, captain_id: session.user.id }]).select().single();
+      const { data: teamData, error: teamError } = await supabase.from('global_teams').insert([{ name: newTeamName, city: newTeamCity, captain_id: session.user.id }]).select().single();
       if (teamError) throw teamError;
-      const { error: memberError } = await supabase
-        .from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
+      const { error: memberError } = await supabase.from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
       if (memberError) throw memberError;
       setNewTeamName(""); setNewTeamCity(""); fetchData(); 
       toast.success("Ton équipe a été créée avec succès ! 🎉");
@@ -271,9 +215,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
   };
 
   const handleJoinTeam = async (teamId) => {
-
     if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
-
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: teamId, player_id: session.user.id, status: 'pending' }]);
       if (error && error.code === '23505') toast.error("Tu as déjà fait une demande pour cette équipe !");
@@ -291,10 +233,8 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
         try {
           await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
           toast.success("Candidature annulée.");
-          fetchData(); // On rafraîchit la page pour faire disparaître la carte
-        } catch (error) {
-          toast.error("Erreur lors de l'annulation.");
-        }
+          fetchData(); 
+        } catch (error) { toast.error("Erreur lors de l'annulation."); }
       }
     });
   };
@@ -304,17 +244,15 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: inviteTeamId, player_id: playerId, status: 'invited' }]);
       if (error && error.code === '23505') {
-        toast.error("Ce joueur a déjà une interaction (invitation/candidature) avec cette équipe !");
+        toast.error("Ce joueur a déjà une interaction avec cette équipe !");
       } else if (!error) {
-        // NOUVEAU : On ne ferme plus la modale ! On met à jour l'affichage en direct.
         setSelectedProfile(prev => ({ ...prev, relationStatus: 'invited' }));
       }
     } catch (error) {}
   };
+
   const respondToInvite = async (teamId, accept) => {
-
-if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
-
+    if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     try {
       if (accept) {
         await supabase.from('team_members').update({ status: 'accepted' }).eq('team_id', teamId).eq('player_id', session.user.id);
@@ -328,22 +266,26 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
   const openTeamManager = (team) => {
     setManagingTeam(team);
-    localStorage.setItem('managingTeamId', team.id); // NOUVEAU : On sauvegarde l'ID en mémoire !
-    loadRoster(team.id); // <--- L'AUTRE LIGNE MAGIQUE !
+    localStorage.setItem('managingTeamId', team.id); 
+    loadRoster(team.id); 
   };
 
+  // 👇 MODIFIÉ : Récupère aussi les manual_name (Joueurs fantômes)
   const loadRoster = async (teamId) => {
     try {
-      const { data: members } = await supabase.from('team_members').select('status, player_id').eq('team_id', teamId);
+      const { data: members } = await supabase.from('team_members').select('id, status, player_id, manual_name').eq('team_id', teamId);
       if (!members || members.length === 0) { setRoster([]); return; }
-      const playerIds = members.map(m => m.player_id);
-      const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', playerIds);
+      
+      const playerIds = members.map(m => m.player_id).filter(Boolean);
+      const { data: profiles } = playerIds.length > 0 ? await supabase.from('profiles').select('id, full_name').in('id', playerIds) : { data: [] };
+      
       const fullRoster = members.map(m => {
-        const profile = profiles.find(p => p.id === m.player_id);
-        return { ...m, full_name: profile?.full_name || 'Joueur Inconnu' };
+        if (!m.player_id) return { ...m, full_name: m.manual_name || 'Joueur Manuel', isGhost: true };
+        const profile = profiles?.find(p => p.id === m.player_id);
+        return { ...m, full_name: profile?.full_name || 'Joueur Inconnu', isGhost: false };
       });
       setRoster(fullRoster);
-    } catch (error) {}
+    } catch (error) { console.error(error); }
   };
 
   const acceptPlayer = async (playerId) => {
@@ -351,7 +293,8 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     setRoster(prev => prev.map(p => p.player_id === playerId ? { ...p, status: 'accepted' } : p));
   };
 
-  const removePlayer = (playerId, isSelfLeave = false) => {
+  // 👇 MODIFIÉ : Gère la suppression des Vrais ET des Faux joueurs
+  const removePlayer = (identifier, isGhost = false, isSelfLeave = false) => {
     setConfirmData({
       isOpen: true,
       title: isSelfLeave ? "Quitter l'équipe ? 🚪" : "Retirer le joueur ?",
@@ -360,44 +303,68 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
         : "Es-tu sûr de vouloir retirer ce joueur (ou annuler son invitation) ?",
       isDanger: true,
       onConfirm: async () => {
-        await supabase.from('team_members').delete().eq('team_id', managingTeam.id).eq('player_id', playerId);
-        
-        toast.success(isSelfLeave ? "Tu as quitté l'équipe." : "Joueur retiré avec succès.");
-        
-        if (isSelfLeave) { 
-          setManagingTeam(null); 
-          fetchData(); 
-        } else { 
-          setRoster(prev => prev.filter(p => p.player_id !== playerId)); 
-        }
+        try {
+          let query = supabase.from('team_members').delete().eq('team_id', managingTeam.id);
+          if (isGhost) query = query.eq('manual_name', identifier).is('player_id', null);
+          else query = query.eq('player_id', identifier);
+          
+          await query;
+          toast.success(isSelfLeave ? "Tu as quitté l'équipe." : "Joueur retiré avec succès.");
+          
+          if (isSelfLeave) { 
+            setManagingTeam(null); 
+            fetchData(); 
+          } else { 
+            setRoster(prev => prev.filter(p => p.isGhost ? p.manual_name !== identifier : p.player_id !== identifier)); 
+          }
+        } catch(err) { toast.error("Erreur lors de la suppression."); }
       }
     });
   };
 
-  // --- MODIFIÉ : FONCTION TRANSFERT AVEC MODALE ---
+  // 👇 NOUVEAU : Fonction d'ajout de joueur fantôme
+  const handleAddGhostPlayer = async (e) => {
+    e.preventDefault();
+    const name = newGhostName.trim();
+    if (!name) return;
+    if (roster.filter(p => p.status === 'accepted').length >= 12) return toast.error("Effectif complet ! (12 max)");
+    
+    try {
+      const { error } = await supabase.from('team_members').insert([{
+        team_id: managingTeam.id,
+        player_id: null,
+        manual_name: name,
+        status: 'accepted'
+      }]);
+      if (error) throw error;
+      
+      toast.success("Joueur ajouté !");
+      setNewGhostName("");
+      loadRoster(managingTeam.id);
+    } catch(err) { 
+      console.error("DÉTAIL ERREUR SUPABASE :", err);
+      toast.error("Erreur Supabase : " + (err.message || err.details || "Regarde la console")); 
+    }
+  };
+
   const handleTransferCaptaincy = () => {
     if (!selectedNewCaptainId) return toast.error("Sélectionne un joueur dans la liste !");
-    
     const newCap = roster.find(p => p.player_id === selectedNewCaptainId);
-    
     setConfirmData({
       isOpen: true,
       title: "Transférer le brassard ? 👑",
-      message: `Es-tu sûr de vouloir léguer le rôle de Capitaine à ${newCap.full_name} ?\n\nTu deviendras un simple joueur et n'auras plus accès à la gestion de l'équipe.`,
-      isDanger: true, // Rouge, car on perd ses droits de capitaine !
+      message: `Léguer le rôle de Capitaine à ${newCap.full_name} ?\nTu perdras tes droits de gestion sur l'équipe.`,
+      isDanger: true, 
       onConfirm: async () => {
         try {
           const { error } = await supabase.from('global_teams').update({ captain_id: selectedNewCaptainId }).eq('id', managingTeam.id);
           if (error) throw error;
-          
-          toast.success(`${newCap.full_name} est le nouveau Capitaine de l'équipe ! 👑`);
+          toast.success(`${newCap.full_name} est le nouveau Capitaine ! 👑`);
           setManagingTeam({ ...managingTeam, captain_id: selectedNewCaptainId });
           setTransferModalOpen(false);
           setSelectedNewCaptainId("");
           fetchData();
-        } catch (error) {
-          toast.error("Erreur lors du transfert : " + error.message);
-        }
+        } catch (error) { toast.error("Erreur : " + error.message); }
       }
     });
   };
@@ -406,34 +373,38 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     setConfirmData({
       isOpen: true,
       title: "Dissoudre l'équipe ? 🚨",
-      message: "ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?\n\nCette action va renvoyer tous les joueurs dans la section Mercato. (L'historique dans les anciens tournois sera conservé).",
+      message: "ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?",
       isDanger: true,
       onConfirm: async () => {
         try {
           const { error } = await supabase.from('global_teams').delete().eq('id', managingTeam.id);
           if (error) throw error;
-          
           toast.success("L'équipe a été dissoute avec succès. 💥");
           setManagingTeam(null);
           fetchData();
-        } catch (error) {
-          toast.error("Erreur lors de la dissolution : " + error.message);
-        }
+        } catch (error) { toast.error("Erreur : " + error.message); }
       }
     });
   };
-  // ---------------------------------------------
 
   const submitRegistration = async () => {
     if (!selectedTeamToRegister) return toast.error("Sélectionne une équipe !");
     try {
       const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
       
-      const { data: members } = await supabase.from('team_members').select('player_id').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
+      // On récupère les membres acceptés de l'équipe
+      const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
       
+      // 👇 LA NOUVELLE RÈGLE DES 5 JOUEURS EST ICI 👇
+      if (!members || members.length < 5) {
+        return toast.error(`Effectif incomplet 🛑\n\nL'équipe "${teamToReg.name}" n'a que ${members?.length || 0} joueur(s) validé(s). Il en faut au minimum 5 pour s'inscrire à un tournoi !`);
+      }
+      // 👆 ---------------------------------------- 👆
+
       let newPlayers = [];
       if (members && members.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', members.map(m => m.player_id));
+        const playerIds = members.map(m => m.player_id).filter(Boolean);
+        const { data: profiles } = playerIds.length > 0 ? await supabase.from('profiles').select('id, full_name').in('id', playerIds) : { data: [] };
         
         const existingTeams = registerModalTourney.teams || [];
         const alreadyRegisteredPlayerIds = new Set();
@@ -441,15 +412,16 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
             (t.players || []).forEach(p => alreadyRegisteredPlayerIds.add(p.id));
         });
 
-        const overlappingMember = members.find(m => alreadyRegisteredPlayerIds.has(m.player_id));
+        const overlappingMember = members.find(m => m.player_id && alreadyRegisteredPlayerIds.has(m.player_id));
         if (overlappingMember) {
             const badPlayerName = profiles?.find(p => p.id === overlappingMember.player_id)?.full_name || "Un joueur";
-            toast.error(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe ! Un joueur ne peut pas affronter sa propre équipe.`);
+            toast.error(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe !`);
             return;
         }
 
         newPlayers = members.map((m, i) => ({
-          id: m.player_id, name: profiles.find(p => p.id === m.player_id)?.full_name || "Joueur Inconnu",
+          id: m.player_id || `ghost_${Math.random()}`, 
+          name: m.player_id ? (profiles.find(p => p.id === m.player_id)?.full_name || "Inconnu") : (m.manual_name || "Manuel"),
           number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20
         }));
       }
@@ -462,18 +434,66 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
     } catch(err) {
       console.error(err);
-      toast.error("Une erreur s'est produite lors de l'inscription.");
+      toast.error("Erreur lors de l'inscription.");
     }
   };
 
-  // L'écran de chargement "Premium" avec les Skeletons
+  // 👇 NOUVEAU : FONCTION POUR QUITTER UN TOURNOI 👇
+  const handleLeaveTournament = (tourney, teamGlobalId) => {
+    if (tourney.status !== 'preparing') {
+      return toast.error("Impossible 🛑 : Le tournoi a déjà commencé !");
+    }
+
+    const myGlobalTeam = myTeams.find(mt => mt.global_teams.id === teamGlobalId)?.global_teams;
+    if (!myGlobalTeam || myGlobalTeam.captain_id !== session.user.id) {
+      return toast.error("Seul le capitaine de l'équipe peut vous désinscrire ! 👑");
+    }
+
+    setConfirmData({
+      isOpen: true,
+      title: "Se désinscrire ? 🚪",
+      message: `Es-tu sûr de vouloir retirer l'équipe "${myGlobalTeam.name}" de ce tournoi ?`,
+      isDanger: true,
+      onConfirm: async () => {
+        const loadingToast = toast.loading("Désinscription en cours...");
+        try {
+          
+          // 1. On récupère la liste exacte du tournoi
+          const { data: currentTourney, error: fetchError } = await supabase
+            .from('tournaments')
+            .select('teams')
+            .eq('id', tourney.id)
+            .single();
+
+          if (fetchError) throw fetchError;
+
+          // 2. On filtre en Javascript (C'est infaillible)
+          const currentTeams = currentTourney.teams || [];
+          const updatedTeams = currentTeams.filter(t => t.global_id !== teamGlobalId);
+
+          // 3. On demande à Supabase de forcer la sauvegarde avec notre nouvelle RPC
+          const { error: rpcError } = await supabase.rpc('update_tournament_teams', { 
+            t_id: tourney.id, 
+            new_teams: updatedTeams 
+          });
+
+          if (rpcError) throw rpcError;
+
+          toast.success("Ton équipe a été retirée du tournoi.", { id: loadingToast });
+          fetchData(); 
+          
+        } catch (error) {
+          console.error("DÉTAIL ERREUR :", error);
+          toast.error("Erreur lors de la désinscription.", { id: loadingToast });
+        }
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', width: '100%' }}>
-        {/* Faux En-tête */}
         <div className="skeleton skeleton-title"></div>
-        
-        {/* Grille de fausses cartes */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '30px' }}>
           {[1, 2, 3, 4, 5, 6].map(n => (
             <div key={n} style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
@@ -492,7 +512,6 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
   const availableTeams = allTeams.filter(t => !myTeamIds.includes(t.id));
   const myCaptainTeams = myTeams.filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted').map(mt => mt.global_teams);
 
-  // --- GESTION INTERNE D'UNE ÉQUIPE ---
   if (managingTeam) {
     const isCaptainView = managingTeam.captain_id === session.user.id;
     const pendingPlayers = roster.filter(p => p.status === 'pending');
@@ -501,24 +520,20 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
     return (
       <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', color: 'white' }}>
-        <button onClick={() => { 
-  setManagingTeam(null); 
-  localStorage.removeItem('managingTeamId'); // NOUVEAU : On vide la mémoire en partant !
-}} className="ton-nom-de-classe-actuel-si-tu-en-as-une">
-  ⬅ RETOUR
-</button>
+        <button onClick={() => { setManagingTeam(null); localStorage.removeItem('managingTeamId'); }} className="btn-tab" style={{ marginBottom: '20px' }}>
+          ⬅ RETOUR
+        </button>
         
-        {/* EN-TÊTE DE LA GESTION D'ÉQUIPE (Modifié avec le bouton unique pour le Capitaine) */}
         <h1 style={{ color: 'var(--accent-blue)', borderBottom: '2px solid #333', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <span>{isCaptainView ? '👑 Gestion' : '🏀 Équipe'} : {managingTeam.name}</span>
           {isCaptainView && (
             <div style={{ display: 'flex', gap: '10px' }}>
               {acceptedPlayers.length > 1 && (
-                <button onClick={() => setTransferModalOpen(true)} style={{ background: 'transparent', color: 'var(--accent-orange)', border: '1px solid var(--accent-orange)', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}>
+                <button onClick={() => setTransferModalOpen(true)} style={{ background: 'transparent', color: 'var(--accent-orange)', border: '1px solid var(--accent-orange)', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
                   👑 CHANGER DE CAPITAINE
                 </button>
               )}
-              <button onClick={handleDeleteTeam} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }}>
+              <button onClick={handleDeleteTeam} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
                 DISSOUDRE 💥
               </button>
             </div>
@@ -529,32 +544,30 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
           {isCaptainView && (
             <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               
-              {/* BOÎTE EXISTANTE : CANDIDATURES */}
               <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px solid var(--accent-orange)' }}>
                 <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-orange)' }}>⏳ Candidatures ({pendingPlayers.length})</h2>
                 {pendingPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic' }}>Aucune demande.</p> : null}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {pendingPlayers.map(p => (
-                    <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px' }}>
-                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil de ce joueur">{p.full_name}</strong>
+                    <div key={p.id || p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px' }}>
+                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil">{p.full_name}</strong>
                       <div style={{ display: 'flex', gap: '10px' }}>
                         <button onClick={() => acceptPlayer(p.player_id)} style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>ACCEPTER</button>
-                        <button onClick={() => removePlayer(p.player_id)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>REFUSER</button>
+                        <button onClick={() => removePlayer(p.player_id, false)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>REFUSER</button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* NOUVELLE BOÎTE : INVITATIONS ENVOYÉES */}
               <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px dashed var(--accent-blue)' }}>
-                <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>✉️ Invitations envoyées ({invitedPlayers.length})</h2>
+                <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>✉️ Invitations ({invitedPlayers.length})</h2>
                 {invitedPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic', fontSize: '0.9rem' }}>Aucune invitation en attente.</p> : null}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {invitedPlayers.map(p => (
-                    <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px', borderLeft: '3px solid var(--accent-blue)' }}>
-                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil de ce joueur">{p.full_name}</strong>
-                      <button onClick={() => removePlayer(p.player_id)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Annuler</button>
+                    <div key={p.id || p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px', borderLeft: '3px solid var(--accent-blue)' }}>
+                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil">{p.full_name}</strong>
+                      <button onClick={() => removePlayer(p.player_id, false)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Annuler</button>
                     </div>
                   ))}
                 </div>
@@ -562,6 +575,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
 
             </div>
           )}
+          
           <div style={{ flex: '1', minWidth: '300px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
             <h2 style={{ margin: '0 0 20px 0', color: 'var(--success)' }}>✅ Effectif ({acceptedPlayers.length})</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -569,27 +583,48 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
                 const isMe = p.player_id === session.user.id;
                 const isTheCaptain = p.player_id === managingTeam.captain_id;
                 return (
-                  <div key={p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)', flexWrap: 'wrap', gap: '10px' }}>
+                  <div key={p.id || p.player_id || p.manual_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)', flexWrap: 'wrap', gap: '10px' }}>
                     <strong 
-  onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })}
-  className="mercato-player-name-interactive"
-  style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}
-  title="Voir le profil de ce joueur"
->
-  {p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}
-</strong>
+                      onClick={() => !p.isGhost && viewPlayerProfile({ id: p.player_id, full_name: p.full_name })}
+                      className={!p.isGhost ? "mercato-player-name-interactive" : ""}
+                      style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}
+                    >
+                      {p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}
+                      {p.isGhost && <span style={{fontSize: '0.75rem', color: '#888', marginLeft: '6px'}}>(Ajout Manuel)</span>}
+                    </strong>
+                    
                     <div style={{ display: 'flex', gap: '8px' }}>
-  {/* On ne garde que le bouton pour quitter sa propre équipe */}
-  {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
-</div>
+                      {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, false, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
+                      
+                      {/* 👇 BOUTON DE SUPPRESSION POUR LE CAPITAINE 👇 */}
+                      {isCaptainView && !isTheCaptain && (
+                        <button onClick={() => removePlayer(p.isGhost ? p.manual_name : p.player_id, p.isGhost)} style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }} title="Retirer ce joueur">✕</button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* 👇 LE FAMEUX FORMULAIRE D'AJOUT MANUEL 👇 */}
+            {isCaptainView && (
+              <form onSubmit={handleAddGhostPlayer} style={{ display: 'flex', gap: '10px', marginTop: '20px', borderTop: '1px dashed #333', paddingTop: '20px' }}>
+                <input 
+                  type="text" 
+                  value={newGhostName} 
+                  onChange={e => setNewGhostName(e.target.value)} 
+                  placeholder="Nom du joueur sans compte..." 
+                  style={{ flex: 1, padding: '10px', borderRadius: '6px', background: '#111', color: 'white', border: '1px solid #444' }} 
+                />
+                <button type="submit" disabled={!newGhostName.trim()} style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '0 15px', borderRadius: '6px', fontWeight: 'bold', cursor: newGhostName.trim() ? 'pointer' : 'not-allowed', opacity: newGhostName.trim() ? 1 : 0.5 }}>
+                  AJOUTER
+                </button>
+              </form>
+            )}
+
           </div>
         </div>
 
-        {/* MODALE POUR LE CHANGEMENT DE CAPITAINE */}
         {transferModalOpen && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
             <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-orange)', width: '90%', maxWidth: '400px' }}>
@@ -602,7 +637,8 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
                 style={{ width: '100%', marginBottom: '25px', padding: '10px', borderRadius: '6px', background: '#222', color: 'white', border: '1px solid #555' }}
               >
                 <option value="">-- Choisir dans l'effectif --</option>
-                {acceptedPlayers.filter(p => p.player_id !== session.user.id).map(p => (
+                {/* On empêche de donner le brassard à un joueur fantôme ou à soi-même */}
+                {acceptedPlayers.filter(p => p.player_id !== session.user.id && !p.isGhost).map(p => (
                   <option key={p.player_id} value={p.player_id}>{p.full_name}</option>
                 ))}
               </select>
@@ -614,7 +650,7 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
             </div>
           </div>
         )}
-{/* MODALE INJECTÉE DANS LE VESTIAIRE */}
+
         <PlayerProfileModal 
           selectedProfile={selectedProfile}
           setSelectedProfile={setSelectedProfile}          
@@ -622,8 +658,6 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
           inviteTeamId={inviteTeamId}
           setInviteTeamId={setInviteTeamId}
           handleInvitePlayer={handleInvitePlayer}
-          
-          // 👇 CES DEUX LIGNES SONT INDISPENSABLES POUR ACTIVER LE MODE VESTIAIRE 👇
           managingTeam={managingTeam}
           removePlayer={removePlayer}
         />
@@ -655,19 +689,9 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
       </div>
     );
   }
-  // ===============================================
-  // AIGUILLAGE PRINCIPAL : SELON LE BOUTON DU MENU
-  // ===============================================
+
   return (
-    <div style={{ 
-      padding: '0px', 
-      /* 🛠️ C'EST ICI QU'ON DÉVERROUILLE LA LARGEUR ! */
-      maxWidth: currentTab === 'explorer' ? '100%' : '1200px', 
-      margin: '0 auto', 
-      color: 'white',
-      width: '100%' /* 👈 Assure que ça pousse bien jusqu'au bout */
-    }}>
-      {/* --- ONGLET : VESTIAIRE --- */}
+    <div style={{ maxWidth: currentTab === 'explorer' ? '100%' : '1200px', margin: '0 auto', color: 'white', width: '100%' }}>
       {currentTab === 'vestiaire' && (
         <MonVestiaire          
           myTeams={myTeams}
@@ -679,29 +703,26 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
           setNewTeamName={setNewTeamName}
           newTeamCity={newTeamCity}
           setNewTeamCity={setNewTeamCity}
-          cancelPendingRequest={cancelPendingRequest} // <--- NOUVELLE LIGNE ICI
+          cancelPendingRequest={cancelPendingRequest}
         />
       )}
 
-      {/* --- ONGLET : MERCATO --- */}
       {currentTab === 'mercato' && (
         <Mercato 
           availableTeams={availableTeams}
           hasTeam={hasTeam}
           handleJoinTeam={handleJoinTeam}
-          allPlayers={allPlayers} // <--- NOUVELLE LIGNE ICI
+          allPlayers={allPlayers} 
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          handleSearchPlayer={handleSearchPlayer} // (On va la garder pour éviter de casser les props, même si on ne s'en sert plus vraiment)
+          handleSearchPlayer={handleSearchPlayer} 
           searchResults={searchResults}
           viewPlayerProfile={viewPlayerProfile}
         />
       )}
 
-      {/* --- ONGLET : CARRIÈRE --- */}
       {currentTab === 'carriere' && <MaCarriere careerStats={careerStats} />}
 
-      {/* --- ONGLET : EXPLORER --- */}
       {currentTab === 'explorer' && (
         <ExplorerTournois           
           allTournaments={allTournaments} 
@@ -709,10 +730,10 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
           setRegisterModalTourney={setRegisterModalTourney} 
           setActiveTourneyId={setActiveTourneyId}
           setView={setView}
+          handleLeaveTournament={handleLeaveTournament} // 👈 ON PASSE LA FONCTION ICI
         />
       )}
 
-      {/* --- MODALS (FENÊTRES POP-UP) --- */}
       <PlayerProfileModal 
         selectedProfile={selectedProfile}
         setSelectedProfile={setSelectedProfile}        
@@ -720,7 +741,6 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
         inviteTeamId={inviteTeamId}
         setInviteTeamId={setInviteTeamId}
         handleInvitePlayer={handleInvitePlayer}
-        // NOUVELLES PROPS POUR LA GESTION :
         managingTeam={managingTeam}
         removePlayer={removePlayer}
       />

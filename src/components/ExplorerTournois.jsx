@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView }) {
+// 👇 1. ON AJOUTE handleLeaveTournament ICI
+export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView, handleLeaveTournament }) {
   const [filterFinished, setFilterFinished] = useState('all');
   const { session } = useAuth();
   
@@ -10,17 +11,13 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
 
   useEffect(() => {
     if (allTournaments && allTournaments.length > 0) {
-      // Si on a les données, on affiche tout instantanément
       setIsReady(true);
     } else {
-      // Si c'est vide, on attend 400ms avant de dessiner les colonnes vides.
-      // Ça laisse le temps à Supabase de répondre et évite le flash "Aucun tournoi".
       const timer = setTimeout(() => setIsReady(true), 400);
       return () => clearTimeout(timer);
     }
   }, [allTournaments]);
 
-  // Tant qu'on n'est pas prêt, on affiche juste un fond transparent pour garder la fluidité
   if (!isReady) {
     return <div style={{ flex: 1, backgroundColor: 'transparent' }}></div>;
   }
@@ -69,17 +66,15 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
 
   
   return (
-    /* 🛠️ CONTENEUR PRINCIPAL FORCÉ À 100% */
     <div className="dashboard-container" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px', margin: 0, width: '100%' }}>
         🌍 Explorer les tournois
       </h1>
       
-      {/* 🛠️ GRILLE FORCÉE À PRENDRE TOUTE LA LARGEUR ET SE DIVISER EN 4 PILES EXACTES */}
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', /* La formule magique est ici ! */
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
         gap: '20px', 
         marginTop: '30px', 
         paddingBottom: '20px',
@@ -148,22 +143,55 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
             {myActiveTourneys.length === 0 ? (
               <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Tu n'es inscrit à aucun tournoi actif.</p>
             ) : (
-              myActiveTourneys.map(t => (
-                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--success)', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform='translateY(-4px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
-                  
-                  {renderTeamTags(t.teams)}
+              myActiveTourneys.map(t => {
+                // 👇 2. LOGIQUE POUR SAVOIR SI ON EST CAPITAINE DE L'ÉQUIPE INSCRITE
+                const myRegisteredTeam = t.teams && t.teams.find(team => myAcceptedTeamIds.includes(team.global_id));
+                const isCaptainOfThisTeam = myRegisteredTeam && myCaptainTeams.some(capTeam => capTeam.id === myRegisteredTeam.global_id);
 
-                  <div style={{ textAlign: 'center', background: t.status === 'ongoing' ? 'rgba(255, 107, 0, 0.1)' : 'rgba(52, 199, 89, 0.1)', padding: '8px', borderRadius: '6px' }}>
-                    {t.status === 'ongoing' ? (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--accent-orange)', fontWeight: 'bold' }}>🔥 EN JEU (Suivre l'avancée)</span>
-                    ) : (
-                        <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 'bold' }}>🗓️ Voir les engagés</span>
+                return (
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--success)', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform='translateY(-4px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
+                    <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
+                    <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                    
+                    {renderTeamTags(t.teams)}
+
+                    <div style={{ textAlign: 'center', background: t.status === 'ongoing' ? 'rgba(255, 107, 0, 0.1)' : 'rgba(52, 199, 89, 0.1)', padding: '8px', borderRadius: '6px' }}>
+                      {t.status === 'ongoing' ? (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--accent-orange)', fontWeight: 'bold' }}>🔥 EN JEU (Suivre l'avancée)</span>
+                      ) : (
+                          <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 'bold' }}>🗓️ Voir les engagés</span>
+                      )}
+                    </div>
+
+                    {/* 👇 3. LE BOUTON DÉSINSCRIPTION 👇 */}
+                    {t.status === 'preparing' && isCaptainOfThisTeam && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation(); // Évite que le clic n'ouvre le tournoi en arrière-plan
+                          handleLeaveTournament(t, myRegisteredTeam.global_id);
+                        }}
+                        style={{ 
+                          width: '100%', 
+                          marginTop: '10px', 
+                          background: 'transparent', 
+                          color: 'var(--danger)', 
+                          border: '1px solid var(--danger)', 
+                          padding: '8px', 
+                          borderRadius: '6px', 
+                          cursor: 'pointer', 
+                          fontWeight: 'bold', 
+                          fontSize: '0.85rem',
+                          transition: '0.2s'
+                        }}
+                        onMouseOver={e => {e.target.style.background='var(--danger)'; e.target.style.color='white'}} 
+                        onMouseOut={e => {e.target.style.background='transparent'; e.target.style.color='var(--danger)'}}
+                      >
+                        DÉSINCRIRE L'ÉQUIPE 🚪
+                      </button>
                     )}
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

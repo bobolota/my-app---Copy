@@ -974,3 +974,17 @@ body, html {
   display: flex;
   flex-direction: column;
 }
+
+/* Empêche la sélection de texte et force le curseur classique */
+.no-select {
+  user-select: none; /* Empêche le surlignage bleu moche */
+  -webkit-user-select: none; /* Pour Safari */
+  cursor: default; /* Force la flèche classique au lieu du "I" de texte */
+}
+
+/* Optionnel : Pour tous les titres de l'appli d'un coup */
+h1, h2, h3, h4, h5, h6 {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
