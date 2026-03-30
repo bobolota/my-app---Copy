@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // Ajout de useState
+import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName }) {
@@ -21,18 +21,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
   const displayedMatches = filter === 'mine' ? myMatches : allMatches;
   // ----------------------------------------
 
-  // 2. S'il n'y a pas encore de matchs générés
-  if (allMatches.length === 0) {
-    return (
-      <div className="empty-state-container fade-in-up" style={{ marginTop: '40px' }}>
-        <div className="empty-state-icon">📅</div>
-        <h3 className="empty-state-title">Le planning est vide</h3>
-        <p className="empty-state-desc">Le calendrier des matchs de ce tournoi n'a pas encore été généré par les organisateurs.</p>
-      </div>
-    );
-  }
-
-  // 3. Affichage de la grille de matchs
+  // Affichage de la page (Le titre ne disparaîtra plus jamais !)
   return (
     <div className="fade-in-up" style={{ padding: '20px 0' }}>
       
@@ -61,15 +50,25 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
         )}
       </div>
       
-      {/* AFFICHAGE DES MATCHS FILTRÉS */}
-      {displayedMatches.length === 0 ? (
-        <div style={{ textAlign: 'center', color: '#888', fontStyle: 'italic', padding: '40px' }}>
-          Aucun match correspondant.
+      {/* --- GESTION DES AFFICHAGES VIDES (EMPTY STATES) --- */}
+      {allMatches.length === 0 ? (
+        <div className="empty-state-container" style={{ marginTop: '40px', opacity: 1, animation: 'none', transform: 'none' }}>
+          <div className="empty-state-icon">📅</div>
+          <h3 className="empty-state-title">Le planning est vide</h3>
+          <p className="empty-state-desc">Le calendrier des matchs de ce tournoi n'a pas encore été généré par les organisateurs.</p>
+        </div>
+      ) : displayedMatches.length === 0 ? (
+        <div className="empty-state-container" style={{ marginTop: '40px', opacity: 1, animation: 'none', transform: 'none' }}>
+          <div className="empty-state-icon">🪑</div>
+          <h3 className="empty-state-title">Aucun match pour toi</h3>
+          <p className="empty-state-desc">Tu n'as aucun match prévu avec ton équipe pour le moment dans ce filtre.</p>
         </div>
       ) : (
+        /* --- AFFICHAGE DES MATCHS FILTRÉS --- */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {displayedMatches.map((match, idx) => {
-            // --- A. DÉTECTION DU STATUT DU MATCH (Ton code conservé à l'identique) ---
+            
+            // --- A. DÉTECTION DU STATUT DU MATCH ---
             const isFinished = match.status === 'finished';
             const isCanceled = match.status === 'canceled';
             const isForfeit = match.status === 'forfeit';
@@ -89,7 +88,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
             const isLive = !isFinished && !isCanceled && !isForfeit && hasStarted;
             const isUpcoming = !isFinished && !isCanceled && !isForfeit && !hasStarted;
 
-            // --- B. BADGES ET COULEURS (Ton code conservé à l'identique) ---
+            // --- B. BADGES ET COULEURS ---
             let statusColor = '#888';
             let statusText = 'À VENIR';
             let bgOpacity = '11'; 
