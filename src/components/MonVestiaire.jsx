@@ -27,7 +27,13 @@ export default function MonVestiaire({
           <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '30px' }}>
             <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>🛡️ Mes Équipes</h2>
             {myTeams.length === 0 ? (
-              <p style={{ color: '#888', fontStyle: 'italic' }}>Tu n'es dans aucune équipe.</p>
+              <div className="empty-state-container">
+                <div className="empty-state-icon">🪑</div>
+                <h3 className="empty-state-title">Ton casier est vide !</h3>
+                <p className="empty-state-desc">
+                  Tu ne fais encore partie d'aucune franchise. Crées-en une sur la droite, ou va dans le "Mercato" pour trouver une équipe à rejoindre.
+                </p>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 {myTeams.map(mt => {

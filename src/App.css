@@ -861,3 +861,40 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
     transform: translateY(0);
   }
 }
+
+/* ========================================= */
+/* 🏜️ EMPTY STATES (Écrans vides animés)     */
+/* ========================================= */
+.empty-state-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 12px;
+  border: 1px dashed #444;
+  text-align: center;
+  animation: fadeInUp 0.5s ease;
+}
+
+.empty-state-icon {
+  font-size: 3.5rem;
+  margin-bottom: 15px;
+  opacity: 0.8;
+  filter: grayscale(20%);
+}
+
+.empty-state-title {
+  color: white;
+  font-size: 1.2rem;
+  margin-bottom: 8px;
+  font-family: var(--font-heading);
+}
+
+.empty-state-desc {
+  color: #888;
+  font-size: 0.9rem;
+  max-width: 80%;
+  line-height: 1.4;
+}
