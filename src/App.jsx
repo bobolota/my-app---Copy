@@ -37,13 +37,9 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     
-  if (loading) { // 👈 On utilise la variable du nuage !
-    
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--accent-orange)', fontSize: '1.5rem', background: '#111' }}>
-        Chargement de l'application... 🏀
-      </div>
-    );
+  if (loading) {
+    return <div style={{ minHeight: '100vh', background: 'var(--bg-color, #0f0f13)' }}></div>;
+
   }
 
   if (!session) {

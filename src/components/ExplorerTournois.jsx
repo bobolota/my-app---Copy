@@ -1,12 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView }) {
-  
-  // Filtre pour la colonne "Terminés"
   const [filterFinished, setFilterFinished] = useState('all');
   const { session } = useAuth();
+  
+  // --- DÉBUT DE L'ANTI-FLASH (PARE-CHOCS TEMPOREL) ---
+  const [isReady, setIsReady] = useState(false);
 
+  useEffect(() => {
+    if (allTournaments && allTournaments.length > 0) {
+      // Si on a les données, on affiche tout instantanément
+      setIsReady(true);
+    } else {
+      // Si c'est vide, on attend 400ms avant de dessiner les colonnes vides.
+      // Ça laisse le temps à Supabase de répondre et évite le flash "Aucun tournoi".
+      const timer = setTimeout(() => setIsReady(true), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [allTournaments]);
+
+  // Tant qu'on n'est pas prêt, on affiche juste un fond transparent pour garder la fluidité
+  if (!isReady) {
+    return <div style={{ flex: 1, backgroundColor: 'transparent' }}></div>;
+  }
+  // --- FIN DE L'ANTI-FLASH ---
+  
   const myCaptainTeams = myTeams
     .filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted')
     .map(mt => mt.global_teams);
@@ -19,7 +38,6 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
 
   const activeTournaments = allTournaments.filter(t => t.status !== 'delete');
 
-  // Et on utilise "activeTournaments" au lieu de "allTournaments" pour le reste :
   const publicTourneys = activeTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));
   const ongoingOtherTourneys = activeTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t));
   const myActiveTourneys = activeTournaments.filter(t => t.status !== 'finished' && isRegisteredIn(t));
@@ -49,6 +67,7 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
     );
   };
 
+  
   return (
     /* 🛠️ CONTENEUR PRINCIPAL FORCÉ À 100% */
     <div className="dashboard-container" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>

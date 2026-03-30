@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName }) {
@@ -18,12 +18,23 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
 
   // Par défaut : "Mes matchs" si le user joue, sinon "Tous" (l'admin voit tout par défaut)
   const [filter, setFilter] = useState((myMatches.length > 0 && !canEdit) ? 'mine' : 'all');
-  const displayedMatches = filter === 'mine' ? myMatches : allMatches;
+  
+  // 👇 NOUVEAU : On récupère les matchs filtrés ET on les trie chronologiquement
+  const displayedMatches = [...(filter === 'mine' ? myMatches : allMatches)].sort((a, b) => {
+    // Si aucun n'a d'heure, on ne change rien
+    if (!a.time && !b.time) return 0;
+    // Si A n'a pas d'heure, on le met à la fin
+    if (!a.time) return 1;
+    // Si B n'a pas d'heure, on le met à la fin
+    if (!b.time) return -1;
+    // Si les deux ont une heure (ex: "09:30" et "14:00"), on les trie normalement
+    return a.time.localeCompare(b.time);
+  });
   // ----------------------------------------
 
   // Affichage de la page (Le titre ne disparaîtra plus jamais !)
   return (
-    <div className="fade-in-up" style={{ padding: '20px 0' }}>
+    <div style={{ padding: '20px 0' }}>
       
       {/* EN-TÊTE AVEC SYSTÈME DE FILTRE */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>
@@ -64,7 +75,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
           <p className="empty-state-desc">Tu n'as aucun match prévu avec ton équipe pour le moment dans ce filtre.</p>
         </div>
       ) : (
-        /* --- AFFICHAGE DES MATCHS FILTRÉS --- */
+        /* --- AFFICHAGE DES MATCHS FILTRÉS ET TRIÉS --- */
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
           {displayedMatches.map((match, idx) => {
             

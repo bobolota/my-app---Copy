@@ -164,7 +164,7 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
 .action-bar-container { 
   background: var(--bg-panel); border-radius: var(--radius); padding: 20px; 
   display: flex; flex-direction: column; gap: 15px; align-items: center; 
-  border: 1px solid #333; transition: all 0.3s ease; box-shadow: var(--shadow-sm);
+  border: 1px solid #333; box-shadow: var(--shadow-sm);
 }
 .action-bar-container.active-mode { border-color: var(--accent-blue); box-shadow: var(--shadow-glow-blue); }
 .action-bar-container.success-mode { border-color: var(--success); box-shadow: 0 0 15px rgba(52, 199, 89, 0.2); }
@@ -362,7 +362,6 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
   padding: 0 15px; /* Aligné sur le padding des icônes du menu ! */
   border-bottom: 1px solid #222; 
   font-family: var(--font-heading);
-  transition: all 0.3s;
   box-sizing: border-box; 
 }
 
@@ -960,4 +959,18 @@ button:active {
 .team-card-interactive[style*="border: 1px solid var(--accent-orange)"]:hover {
   border-color: var(--accent-orange) !important;
   box-shadow: 0 10px 30px rgba(255, 107, 0, 0.2); /* Glow orange */
+}
+
+body, html {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: #0f0f13; /* La même couleur que dans index.html */
+  color: white;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }

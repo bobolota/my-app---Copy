@@ -1,18 +1,128 @@
-// DEBUT DE LA MODIFICATION - src/components/GroupStageTab.jsx
-
-import React from 'react';
+import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 
 export default function GroupStageTab({
   tourney, canEdit, savedGroupIds, generateMatches, currentUserName,
   handleLaunchMatch, handleAssignOtm, handleMatchException,
-  // Toutes les variables et fonctions dont ton onglet a besoin :
   teamName, setTeamName, addTeam, teamSearchQuery, setTeamSearchQuery,
   globalTeams, handleDirectImport, teamPage, setTeamPage, teamsPerPage,
   setEditId, deleteTeam, groupCount, setGroupCount, update, getGroupStandings, getGroupLimit
 }) {
   
-  // NOUVEAU : On utilise un return classique !
+  // 👇 NOUVEAU : État pour mémoriser quel match tu es en train de glisser
+  const [draggedMatchId, setDraggedMatchId] = useState(null);
+
+  // ==========================================
+  // 👥 VUE JOUEUR / SPECTATEUR
+  // ==========================================
+  if (!canEdit) {
+    // On cherche si l'utilisateur appartient à une équipe pour la mettre en surbrillance
+    const myTeam = (tourney?.teams || []).find(t =>
+      t.players && t.players.some(p => p.name === currentUserName)
+    );
+    const myTeamName = myTeam?.name;
+
+    return (
+      <div style={{ padding: '10px 0' }}>
+        
+        {/* S'il n'y a pas encore de poules générées */}
+        {savedGroupIds.length === 0 ? (
+          <div className="empty-state-container" style={{ marginTop: '40px' }}>
+            <div className="empty-state-icon">📊</div>
+            <h3 className="empty-state-title">Phase de poules en attente</h3>
+            <p className="empty-state-desc">Les poules n'ont pas encore été définies par les organisateurs.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
+            {savedGroupIds.map(gNum => {
+              const standings = getGroupStandings(gNum);
+              const limit = getGroupLimit(tourney, gNum);
+              
+              // On ne récupère que les matchs terminés pour cette poule
+              const groupMatches = (tourney.schedule || []).filter(m => m.group === gNum && ['finished', 'canceled', 'forfeit'].includes(m.status));
+
+              return (
+                <div key={gNum} style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
+                  
+                  {/* EN-TÊTE POULE */}
+                  <h3 style={{ margin: '0 0 15px 0', color: 'var(--accent-purple)', textAlign: 'center', fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    🏆 POULE {gNum}
+                  </h3>
+
+                  {/* TABLEAU DE CLASSEMENT */}
+                  <table style={{ width: '100%', fontSize: '0.9rem', marginBottom: '20px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ color: '#888', borderBottom: '1px solid #333', textAlign: 'left' }}>
+                        <th style={{ paddingBottom: '8px' }}>CLASSEMENT</th>
+                        <th style={{ paddingBottom: '8px', textAlign: 'center' }}>PTS</th>
+                        <th style={{ paddingBottom: '8px', textAlign: 'right' }}>+/-</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((team, idx) => {
+                        const isMyTeam = team.name === myTeamName;
+                        const isQualified = idx < limit;
+                        
+                        return (
+                          <tr key={team.id} style={{ 
+                            background: isMyTeam ? 'rgba(157, 78, 221, 0.15)' : 'transparent', 
+                            borderBottom: '1px solid #222',
+                            color: isQualified ? '#fff' : '#888'
+                          }}>
+                            <td style={{ padding: '12px 5px', borderLeft: isMyTeam ? '4px solid var(--accent-purple)' : '4px solid transparent', fontWeight: isMyTeam ? 'bold' : 'normal' }}>
+                              {idx + 1}. {team.name} {isQualified && "⭐"}
+                            </td>
+                            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{team.points}</td>
+                            <td style={{ textAlign: 'right', color: team.diff > 0 ? 'var(--success)' : (team.diff < 0 ? 'var(--danger)' : 'inherit') }}>
+                              {team.diff > 0 ? `+${team.diff}` : team.diff}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
+                  {/* HISTORIQUE DES MATCHS JOUÉS */}
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ color: '#aaa', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '10px', borderBottom: '1px dashed #333', paddingBottom: '5px' }}>
+                      Résultats validés
+                    </h4>
+                    
+                    {groupMatches.length > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {groupMatches.map(m => (
+                          <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '10px 15px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #333' }}>
+                            <span style={{ flex: 1, textAlign: 'right', color: m.scoreA > m.scoreB ? 'var(--success)' : (m.status === 'finished' ? '#888' : 'white'), fontWeight: m.scoreA > m.scoreB ? 'bold' : 'normal' }}>
+                              {m.teamA?.name || 'TBD'}
+                            </span>
+                            <b style={{ padding: '0 15px', letterSpacing: '1px' }}>
+                              {m.status === 'canceled' ? 'ANNULÉ' : `${m.scoreA || 0} - ${m.scoreB || 0}`}
+                            </b>
+                            <span style={{ flex: 1, textAlign: 'left', color: m.scoreB > m.scoreA ? 'var(--success)' : (m.status === 'finished' ? '#888' : 'white'), fontWeight: m.scoreB > m.scoreA ? 'bold' : 'normal' }}>
+                              {m.teamB?.name || 'TBD'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#666', fontStyle: 'italic', marginTop: '20px' }}>
+                        Aucun match terminé pour le moment.
+                      </p>
+                    )}
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 🛠️ VUE ORGANISATEUR (Avec Drag & Drop !)
+  // ==========================================
   return (
         <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: '30px', alignItems: 'flex-start' }}>
           
@@ -69,7 +179,7 @@ export default function GroupStageTab({
                         <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '85%' }}>
                           <b style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</b>
                           <span style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '2px' }}>
-                             {t.players.filter(p => p.licenseStatus === 'validated').length}/{t.players.length} OK
+                              {t.players.filter(p => p.licenseStatus === 'validated').length}/{t.players.length} OK
                           </span>
                         </div>
                         {canEdit && (
@@ -100,7 +210,6 @@ export default function GroupStageTab({
                       <label style={{ fontSize: '0.9rem' }}>Nombre de poules :</label>
                       <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="tm-input" style={{ width: '60px' }} />
                     </div>
-                    {/* CORRECTION ICI : generateMatches au lieu de generateDrawAndSchedule */}
                     <button onClick={generateMatches} className="tm-btn-success tm-btn-purple" style={{ width: '100%', padding: '12px', fontSize: '0.9rem', fontWeight: 'bold' }}>
                       🎲 GÉNÉRER LE PLANNING AUTO
                     </button>
@@ -110,12 +219,12 @@ export default function GroupStageTab({
           </div>
 
           {/* COLONNE DROITE : POULES ET PLANNING */}
-          <div style={{ display: 'flex', overflowX: 'auto', gap: '25px', alignItems: 'flex-start', paddingBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '25px', alignItems: 'start', paddingBottom: '20px' }}>
             {savedGroupIds.map(gNum => {
                 const standings = getGroupStandings(gNum);
                 const limit = getGroupLimit(tourney, gNum);
                 return (
-                  <div key={gNum} className="tm-group-col" style={{ minWidth: '400px', flexShrink: 0 }}>
+                  <div key={gNum} className="tm-group-col" style={{ minWidth: 0 }}>
                     <div className="tm-flex-between" style={{ marginBottom: '12px' }}>
                       <h4 style={{ margin: 0, fontSize: '1.1rem' }}>POULE {gNum}</h4>
                       <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -145,7 +254,6 @@ export default function GroupStageTab({
                         const isCanceled = m.status === 'canceled';
                         const isForfeit = m.status === 'forfeit';
                         
-                        // NOUVEAU : On vérifie si le 5 majeur a été validé (dans le cloud ou en local)
                         let hasValidatedStarters = m.startersValidated === true;
                         if (!hasValidatedStarters) {
                             try {
@@ -162,8 +270,44 @@ export default function GroupStageTab({
                         const canLaunchThisMatch = canEdit || isAssignedOtm;
 
                         return (
-                          <div key={m.id} className="tm-match-row" style={{ padding: '12px', borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--success)' : 'var(--danger)'))}`, position: 'relative' }}>
-                             {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem', cursor: 'grab' }} title="Glisser pour déplacer le match">⠿</div>}
+                          <div 
+                            key={m.id} 
+                            className="tm-match-row" 
+                            
+                            // 👇 NOUVEAU : LOGIQUE DE GLISSER-DÉPOSER 👇
+                            draggable={canEdit}
+                            onDragStart={() => setDraggedMatchId(m.id)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (!draggedMatchId || draggedMatchId === m.id) return;
+                              
+                              // On récupère tout le planning
+                              const newSchedule = [...tourney.schedule];
+                              
+                              // On trouve les positions de départ et d'arrivée
+                              const draggedIdx = newSchedule.findIndex(x => x.id === draggedMatchId);
+                              const targetIdx = newSchedule.findIndex(x => x.id === m.id);
+                              
+                              // On déplace l'élément
+                              const [draggedItem] = newSchedule.splice(draggedIdx, 1);
+                              newSchedule.splice(targetIdx, 0, draggedItem);
+                              
+                              // On sauvegarde dans la base de données
+                              update({ schedule: newSchedule });
+                              setDraggedMatchId(null);
+                            }}
+                            // 👆 FIN DE LA LOGIQUE 👆
+
+                            style={{ 
+                              padding: '12px', 
+                              borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--success)' : 'var(--danger)'))}`, 
+                              position: 'relative',
+                              opacity: draggedMatchId === m.id ? 0.5 : 1, // Effet visuel quand on glisse
+                              cursor: canEdit ? 'grab' : 'default'
+                            }}
+                          >
+                             {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem' }} title="Glisser pour déplacer le match">⠿</div>}
                              
                              {/* RUBANS VISUELS */}
                              {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
@@ -178,7 +322,7 @@ export default function GroupStageTab({
                                {m.otm && <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                              </div>
 
-                             {/* 👇 NOUVEAU : SAISIE HORAIRE ET TERRAIN 👇 */}
+                             {/* SAISIE HORAIRE ET TERRAIN */}
                              {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #333' }}>
                                  <input
@@ -202,8 +346,7 @@ export default function GroupStageTab({
                                  />
                                </div>
                              )}
-                             {/* 👆 FIN NOUVEAU 👆 */}
-                                                          
+                                                  
                              {/* BOUTONS D'ACTION */}
                              <div style={{ display: 'flex', gap: '10px', marginTop: '12px', height: '36px' }}>
                                <button 
@@ -242,5 +385,3 @@ export default function GroupStageTab({
         </div>
   );
 }
-
-// FIN DE LA MODIFICATION
