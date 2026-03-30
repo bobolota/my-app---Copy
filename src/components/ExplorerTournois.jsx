@@ -17,11 +17,14 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   
   const isRegisteredIn = (t) => t.teams && t.teams.some(team => myAcceptedTeamIds.includes(team.global_id));
 
-  const publicTourneys = allTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));
-  const ongoingOtherTourneys = allTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t));
-  const myActiveTourneys = allTournaments.filter(t => t.status !== 'finished' && isRegisteredIn(t));
+  const activeTournaments = allTournaments.filter(t => t.status !== 'delete');
+
+  // Et on utilise "activeTournaments" au lieu de "allTournaments" pour le reste :
+  const publicTourneys = activeTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));
+  const ongoingOtherTourneys = activeTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t));
+  const myActiveTourneys = activeTournaments.filter(t => t.status !== 'finished' && isRegisteredIn(t));
   
-  let finishedTourneys = allTournaments.filter(t => t.status === 'finished');
+  let finishedTourneys = activeTournaments.filter(t => t.status === 'finished');
   if (filterFinished === 'mine') {
     finishedTourneys = finishedTourneys.filter(t => isRegisteredIn(t));
   }

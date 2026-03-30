@@ -180,9 +180,12 @@ export default function PlayerDashboard() {
       // ---------------------------------------------------------
 
       // 4. On récupère les tournois pour l'onglet "Explorer"
+      
+      // 4. On récupère les tournois pour l'onglet "Explorer"
       const { data: tourneysData, error: tourneysError } = await supabase
         .from('tournaments')
-        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code');
+        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code')
+        .in('status', ['preparing', 'ongoing', 'finished']); // 🛡️ ON NE PREND QUE CEUX-LÀ !
       
       if (tourneysError) throw tourneysError;
       
