@@ -177,7 +177,33 @@ export default function GroupStageTab({
                                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}><span style={{ fontSize: '0.9rem', color: isFinished ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white' }}>{m.teamB?.name || 'Équipe B'}</span>{(isFinished || isCanceled || isForfeit) && <b>{m.scoreB}</b>}</div>
                                {m.otm && <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                              </div>
-                             
+
+                             {/* 👇 NOUVEAU : SAISIE HORAIRE ET TERRAIN 👇 */}
+                             {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
+                               <div style={{ display: 'flex', gap: '8px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #333' }}>
+                                 <input
+                                   type="time"
+                                   value={m.time || ''}
+                                   onChange={(e) => {
+                                     const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
+                                     update({ schedule: newSchedule });
+                                   }}
+                                   style={{ flex: 1, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
+                                 />
+                                 <input
+                                   type="text"
+                                   placeholder="Terrain (ex: Court 1)"
+                                   value={m.court || ''}
+                                   onChange={(e) => {
+                                     const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
+                                     update({ schedule: newSchedule });
+                                   }}
+                                   style={{ flex: 2, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
+                                 />
+                               </div>
+                             )}
+                             {/* 👆 FIN NOUVEAU 👆 */}
+                                                          
                              {/* BOUTONS D'ACTION */}
                              <div style={{ display: 'flex', gap: '10px', marginTop: '12px', height: '36px' }}>
                                <button 

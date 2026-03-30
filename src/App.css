@@ -898,3 +898,66 @@ button { font-family: var(--font-heading); } /* Les boutons ont besoin de punch 
   max-width: 80%;
   line-height: 1.4;
 }
+
+/* ========================================= */
+/* 🪄 MICRO-INTERACTIONS & ANIMATIONS        */
+/* ========================================= */
+
+/* 1. Effet "Ressort" sur TOUS les boutons au clic */
+button {
+  transition: transform 0.1s ease, background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.95) !important; /* Le bouton s'enfonce de 5% au clic */
+}
+
+/* 2. Animations d'apparition des Modales */
+.modal-overlay {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.modal-content {
+  /* Le cubic-bezier crée un petit effet de "rebond" élastique à la fin de l'animation */
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fadeIn {
+  from { background: rgba(0, 0, 0, 0); }
+  to { background: rgba(0, 0, 0, 0.85); }
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ========================================= */
+/* 🪄 UI/UX : CARTES INTERACTIVES (PLANNING) */
+/* ========================================= */
+
+/* État normal de la carte */
+.team-card-interactive {
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease, background-color 0.3s ease;
+  /* On s'assure que la transition est fluide */
+}
+
+/* ÉTATE HOVER (Survol de la souris) 🐭 ✨ */
+.team-card-interactive:hover {
+  transform: translateY(-5px) scale(1.01); /* La carte se soulève et grandit légèrement */
+  background-color: #222 !important; /* Le fond devient un peu plus clair */
+  border-color: #555 !important; /* La bordure s'éclaircit */
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5); /* Une belle ombre portée apparaît */
+}
+
+/* Cas particulier : Si le match est EN DIRECT (Live), le hover est orange 🧡 */
+.team-card-interactive[style*="border: 1px solid var(--accent-orange)"]:hover {
+  border-color: var(--accent-orange) !important;
+  box-shadow: 0 10px 30px rgba(255, 107, 0, 0.2); /* Glow orange */
+}

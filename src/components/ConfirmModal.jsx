@@ -6,13 +6,13 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
   if (!isOpen) return null;
 
   return (
-    <div style={{
+    <div className="modal-overlay" style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.75)',
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       zIndex: 9999, backdropFilter: 'blur(3px)'
     }}>
-      <div className="glass-effect" style={{
+      <div className="glass-effect modal-content" style={{
         background: '#1a1a1a', padding: '25px', borderRadius: '12px',
         border: `1px solid ${isDanger ? 'var(--danger)' : 'var(--accent-blue)'}`,
         width: '90%', maxWidth: '400px', textAlign: 'center',

@@ -139,6 +139,14 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
     <div 
         className={`pc-card ${isSubSelected ? 'pc-sub' : ''} ${isPendingScore ? 'pc-pending' : ''} ${isTargetable ? 'pc-target' : ''} ${(isExcluded && player.status === 'bench') ? 'pc-excluded' : ''}`} 
         onClick={() => isTargetable && onPlayerClick(activeActionType, team, player.id, null)}
+        style={{ 
+          opacity: player.status === 'bench' ? 0.6 : 1, 
+          transform: player.status === 'bench' ? 'scale(0.95)' : 'scale(1)',
+          filter: player.status === 'bench' ? 'grayscale(40%)' : 'none',
+          border: player.status === 'court' ? `1px solid ${team === 'A' ? 'var(--accent-orange)' : 'var(--accent-blue)'}` : '1px solid #222',
+          boxShadow: player.status === 'court' ? `0 4px 12px ${team === 'A' ? 'rgba(255,107,0,0.15)' : 'rgba(0,212,255,0.15)'}` : 'none',
+          transition: 'all 0.3s ease'
+        }}
     >
       {isExcluded && <div className="pc-badge-exclu">{excluReason}</div>}
       
@@ -355,6 +363,7 @@ export default function Scoreboard() {
   // --- AUTO-SAUVEGARDE SILENCIEUSE (Étape 3) ---
   useEffect(() => {
     if (!canEdit || isMatchOver || history.length === 0) return;
+    if (!startersValidated && history.length === 0) return;
     
     const timeoutId = setTimeout(async () => {
         const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
@@ -604,15 +613,23 @@ export default function Scoreboard() {
     if (incomingType === 'STARTERS') {
         const isA = team === 'A';
         const set = isA ? setPlayersA : setPlayersB;
-        const currentPlayers = isA ? playersA : playersB;
-        const targetPlayer = currentPlayers.find(p => p.id === pid);
-        const courtCount = currentPlayers.filter(p => p.status === 'court').length;
         
-        if (targetPlayer?.status === 'bench' && courtCount >= 5) {
-            toast.error("Il y a déjà 5 titulaires ! Enlevez-en un d'abord.");
-            return;
-        }
-        set(prev => prev.map(p => p.id === pid ? { ...p, status: p.status === 'court' ? 'bench' : 'court' } : p));
+        // On fait la vérification DIRECTEMENT dans la mise à jour (prev)
+        // pour empêcher les bugs si l'OTM clique super vite !
+        set(prev => {
+            const courtCount = prev.filter(p => p.status === 'court').length;
+            const targetPlayer = prev.find(p => p.id === pid);
+            
+            // Si on essaie de faire rentrer un joueur alors qu'il y en a déjà 5
+            if (targetPlayer?.status === 'bench' && courtCount >= 5) {
+                // On met un petit délai pour le toast pour éviter un warning React
+                setTimeout(() => toast.error("5 joueurs maximum sur le terrain !"), 10);
+                return prev; // 🛑 On bloque : on renvoie la liste sans la modifier !
+            }
+            
+            // Sinon, on bascule le statut normalement
+            return prev.map(p => p.id === pid ? { ...p, status: p.status === 'court' ? 'bench' : 'court' } : p);
+        });
         return;
     }
     

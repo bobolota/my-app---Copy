@@ -11,6 +11,7 @@ import ChoiceModal from './ChoiceModal';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import TeamEditor from './TeamEditor';
+import PlanningTab from './PlanningTab';
 // FIN DE LA MODIFICATION
 
 
@@ -705,12 +706,23 @@ export default function TournamentManager() {
             )}
         </div>
         <div className="tm-tabs" style={{ marginTop: '10px' }}>
+            <button className={`btn-tab ${activeTab === 'planning' ? 'active' : ''}`} onClick={() => setActiveTab('planning')}>PLANNING</button>
             <button onClick={() => setActiveTab("poules")} className={`tm-tab ${activeTab === "poules" ? 'active' : 'inactive'}`}>POULES</button>
             <button onClick={() => setActiveTab("finale")} className={`tm-tab ${activeTab === "finale" ? 'active' : 'inactive'}`}>PHASE FINALE</button>
             <button onClick={() => setActiveTab("stats")} className={`tm-tab ${activeTab === "stats" ? 'active' : 'inactive'}`}>STATISTIQUES 📈</button>
         </div>
       </div>
 
+
+
+      {activeTab === 'planning' && (
+  <PlanningTab 
+    tourney={tourney} 
+    handleLaunchMatch={handleLaunchMatch} 
+    canEdit={canEdit} 
+    currentUserName={currentUserName} 
+  />
+)}
 
       {activeTab === "poules" && (
         <GroupStageTab 

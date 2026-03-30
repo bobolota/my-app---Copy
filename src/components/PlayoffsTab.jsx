@@ -200,6 +200,32 @@ export default function PlayoffsTab({
                                         
                                         {m.otm && <div style={{ fontSize: '0.7rem', color: '#aaa', marginBottom: '10px' }}>📋 OTM : <span style={{color: 'var(--accent-orange)', fontWeight: 'bold'}}>{m.otm}</span></div>}
                                         
+                                        {/* 👇 NOUVEAU : SAISIE HORAIRE ET TERRAIN 👇 */}
+                                        {(canEdit && !isFinished && !isCanceled && !isForfeit && !m.teamA?.isBye && !m.teamB?.isBye) && (
+                                          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', borderTop: '1px dashed #333', paddingTop: '10px' }}>
+                                            <input
+                                              type="time"
+                                              value={m.time || ''}
+                                              onChange={(e) => {
+                                                const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
+                                                update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                              }}
+                                              style={{ flex: 1, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
+                                            />
+                                            <input
+                                              type="text"
+                                              placeholder="Terrain (ex: Central)"
+                                              value={m.court || ''}
+                                              onChange={(e) => {
+                                                const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
+                                                update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                              }}
+                                              style={{ flex: 2, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
+                                            />
+                                          </div>
+                                        )}
+                                        {/* 👆 FIN NOUVEAU 👆 */}
+
                                         {(m.teamA?.isBye || m.teamB?.isBye) ? (
                                             <div style={{ textAlign: 'center', fontSize: '0.7rem', color: '#888', marginTop: '10px', padding: '6px', background: '#222', borderRadius: '4px', border: '1px dashed #444' }}>
                                                 ⏩ QUALIFICATION DIRECTE

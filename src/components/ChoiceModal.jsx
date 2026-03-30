@@ -6,13 +6,13 @@ export default function ChoiceModal({ isOpen, title, message, optionA, optionB, 
   if (!isOpen) return null;
 
   return (
-    <div style={{
+    <div className="modal-overlay" style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       backgroundColor: 'rgba(0, 0, 0, 0.75)',
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       zIndex: 9999, backdropFilter: 'blur(3px)'
     }}>
-      <div className="glass-effect" style={{
+      <div className="glass-effect modal-content" style={{
         background: '#1a1a1a', padding: '25px', borderRadius: '12px',
         border: '1px solid var(--accent-orange)',
         width: '90%', maxWidth: '400px', textAlign: 'center',
@@ -28,7 +28,7 @@ export default function ChoiceModal({ isOpen, title, message, optionA, optionB, 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
           <button 
             onClick={() => onChoose('A')} 
-            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}
+            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
             onMouseOver={(e) => e.target.style.borderColor = 'var(--accent-orange)'}
             onMouseOut={(e) => e.target.style.borderColor = '#444'}
           >
@@ -36,7 +36,7 @@ export default function ChoiceModal({ isOpen, title, message, optionA, optionB, 
           </button>
           <button 
             onClick={() => onChoose('B')} 
-            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}
+            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
             onMouseOver={(e) => e.target.style.borderColor = 'var(--accent-orange)'}
             onMouseOut={(e) => e.target.style.borderColor = '#444'}
           >
