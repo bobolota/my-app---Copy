@@ -1,200 +1,148 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName }) {
-  // 1. On regroupe tous les matchs existants (Poules + Playoffs)
+  // 1. On regroupe tous les matchs
   const groupMatches = tourney?.schedule || [];
   const playoffMatches = tourney?.playoffs?.matches || [];
-  
-  // On filtre pour ne garder que les vrais matchs (qui ont deux équipes)
   const allMatches = [...groupMatches, ...playoffMatches].filter(m => m && m.teamA && m.teamB);
 
-  // --- LOGIQUE DE FILTRAGE "MES MATCHS" ---
+  // 2. État pour le tiroir rétractable
+  const [showFinishedGroups, setShowFinishedGroups] = useState(false);
+
+  // 3. Filtrage "Mes matchs"
   const myMatches = allMatches.filter(m => {
     const inTeamA = m.teamA?.players?.some(p => p.name === currentUserName);
     const inTeamB = m.teamB?.players?.some(p => p.name === currentUserName);
     return inTeamA || inTeamB;
   });
 
-  // Par défaut : "Mes matchs" si le user joue, sinon "Tous" (l'admin voit tout par défaut)
   const [filter, setFilter] = useState((myMatches.length > 0 && !canEdit) ? 'mine' : 'all');
   
-  // 👇 NOUVEAU : On récupère les matchs filtrés ET on les trie chronologiquement
-  const displayedMatches = [...(filter === 'mine' ? myMatches : allMatches)].sort((a, b) => {
-    // Si aucun n'a d'heure, on ne change rien
+  // 4. Tri chronologique global
+  const sortFunction = (a, b) => {
     if (!a.time && !b.time) return 0;
-    // Si A n'a pas d'heure, on le met à la fin
     if (!a.time) return 1;
-    // Si B n'a pas d'heure, on le met à la fin
     if (!b.time) return -1;
-    // Si les deux ont une heure (ex: "09:30" et "14:00"), on les trie normalement
     return a.time.localeCompare(b.time);
-  });
-  // ----------------------------------------
+  };
 
-  // Affichage de la page (Le titre ne disparaîtra plus jamais !)
+  // 5. Séparation des matchs pour le tiroir
+  const baseMatches = filter === 'mine' ? myMatches : allMatches;
+  
+  // Les matchs de poules TERMINÉS (ceux qu'on veut rétracter)
+  const finishedGroupMatches = baseMatches
+    .filter(m => m.group && ['finished', 'canceled', 'forfeit'].includes(m.status))
+    .sort(sortFunction);
+
+  // Les matchs ACTIFS (Playoffs, Direct, À venir, ou Poules non finies)
+  const activeMatches = baseMatches
+    .filter(m => !m.group || !['finished', 'canceled', 'forfeit'].includes(m.status))
+    .sort(sortFunction);
+
+  // --- FONCTION DE RENDU DE LA CARTE (Ton code original) ---
+  const renderMatchCard = (match, idx) => {
+    const isFinished = match.status === 'finished';
+    const isCanceled = match.status === 'canceled';
+    const isForfeit = match.status === 'forfeit';
+    let hasStarted = match.status === 'ongoing' || match.startersValidated === true;
+    
+    const isLive = !isFinished && !isCanceled && !isForfeit && hasStarted;
+    const isUpcoming = !isFinished && !isCanceled && !isForfeit && !hasStarted;
+
+    let statusColor = isLive ? 'var(--accent-orange)' : (isFinished ? 'var(--success)' : (isCanceled ? '#555' : (isForfeit ? 'var(--danger)' : '#888')));
+    let statusText = isLive ? '🔥 EN DIRECT' : (isFinished ? '🏁 TERMINÉ' : (isCanceled ? '❌ ANNULÉ' : (isForfeit ? '🏳️ FORFAIT' : 'À VENIR')));
+
+    const canLaunchThisMatch = canEdit || (currentUserName && match.otm && match.otm.includes(currentUserName));
+    const isReady = match.teamA?.players?.length >= 5 && match.teamB?.players?.length >= 5;
+    const canClick = isReady || isFinished;
+    const phaseLabel = match.group ? `POULE ${match.group}` : (match.label ? match.label.toUpperCase() : 'PHASE FINALE');
+
+    return (
+      <div 
+        key={match.id || idx} 
+        onClick={() => {
+          if (!canClick && !['canceled', 'forfeit'].includes(match.status)) {
+            toast.error("Match indisponible : les équipes sont incomplètes.");
+            return;
+          }
+          if (!['canceled', 'forfeit'].includes(match.status)) handleLaunchMatch(match.id, canLaunchThisMatch);
+        }}
+        className="team-card-interactive" 
+        style={{ 
+          background: '#1a1a1a', borderRadius: '12px', padding: '20px', 
+          border: `1px solid ${isLive ? 'var(--accent-orange)' : '#333'}`,
+          display: 'flex', flexDirection: 'column', gap: '15px'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '0.8rem', fontWeight: 'bold' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+            <span style={{ color: match.group ? 'var(--accent-purple)' : 'var(--accent-blue)', letterSpacing: '1px' }}>🏆 {phaseLabel}</span>
+            <span style={{ color: '#aaa' }}>📍 {match.court || 'Terrain à définir'}</span>
+          </div>
+          <span style={{ color: statusColor, background: `${statusColor}22`, padding: '4px 8px', borderRadius: '6px' }}>{statusText}</span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ flex: 1, textAlign: 'right', fontSize: '1.1rem', fontWeight: 'bold', color: 'white' }}>{match.teamA?.name || 'TBD'}</div>
+          <div style={{ padding: '0 15px', fontSize: '1.6rem', fontWeight: 'bold', color: isUpcoming ? '#555' : 'white' }}>
+            {isUpcoming ? 'VS' : `${match.scoreA || 0} - ${match.scoreB || 0}`}
+          </div>
+          <div style={{ flex: 1, textAlign: 'left', fontSize: '1.1rem', fontWeight: 'bold', color: 'white' }}>{match.teamB?.name || 'TBD'}</div>
+        </div>
+
+        <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#888', borderTop: '1px dashed #333', paddingTop: '10px' }}>
+           ⏰ {match.time || 'Horaire non défini'}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: '20px 0' }}>
-      
-      {/* EN-TÊTE AVEC SYSTÈME DE FILTRE */}
+      {/* HEADER */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #333', paddingBottom: '10px', marginBottom: '20px' }}>
-        <h2 style={{ color: 'white', margin: 0 }}>
-          📅 Planning Général
-        </h2>
-
-        {/* On affiche les boutons seulement si l'utilisateur est concerné par des matchs */}
+        <h2 style={{ color: 'white', margin: 0 }}>📅 Planning Général</h2>
         {myMatches.length > 0 && (
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => setFilter('all')}
-              style={{ background: filter === 'all' ? '#555' : '#222', color: 'white', border: filter === 'all' ? '1px solid #777' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filter === 'all' ? 'bold' : 'normal' }}
-            >
-              Tous les matchs
-            </button>
-            <button 
-              onClick={() => setFilter('mine')}
-              style={{ background: filter === 'mine' ? 'var(--accent-purple)' : '#222', color: 'white', border: filter === 'mine' ? '1px solid var(--accent-purple)' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filter === 'mine' ? 'bold' : 'normal' }}
-            >
-              Mes matchs
-            </button>
+            <button onClick={() => setFilter('all')} style={{ background: filter === 'all' ? '#555' : '#222', color: 'white', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Tous</button>
+            <button onClick={() => setFilter('mine')} style={{ background: filter === 'mine' ? 'var(--accent-purple)' : '#222', color: 'white', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer' }}>Mes matchs</button>
           </div>
         )}
       </div>
       
-      {/* --- GESTION DES AFFICHAGES VIDES (EMPTY STATES) --- */}
       {allMatches.length === 0 ? (
-        <div className="empty-state-container" style={{ marginTop: '40px', opacity: 1, animation: 'none', transform: 'none' }}>
-          <div className="empty-state-icon">📅</div>
-          <h3 className="empty-state-title">Le planning est vide</h3>
-          <p className="empty-state-desc">Le calendrier des matchs de ce tournoi n'a pas encore été généré par les organisateurs.</p>
-        </div>
-      ) : displayedMatches.length === 0 ? (
-        <div className="empty-state-container" style={{ marginTop: '40px', opacity: 1, animation: 'none', transform: 'none' }}>
-          <div className="empty-state-icon">🪑</div>
-          <h3 className="empty-state-title">Aucun match pour toi</h3>
-          <p className="empty-state-desc">Tu n'as aucun match prévu avec ton équipe pour le moment dans ce filtre.</p>
-        </div>
+        <div style={{ textAlign: 'center', color: '#666', marginTop: '40px' }}>Le planning est vide.</div>
       ) : (
-        /* --- AFFICHAGE DES MATCHS FILTRÉS ET TRIÉS --- */
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-          {displayedMatches.map((match, idx) => {
-            
-            // --- A. DÉTECTION DU STATUT DU MATCH ---
-            const isFinished = match.status === 'finished';
-            const isCanceled = match.status === 'canceled';
-            const isForfeit = match.status === 'forfeit';
-
-            let hasStarted = match.status === 'ongoing' || match.startersValidated === true || (match.liveHistory && match.liveHistory.length > 0);
-            
-            if (!hasStarted) {
-                try {
-                    const localSave = localStorage.getItem(`basketMatchSave_${match.id}`);
-                    if (localSave) {
-                        const parsed = JSON.parse(localSave);
-                        hasStarted = parsed.startersValidated === true || (parsed.history && parsed.history.length > 0);
-                    }
-                } catch(e) {}
-            }
-
-            const isLive = !isFinished && !isCanceled && !isForfeit && hasStarted;
-            const isUpcoming = !isFinished && !isCanceled && !isForfeit && !hasStarted;
-
-            // --- B. BADGES ET COULEURS ---
-            let statusColor = '#888';
-            let statusText = 'À VENIR';
-            let bgOpacity = '11'; 
-
-            if (isLive) {
-              statusColor = 'var(--accent-orange)';
-              statusText = '🔥 EN DIRECT';
-              bgOpacity = '22';
-            } else if (isFinished) {
-              statusColor = 'var(--success)';
-              statusText = '🏁 TERMINÉ';
-            } else if (isCanceled) {
-              statusColor = '#555';
-              statusText = '❌ ANNULÉ';
-            } else if (isForfeit) {
-              statusColor = 'var(--danger)';
-              statusText = '🏳️ FORFAIT';
-            }
-
-            const scoreA = match.scoreA || 0;
-            const scoreB = match.scoreB || 0;
-
-            const isAssignedOtm = currentUserName && match.otm && match.otm.includes(currentUserName);
-            const canLaunchThisMatch = canEdit || isAssignedOtm;
-            const isReady = match.teamA?.players?.length >= 5 && match.teamB?.players?.length >= 5;
-            const canClick = isReady || isFinished;
-            const phaseLabel = match.group 
-              ? `POULE ${match.group}` 
-              : (match.label ? match.label.toUpperCase() : 'PHASE FINALE');
-
-            return (
-              <div 
-                key={match.id || idx} 
-                onClick={() => {
-                  if (!canClick && !['canceled', 'forfeit'].includes(match.status)) {
-                    toast.error("Match indisponible : les équipes sont incomplètes.");
-                    return;
-                  }
-                  if (!['canceled', 'forfeit'].includes(match.status)) {
-                    handleLaunchMatch(match.id, canLaunchThisMatch);
-                  }
-                }}
-                className="team-card-interactive" 
-                style={{ 
-                  background: '#1a1a1a', 
-                  borderRadius: '12px', 
-                  padding: '20px', 
-                  border: `1px solid ${isLive ? 'var(--accent-orange)' : '#333'}`,
-                  boxShadow: isLive ? '0 0 15px rgba(255, 107, 0, 0.1)' : 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '15px'
-                }}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
+          
+          {/* TIROIR MATCHS DE POULES TERMINÉS */}
+          {finishedGroupMatches.length > 0 && (
+            <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid #222' }}>
+              <button 
+                onClick={() => setShowFinishedGroups(!showFinishedGroups)}
+                style={{ width: '100%', background: 'none', border: 'none', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', cursor: 'pointer', color: '#777', fontWeight: 'bold' }}
               >
-                {/* EN-TÊTE : Phase, Terrain et Badge */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <span style={{ color: match.group ? 'var(--accent-purple)' : 'var(--accent-blue)', letterSpacing: '1px' }}>
-                      🏆 {phaseLabel}
-                    </span>
-                    <span style={{ color: '#aaa', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <span>📍</span> {match.court || 'Terrain à définir'}
-                    </span>
-                  </div>
-                  <span style={{ color: statusColor, background: `${statusColor}${bgOpacity}`, padding: '4px 8px', borderRadius: '6px', whiteSpace: 'nowrap' }}>
-                    {statusText}
-                  </span>
+                <span>{showFinishedGroups ? '▼' : '▶'} MATCHS DE POULES TERMINÉS ({finishedGroupMatches.length})</span>
+                <span style={{ fontSize: '0.75rem', textDecoration: 'underline' }}>{showFinishedGroups ? 'Rétracter' : 'Afficher'}</span>
+              </button>
+              {showFinishedGroups && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px', padding: '20px', borderTop: '1px solid #222' }}>
+                  {finishedGroupMatches.map(renderMatchCard)}
                 </div>
+              )}
+            </div>
+          )}
 
-                {/* CORPS : Équipes et Scores */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ flex: 1, textAlign: 'right', fontSize: '1.1rem', fontWeight: 'bold', color: 'white', fontFamily: 'var(--font-heading)' }}>
-                    {match.teamA?.name || 'TBD'}
-                  </div>
-                  
-                  <div style={{ padding: '0 15px', fontSize: '1.6rem', fontWeight: 'bold', color: isUpcoming ? '#555' : 'white', whiteSpace: 'nowrap' }}>
-                    {isUpcoming ? 'VS' : `${scoreA} - ${scoreB}`}
-                  </div>
-                  
-                  <div style={{ flex: 1, textAlign: 'left', fontSize: '1.1rem', fontWeight: 'bold', color: 'white', fontFamily: 'var(--font-heading)' }}>
-                    {match.teamB?.name || 'TBD'}
-                  </div>
-                </div>
-
-                {/* PIED DE CARTE */}
-                <div style={{ textAlign: 'center', fontSize: '0.85rem', color: '#888', marginTop: '5px', borderTop: '1px dashed #333', paddingTop: '10px' }}>
-                  {isLive && match.livePeriod ? (
-                    <span style={{ color: 'var(--accent-orange)', fontWeight: 'bold' }}>⏱️ Période : {match.livePeriod}</span>
-                  ) : (
-                    <span>⏰ {match.time || 'Horaire non défini'}</span>
-                  )}
-                </div>
+          {/* MATCHS ACTIFS (PLAYOFFS + POULES EN COURS) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            {activeMatches.map(renderMatchCard)}
+            {activeMatches.length === 0 && !showFinishedGroups && (
+              <div style={{ textAlign: 'center', color: '#666', gridColumn: '1/-1', padding: '40px' }}>
+                Tous les matchs de poules sont terminés. Déroulez le tiroir ci-dessus ou consultez la Phase Finale.
               </div>
-            );
-          })}
+            )}
+          </div>
         </div>
       )}
     </div>
