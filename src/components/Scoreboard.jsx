@@ -986,12 +986,12 @@ export default function Scoreboard() {
               <div className={`action-bar-container ${activeAction?.type === 'STARTERS' ? 'success-mode' : (pendingAssist ? 'success-mode' : (activeAction?.type === 'SUB' ? 'sub-mode' : (pendingFoul ? 'danger-mode' : 'active-mode')))}`} style={{ width: '180px', flexShrink: 0, position: 'sticky', top: '20px', padding: '15px' }}>
                 {activeAction?.type === 'STARTERS' ? (
                     <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>🏀 SÉLECTIONNEZ LES TITULAIRES</span>
+                        <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>🏀 SÉLECTION TITULAIRES</span>
                         <button className="action-btn" style={{background: 'var(--success)', color: 'white', border: 'none', padding: '12px 10px', fontSize: '0.85rem', fontWeight: 'bold'}} onClick={() => {
                             const courtA = playersA.filter(p=>p.status==='court').length;
                             const courtB = playersB.filter(p=>p.status==='court').length;
                             if (courtA !== 5 || courtB !== 5) {
-                                toast.error(`Il faut exactement 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
+                                toast.error(`Il n'y a pas 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
                                 return;
                             }
                             setActiveAction(null);
