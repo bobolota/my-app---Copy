@@ -466,7 +466,27 @@ if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     }
   };
 
-  if (loading) return <div style={{ color: 'white', textAlign: 'center', padding: '50px' }}>Chargement... 🏀</div>;
+  // L'écran de chargement "Premium" avec les Skeletons
+  if (loading) {
+    return (
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', width: '100%' }}>
+        {/* Faux En-tête */}
+        <div className="skeleton skeleton-title"></div>
+        
+        {/* Grille de fausses cartes */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '30px' }}>
+          {[1, 2, 3, 4, 5, 6].map(n => (
+            <div key={n} style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
+              <div className="skeleton skeleton-text" style={{ width: '60%', height: '24px' }}></div>
+              <div className="skeleton skeleton-text-short" style={{ marginTop: '15px' }}></div>
+              <div className="skeleton skeleton-text-short" style={{ width: '30%' }}></div>
+              <div className="skeleton skeleton-card" style={{ height: '40px', marginTop: '20px' }}></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   const myTeamIds = myTeams.map(mt => mt.global_teams.id);
   const availableTeams = allTeams.filter(t => !myTeamIds.includes(t.id));
