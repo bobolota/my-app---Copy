@@ -261,27 +261,40 @@ export default function PlayoffsTab({
       </div>
       
       {!tourney.playoffs ? (
-        <div style={{ textAlign: 'center', padding: '40px', border: '1px dashed #333', borderRadius: '12px' }}>
-            <p style={{ marginBottom: '20px', fontSize: '1.1rem' }}>
-                <b>{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages.
-            </p>
-            {totalQualified >= 2 ? (
-                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
-                    {numByes > 0 ? (
-                        <span style={{ color: 'var(--accent-orange)' }}>
-                            L'arbre sera de <b>{bracketSize} places</b>. <br/>Les <b>{numByes} meilleures équipes</b> (1ers de poule) sauteront le premier tour !
-                        </span>
+        <div style={{ textAlign: 'center', padding: '60px 20px', border: '1px dashed #333', borderRadius: '12px', background: 'rgba(255,255,255,0.01)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⏳</div>
+            
+            {canEdit ? (
+                /* --- VUE ORGANISATEUR (Ton code original) --- */
+                <>
+                    <p style={{ marginBottom: '20px', fontSize: '1.1rem' }}>
+                        <b>{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages.
+                    </p>
+                    {totalQualified >= 2 ? (
+                        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--accent-orange)' }}>
+                                L'arbre sera de <b>{bracketSize} places</b>. <br/>Les 1ers de poule sauteront le premier tour !
+                            </span>
+                            <button onClick={generatePlayoffs} className="tm-btn-success" style={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '10px' }}>
+                                🚀 GÉNÉRER {getStartRoundName(bracketSize)}
+                            </button>
+                        </div>
                     ) : (
-                        <span style={{ color: 'var(--success)' }}>Le format est parfait pour un tableau symétrique !</span>
+                        <div style={{ color: 'var(--danger)' }}>Il faut au moins 2 équipes qualifiées pour générer l'arbre.</div>
                     )}
-                    {canEdit && (
-                      <button onClick={generatePlayoffs} className="tm-btn-success" style={{ padding: '15px 30px', fontSize: '1.2rem', marginTop: '10px' }}>
-                          🚀 GÉNÉRER {getStartRoundName(bracketSize)}
-                      </button>
-                    )}
-                </div>
+                </>
             ) : (
-                <div style={{ color: 'var(--danger)' }}>Il faut au moins 2 équipes qualifiées.</div>
+                /* --- NOUVELLE VUE JOUEUR / SPECTATEUR --- */
+                <>
+                    <h3 style={{ color: 'white', fontSize: '1.5rem', marginBottom: '10px' }}>En attente des qualifications</h3>
+                    <p style={{ color: '#888', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6' }}>
+                        Le tableau de la phase finale sera généré dès que les matchs de poules seront terminés et que les positions seront figées. 
+                        <br/><br/>
+                        <span style={{ color: 'var(--accent-orange)', fontWeight: 'bold' }}>
+                            Seuls les meilleurs décrocheront leur ticket pour {getStartRoundName(bracketSize)} !
+                        </span>
+                    </p>
+                </>
             )}
         </div>
       ) : (
