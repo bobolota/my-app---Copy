@@ -84,24 +84,9 @@ export default function App() {
             )}
             
             {view === 'match' && activeMatch && (
-              <Scoreboard 
-                key={activeMatch.id} // 🛠️ LA CLÉ UNIQUE ICI
-                matchId={activeMatch.id}
-                teamA={activeMatch.teamA}                
-                teamB={activeMatch.teamB} 
-                savedStatsA={activeMatch.savedStatsA}
-                savedStatsB={activeMatch.savedStatsB}
-                isFinished={activeMatch.status === 'finished'}
-                onExit={() => { 
-                  setView('tournament'); 
-                  setActiveMatch(null); // 🛠️ On nettoie ici aussi !
-                }}
-                onMatchFinished={finishMatch} 
-                userRole={userRole}
-                onLiveUpdate={syncLiveScore}
-                tourney={currentTourney} /* 🛠️ LA LIGNE MAGIQUE À AJOUTER EST ICI */
-              />
+              <Scoreboard key={activeMatch.id} />
             )}
+            
           </div>
         </div>
       </main>

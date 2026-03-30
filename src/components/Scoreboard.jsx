@@ -4,6 +4,7 @@ import useMatchSync from '../hooks/useMatchSync';
 import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
 import PromptModal from './PromptModal';
+import { useAppContext } from '../context/AppContext';
 
 // --- COMPOSANTS INTERNES ---
 
@@ -186,19 +187,31 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
 
 // --- COMPOSANT PRINCIPAL ---
 
-export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedStatsB, isFinished, onExit, onMatchFinished, onLiveUpdate, userRole, tourney }) {
-  
+export default function Scoreboard() {
+  // 1. On aspire tout depuis le Nuage Central ☁️
+  const { 
+    activeMatch, setActiveMatch, setView, 
+    finishMatch: onMatchFinished, syncLiveScore: onLiveUpdate, 
+    userRole, currentTourney: tourney, 
+    setConfirmData, setPromptData 
+  } = useAppContext();
+
+  // 2. On recrée les variables locales pour ne pas casser la suite de ton code
+  const matchId = activeMatch?.id;
+  const teamA = activeMatch?.teamA;
+  const teamB = activeMatch?.teamB;
+  const savedStatsA = activeMatch?.savedStatsA;
+  const savedStatsB = activeMatch?.savedStatsB;
+  const isFinished = activeMatch?.status === 'finished';
+
+  // 3. On recrée la fonction onExit qui était passée par App.jsx
+  const onExit = () => { 
+    setView('tournament'); 
+    setActiveMatch(null); 
+  };
+
   const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
 
-  const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
-  const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
-
-  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
-  const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
-
-  // --- ARCHITECTURE MODERNE : Rôles contextuels ---
-  // Soit l'utilisateur est le créateur absolu de l'app (ADMIN)
-  // Soit le TournamentManager lui a donné l'autorisation stricte pour CE match (Créateur du tournoi ou OTM assigné)
   const isSpecificallyAssigned = localStorage.getItem(`canEdit_match_${matchId}`) === "true";
   const canEdit = userRole === 'ADMIN' || isSpecificallyAssigned;
   // ------------------------------------------------
@@ -1241,30 +1254,6 @@ export default function Scoreboard({ matchId, teamA, teamB, savedStatsA, savedSt
         
       </div>
 
-      {/* --- MODALES DU SCOREBOARD --- */}
-      <ConfirmModal 
-        isOpen={confirmData.isOpen}
-        title={confirmData.title}
-        message={confirmData.message}
-        onConfirm={() => {
-          if (confirmData.onConfirm) confirmData.onConfirm();
-          closeConfirm();
-        }}
-        onCancel={closeConfirm}
-        isDanger={confirmData.isDanger}
-      />
-
-      <PromptModal 
-        isOpen={promptData.isOpen}
-        title={promptData.title}
-        message={promptData.message}
-        placeholder={promptData.placeholder}
-        onConfirm={(value) => {
-          if (promptData.onConfirm) promptData.onConfirm(value);
-          closePrompt();
-        }}
-        onCancel={closePrompt}
-      />
     </div> // <-- Ta dernière div fermante
   );
 }
