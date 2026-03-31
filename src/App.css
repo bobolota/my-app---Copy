@@ -1,5 +1,11 @@
 /* src/App.css */
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Garde le reste de ton CSS personnalisé en dessous */
+
 /* --- 1. IMPORTS GOOGLE FONTS --- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800;900&display=swap');
 

@@ -68,19 +68,11 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   return (
     <div className="dashboard-container" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
-      <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px', margin: 0, width: '100%' }}>
+      <h1 className="text-red-500 font-bold text-4xl">
         🌍 Explorer les tournois
       </h1>
       
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', 
-        gap: '20px', 
-        marginTop: '30px', 
-        paddingBottom: '20px',
-        width: '100%',
-        flex: 1
-      }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
         
         {/* COLONNE 1 : TOURNOIS PUBLICS (Inscription) */}
         <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
