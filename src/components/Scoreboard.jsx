@@ -8,8 +8,6 @@ import { useAppContext } from '../context/AppContext';
 
 // --- COMPOSANTS INTERNES ---
 
-// DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx
-
 const BoxscoreTable = React.memo(({ title, players, color }) => {
   const formatPlayerTime = (sec) => {
     const safeSec = Number(sec) || 0;
@@ -21,81 +19,77 @@ const BoxscoreTable = React.memo(({ title, players, color }) => {
   return (
     <div className="boxscore-team">
       <h3 className="boxscore-title" style={{ color: color || 'white' }}>{title}</h3>
-      <table className="boxscore-table">
-        <thead>
-          <tr>
-            <th className="text-left">N°</th>
-            <th className="text-left">JOUEUR</th>
-            <th>MIN</th>
-            <th>PTS</th>
-            <th>TIRS</th>
-            <th>3PT</th>
-            <th>LF</th>
-            <th>+/-</th>
-            <th>AST</th>
-            <th>OREB</th>
-            <th>DREB</th>
-            <th>REB</th>
-            <th>STL</th>
-            <th>BLK</th>
-            <th>TOV</th>
-            <th>FLS</th>
-            <th>EFF</th>
-          </tr>
-        </thead>
-        <tbody>
-          {players.map(p => {
-            const pts = p.points || 0;
-            const fg2m = p.fg2m || 0; const fg2a = p.fg2a || 0;
-            const fg3m = p.fg3m || 0; const fg3a = p.fg3a || 0;
-            const ftm = p.ftm || 0;   const fta = p.fta || 0;
-            const ast = p.ast || 0;
-            const oreb = p.oreb || 0; const dreb = p.dreb || 0;
-            const stl = p.stl || 0;   const blk = p.blk || 0; 
-            const tov = p.tov || 0;   const fouls = p.fouls || 0;
-            const pm = p.plusMinus || 0;
+      <div className="overflow-x-auto">
+        <table className="boxscore-table w-full text-sm">
+          <thead>
+            <tr>
+              <th className="text-left">N°</th>
+              <th className="text-left">JOUEUR</th>
+              <th>MIN</th>
+              <th>PTS</th>
+              <th>TIRS</th>
+              <th>3PT</th>
+              <th>LF</th>
+              <th>+/-</th>
+              <th>AST</th>
+              <th>OREB</th>
+              <th>DREB</th>
+              <th>REB</th>
+              <th>STL</th>
+              <th>BLK</th>
+              <th>TOV</th>
+              <th>FLS</th>
+              <th>EFF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {players.map(p => {
+              const pts = p.points || 0;
+              const fg2m = p.fg2m || 0; const fg2a = p.fg2a || 0;
+              const fg3m = p.fg3m || 0; const fg3a = p.fg3a || 0;
+              const ftm = p.ftm || 0;   const fta = p.fta || 0;
+              const ast = p.ast || 0;
+              const oreb = p.oreb || 0; const dreb = p.dreb || 0;
+              const stl = p.stl || 0;   const blk = p.blk || 0; 
+              const tov = p.tov || 0;   const fouls = p.fouls || 0;
+              const pm = p.plusMinus || 0;
 
-            const pmColor = pm > 0 ? 'var(--success)' : (pm < 0 ? 'var(--danger)' : 'var(--text-muted)');
-            
-            const isExcluded = fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+              const pmColor = pm > 0 ? 'var(--success)' : (pm < 0 ? 'var(--danger)' : 'var(--text-muted)');
+              const isExcluded = fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+              const fgm = fg2m + fg3m; const fga = fg2a + fg3a;
+              const reb = oreb + dreb;
+              const missedFG = fga - fgm; const missedFT = fta - ftm;
+              const eff = (pts + reb + ast + stl + blk) - (missedFG + missedFT + tov);
 
-            const fgm = fg2m + fg3m;
-            const fga = fg2a + fg3a;
-            const reb = oreb + dreb;
-            const missedFG = fga - fgm;
-            const missedFT = fta - ftm;
-            
-            const eff = (pts + reb + ast + stl + blk) - (missedFG + missedFT + tov);
-
-            return (
-              <tr key={p.id}>
-                <td className="text-left">{p.number}</td>
-                <td className="text-left">{p.name} {p.status === 'court' && <span style={{color: 'var(--accent-orange)'}}>*</span>}</td>
-                <td>{formatPlayerTime(p.timePlayed)}</td>
-                <td className="stat-highlight">{pts}</td>
-                <td>{fgm}/{fga}</td>
-                <td>{fg3m}/{fg3a}</td>
-                <td>{ftm}/{fta}</td>
-                <td style={{ color: pmColor, fontWeight: 'bold' }}>{pm > 0 ? `+${pm}` : pm}</td>
-                <td>{ast}</td>
-                <td>{oreb}</td>
-                <td>{dreb}</td>
-                <td className="stat-highlight">{reb}</td>
-                <td>{stl}</td>
-                <td>{blk}</td>
-                <td>{tov}</td>
-                <td className={isExcluded ? "fouls-alert" : ""}>{fouls}</td>
-                <td className="stat-highlight" style={{ fontWeight: 'bold', color: eff >= 15 ? 'var(--success)' : (eff < 0 ? 'var(--danger)' : 'inherit') }}>{eff}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              return (
+                <tr key={p.id}>
+                  <td className="text-left">{p.number}</td>
+                  <td className="text-left">{p.name} {p.status === 'court' && <span className="text-[var(--accent-orange)]">*</span>}</td>
+                  <td className="text-center">{formatPlayerTime(p.timePlayed)}</td>
+                  <td className="text-center font-bold">{pts}</td>
+                  <td className="text-center">{fgm}/{fga}</td>
+                  <td className="text-center">{fg3m}/{fg3a}</td>
+                  <td className="text-center">{ftm}/{fta}</td>
+                  <td className="text-center font-bold" style={{ color: pmColor }}>{pm > 0 ? `+${pm}` : pm}</td>
+                  <td className="text-center">{ast}</td>
+                  <td className="text-center">{oreb}</td>
+                  <td className="text-center">{dreb}</td>
+                  <td className="text-center font-bold text-gray-300">{reb}</td>
+                  <td className="text-center">{stl}</td>
+                  <td className="text-center">{blk}</td>
+                  <td className="text-center">{tov}</td>
+                  <td className={`text-center ${isExcluded ? "text-[var(--danger)] font-bold" : ""}`}>{fouls}</td>
+                  <td className={`text-center font-bold ${eff >= 15 ? 'text-[var(--success)]' : (eff < 0 ? 'text-[var(--danger)]' : 'text-white')}`}>{eff}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 });
 
-// NOUVEAU : Fonction de comparaison personnalisée pour bloquer les rendus inutiles liés au chrono
 const playerCardAreEqual = (prevProps, nextProps) => {
   return (
     prevProps.player === nextProps.player &&
@@ -126,7 +120,6 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
     else if (hasGlobalAction) isTargetable = (player.status === 'court' && !isPendingScore);
   }
 
-  // Astuce : On ne récupère que les stats qui sont supérieures à 0 pour gagner de la place !
   const minorStats = [
     { label: 'AS', val: player.ast },
     { label: 'RB', val: (player.oreb || 0) + (player.dreb || 0) },
@@ -135,68 +128,62 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
     { label: 'TO', val: player.tov }
   ].filter(s => s.val > 0);
 
+  // Génération dynamique des classes Tailwind pour le PlayerCard
+  const statusClasses = player.status === 'bench' 
+    ? 'opacity-60 scale-95 grayscale-[40%] border-[#222] shadow-none' 
+    : `opacity-100 scale-100 grayscale-0 border ${team === 'A' ? 'border-[var(--accent-orange)] shadow-[0_4px_12px_rgba(255,107,0,0.15)]' : 'border-[var(--accent-blue)] shadow-[0_4px_12px_rgba(0,212,255,0.15)]'}`;
+
   return (
     <div 
-        className={`pc-card ${isSubSelected ? 'pc-sub' : ''} ${isPendingScore ? 'pc-pending' : ''} ${isTargetable ? 'pc-target' : ''} ${(isExcluded && player.status === 'bench') ? 'pc-excluded' : ''}`} 
+        className={`relative bg-[#222] rounded-lg p-2 flex flex-col justify-between overflow-hidden transition-all duration-300 ease-in-out select-none ${isSubSelected ? 'ring-2 ring-[var(--accent-purple)] bg-[rgba(157,78,221,0.15)]' : ''} ${isPendingScore ? 'ring-2 ring-white bg-[rgba(255,255,255,0.1)]' : ''} ${isTargetable ? 'cursor-pointer hover:-translate-y-1' : ''} ${(isExcluded && player.status === 'bench') ? 'opacity-30 grayscale pointer-events-none' : ''} ${statusClasses}`} 
         onClick={() => isTargetable && onPlayerClick(activeActionType, team, player.id, null)}
-        style={{ 
-          opacity: player.status === 'bench' ? 0.6 : 1, 
-          transform: player.status === 'bench' ? 'scale(0.95)' : 'scale(1)',
-          filter: player.status === 'bench' ? 'grayscale(40%)' : 'none',
-          border: player.status === 'court' ? `1px solid ${team === 'A' ? 'var(--accent-orange)' : 'var(--accent-blue)'}` : '1px solid #222',
-          boxShadow: player.status === 'court' ? `0 4px 12px ${team === 'A' ? 'rgba(255,107,0,0.15)' : 'rgba(0,212,255,0.15)'}` : 'none',
-          transition: 'all 0.3s ease'
-        }}
     >
-      {isExcluded && <div className="pc-badge-exclu">{excluReason}</div>}
+      {isExcluded && <div className="absolute top-0 right-0 bg-[var(--danger)] text-white text-[0.6rem] font-bold px-1 py-0.5 rounded-bl-md z-10">{excluReason}</div>}
       
       {/* LIGNE 1 : Numéro, Nom, Temps */}
-      <div className="pc-row-1">
-        <span className="pc-num">{player.number}</span>
-        <span className="pc-name">{player.name}</span>
-        <span className="pc-time">{`${Math.floor(player.timePlayed / 60).toString().padStart(2, '0')}:${(player.timePlayed % 60).toString().padStart(2, '0')}`}</span>
+      <div className="flex justify-between items-center mb-1">
+        <span className="text-xs font-black text-[#555] bg-black px-1.5 py-0.5 rounded">{player.number}</span>
+        <span className="text-sm font-bold text-white truncate max-w-[80px]" title={player.name}>{player.name}</span>
+        <span className="text-[0.65rem] font-bold text-[#888]">{`${Math.floor(player.timePlayed / 60).toString().padStart(2, '0')}:${(player.timePlayed % 60).toString().padStart(2, '0')}`}</span>
       </div>
 
       {/* LIGNE 2 : Points et Points de Fautes */}
-      <div className="pc-row-2">
-        <span className="pc-pts">{player.points} <span style={{fontSize: '0.65rem', color: '#888'}}>PTS</span></span>
-        <div className="pc-fouls">
+      <div className="flex justify-between items-center bg-[#1a1a1a] rounded px-2 py-1 mb-1">
+        <span className="text-xl font-black text-white">{player.points} <span className="text-[0.65rem] text-[#888] font-bold">PTS</span></span>
+        <div className="flex gap-[2px]">
           {[0, 1, 2, 3, 4].map(idx => {
             const isFilled = idx < player.fouls;
             const isDanger = isExcluded && idx === (player.fouls - 1);
-            return <div key={idx} className={`pc-foul-dot ${isFilled ? 'filled' : ''} ${isDanger ? 'danger' : ''}`}></div>;
+            return <div key={idx} className={`w-2 h-2 rounded-full border border-[#555] ${isFilled ? (isDanger ? 'bg-[var(--danger)] border-[var(--danger)] shadow-[0_0_5px_var(--danger)]' : 'bg-[var(--accent-orange)] border-[var(--accent-orange)]') : 'bg-transparent'}`}></div>;
           })}
         </div>
       </div>
 
-      {/* LIGNE 3 : Stats mineures sur une seule ligne (uniquement celles > 0) */}
-      <div className="pc-row-3">
+      {/* LIGNE 3 : Stats mineures */}
+      <div className="flex justify-center gap-2 flex-wrap text-[0.65rem] font-bold text-[#aaa] mt-1">
         {minorStats.length === 0 ? (
-          <span style={{color: '#444'}}>Aucune stat</span>
+          <span className="text-[#444]">Aucune stat</span>
         ) : (
           minorStats.map((stat, i) => (
-            <span key={i} className="pc-stat-item">{stat.label}: <span style={{color: 'white'}}>{stat.val}</span></span>
+            <span key={i}>{stat.label}: <span className="text-white">{stat.val}</span></span>
           ))
         )}
       </div>
 
       {/* VALIDATION SCORE OVERLAY */}
       {isPendingScore && canEdit && (
-        <div className="pc-overlay" onClick={e => e.stopPropagation()}>
-          <button className="pc-btn-v" onClick={() => onConfirm('VALIDATED')}>V</button>
-          <button className="pc-btn-x" onClick={() => onConfirm('MISSED')}>X</button>
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center gap-2 z-20 backdrop-blur-sm" onClick={e => e.stopPropagation()}>
+          <button className="w-10 h-10 rounded-full border-2 border-[var(--success)] bg-transparent text-[var(--success)] font-bold text-lg hover:bg-[var(--success)] hover:text-white transition-colors cursor-pointer" onClick={() => onConfirm('VALIDATED')}>V</button>
+          <button className="w-10 h-10 rounded-full border-2 border-[var(--danger)] bg-transparent text-[var(--danger)] font-bold text-lg hover:bg-[var(--danger)] hover:text-white transition-colors cursor-pointer" onClick={() => onConfirm('MISSED')}>X</button>
         </div>
       )}
     </div>
   );
-}, playerCardAreEqual); // <-- Ajout de la fonction de comparaison ici
-
-// FIN DE LA MODIFICATION
+}, playerCardAreEqual); 
 
 // --- COMPOSANT PRINCIPAL ---
 
 export default function Scoreboard() {
-  // 1. On aspire tout depuis le Nuage Central ☁️
   const { 
     activeMatch, setActiveMatch, setView, 
     finishMatch: onMatchFinished, syncLiveScore: onLiveUpdate, 
@@ -204,7 +191,6 @@ export default function Scoreboard() {
     setConfirmData, setPromptData 
   } = useAppContext();
 
-  // 2. On recrée les variables locales pour ne pas casser la suite de ton code
   const matchId = activeMatch?.id;
   const teamA = activeMatch?.teamA;
   const teamB = activeMatch?.teamB;
@@ -212,18 +198,14 @@ export default function Scoreboard() {
   const savedStatsB = activeMatch?.savedStatsB;
   const isFinished = activeMatch?.status === 'finished';
 
-  // 3. On recrée la fonction onExit qui était passée par App.jsx
   const onExit = () => { 
     setView('tournament'); 
     setActiveMatch(null); 
   };
 
   const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
-
   const isSpecificallyAssigned = localStorage.getItem(`canEdit_match_${matchId}`) === "true";
   const canEdit = userRole === 'ADMIN' || isSpecificallyAssigned;
-  // ------------------------------------------------
-
   const saveKey = `basketMatchSave_${matchId}`;
 
   const getSafeSave = () => {
@@ -233,25 +215,19 @@ export default function Scoreboard() {
       const parsed = JSON.parse(saved);
       const isRightMatch = parsed.playersA?.length > 0 && teamA?.players?.some(p => p.id === parsed.playersA[0]?.id);
       return isRightMatch ? parsed : null;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   };
 
   const initPlayers = (team) => {
     const playersList = team?.players || [];
     return playersList.map(p => ({
-      ...p,
-      status: 'bench',
-      points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
+      ...p, status: 'bench', points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
       ftm: 0, fta: 0, fg2m: 0, fg2a: 0, fg3m: 0, fg3a: 0, plusMinus: 0
     }));
   };
 
   const safeSave = getSafeSave();
   const matchData = tourney?.schedule?.find(m => m.id === matchId) || tourney?.playoffs?.matches?.find(m => m.id === matchId);
-
-  // NOUVEAU : Si des joueurs sont déjà sur le terrain dans le cloud, c'est que le 5 majeur a été validé !
   const cloudHasStarters = matchData?.savedStatsA?.some(p => p.status === 'court') || matchData?.startersValidated;
 
   const initialStartersValidated = isFinished || 
@@ -260,14 +236,12 @@ export default function Scoreboard() {
     cloudHasStarters;
 
   const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
-
   const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : (matchData?.savedStatsA || initPlayers(teamA))));
   const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : (matchData?.savedStatsB || initPlayers(teamB))));
   const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : (matchData?.liveTime !== undefined ? matchData.liveTime : settings.periodDuration * 60)));
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
   const [history, setHistory] = useState(() => safeSave ? safeSave.history : (matchData?.liveHistory || []));
-  // -----------------------------------------------------------------------------------------
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
   const [isRunning, setIsRunning] = useState(false);
@@ -285,7 +259,7 @@ export default function Scoreboard() {
   const [editMin, setEditMin] = useState(0);
   const [editSec, setEditSec] = useState(0);
 
-    const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
+  const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
   const scoreB = playersB.reduce((sum, p) => sum + p.points, 0);
 
   const getTeamFouls = (team) => {
@@ -304,12 +278,10 @@ export default function Scoreboard() {
     let periodsInCurrentHalf = [];
 
     if (settings.periodCount === 2) {
-      // 🏀 CAS 2 MI-TEMPS
       if (period === 'Q1') { maxTimeouts = settings.timeoutsHalf1; periodsInCurrentHalf = ['Q1']; }
       else if (period === 'Q2') { maxTimeouts = settings.timeoutsHalf2; periodsInCurrentHalf = ['Q2']; }
       else if (period && period.startsWith('OT')) { maxTimeouts = 1; periodsInCurrentHalf = [period]; }
     } else {
-      // 🏀 CAS 4 QUARTS-TEMPS (Défaut)
       if (period === 'Q1' || period === 'Q2') { maxTimeouts = settings.timeoutsHalf1; periodsInCurrentHalf = ['Q1', 'Q2']; } 
       else if (period === 'Q3' || period === 'Q4') { maxTimeouts = settings.timeoutsHalf2; periodsInCurrentHalf = ['Q3', 'Q4']; } 
       else if (period && period.startsWith('OT')) { maxTimeouts = 1; periodsInCurrentHalf = [period]; }
@@ -331,18 +303,17 @@ export default function Scoreboard() {
           const left = team === 'A' ? timeoutsA : timeoutsB;
           if (left <= 0) { toast.error("Plus de temps mort disponible !"); return; }
 
-    setConfirmData({
-      isOpen: true,
-      title: "Temps Mort ⏱️",
-      message: `Accorder un Temps Mort à l'équipe ${team === 'A' ? teamA?.name : teamB?.name} ?`,
-      isDanger: false,
-      onConfirm: () => {
-        setHistory([{ team, playerId: null, type: 'TIMEOUT', time, period }, ...history]);
-        setIsRunning(false);
-        toast.success(`Temps mort accordé à ${team === 'A' ? teamA?.name : teamB?.name}`);
-      }
-    });
-
+        setConfirmData({
+          isOpen: true,
+          title: "Temps Mort ⏱️",
+          message: `Accorder un Temps Mort à l'équipe ${team === 'A' ? teamA?.name : teamB?.name} ?`,
+          isDanger: false,
+          onConfirm: () => {
+            setHistory([{ team, playerId: null, type: 'TIMEOUT', time, period }, ...history]);
+            setIsRunning(false);
+            toast.success(`Temps mort accordé à ${team === 'A' ? teamA?.name : teamB?.name}`);
+          }
+        });
       }
   };
 
@@ -360,7 +331,6 @@ export default function Scoreboard() {
     }
   }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
-  // --- AUTO-SAUVEGARDE SILENCIEUSE (Étape 3) ---
   useEffect(() => {
     if (!canEdit || isMatchOver || history.length === 0) return;
     if (!startersValidated && history.length === 0) return;
@@ -400,20 +370,13 @@ export default function Scoreboard() {
         }
     }, 1500); 
 
-    // 🛠️ AJOUTE CETTE LIGNE ICI POUR NETTOYER LA MÉMOIRE EN QUITTANT :
     return () => clearTimeout(timeoutId);
-
   }, [history, startersValidated]); 
-  // ---------------------------------------------
 
-  // --- NOUVEAU : Sauvegarde totale avant de quitter la table de marque ---
   const handleExit = (e) => {
     if (e) e.stopPropagation();
-    
-    // 1. On quitte l'écran INSTANTANÉMENT pour l'utilisateur (pas de freeze !)
     if (onExit) onExit();
     
-    // 2. On fait la sauvegarde silencieusement en arrière-plan
     if (canEdit && !isMatchOver) {
         try {
             const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
@@ -445,35 +408,38 @@ export default function Scoreboard() {
                         payload = { schedule: newSchedule };
                     }
                     
-                    // On envoie à Supabase sans utiliser "await" pour ne pas bloquer l'écran
                     supabase.from('tournaments').update(payload).eq('id', tourney?.id).then();
                 }
             }
-        } catch (err) {
-            console.error("Erreur silencieuse lors de la sauvegarde :", err);
-        }
+        } catch (err) { console.error("Erreur silencieuse lors de la sauvegarde :", err); }
     }
   };
-  // -----------------------------------------------------------------------
+
+  const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });
+  useEffect(() => {
+    stateRef.current = { playersA, playersB, time, period, history, isRunning, startersValidated };
+  }, [playersA, playersB, time, period, history, isRunning, startersValidated]);
+
+  const { isOnline } = useMatchSync(
+    matchId, canEdit,
+    { playersA, playersB, time, period, history, isRunning, startersValidated },
+    { setPlayersA, setPlayersB, setTime, setPeriod, setHistory, setIsRunning, setStartersValidated, setActiveAction },
+    stateRef
+  );
 
   const handleFinishMatch = () => {
     if (!canEdit) return; 
-
-    // NOUVEAU : Anti-crash de fin de match
     if (!isOnline) {
-      toast.error("⚠️ Vous êtes HORS-LIGNE !\n\nLe match est bien sauvegardé dans la tablette, mais vous devez retrouver une connexion internet (pastille verte) avant de cliquer sur 'Terminer le match' pour l'envoyer dans le cloud.");
+      toast.error("⚠️ Vous êtes HORS-LIGNE !\n\nLe match est bien sauvegardé dans la tablette, mais vous devez retrouver une connexion internet avant de cliquer sur 'Terminer le match' pour l'envoyer dans le cloud.");
       return;
     }
-
     setConfirmData({
       isOpen: true,
       title: "Terminer le match 🏁",
       message: "Voulez-vous terminer définitivement le match et sauvegarder les statistiques ? (Cette action est irréversible)",
-      isDanger: true, // En rouge pour éviter les erreurs
+      isDanger: true,
       onConfirm: () => {
-        setIsRunning(false); 
-        setIsMatchOver(true); 
-        setCurrentView('boxscore');
+        setIsRunning(false); setIsMatchOver(true); setCurrentView('boxscore');
         if (onMatchFinished) onMatchFinished(scoreA, scoreB, playersA, playersB);
         toast.success("Match terminé et statistiques sauvegardées !");
       }
@@ -486,16 +452,13 @@ export default function Scoreboard() {
   const nextPeriod = () => {
     if (!canEdit) return; 
     let nextP;
-    
     if (settings.periodCount === 2) {
-      // 🏀 PASSAGE POUR 2 MI-TEMPS
       if (period === 'Q1') nextP = 'Q2';
       else if (period === 'Q2' || period.startsWith('OT')) {
         const otNumber = period === 'Q2' ? 1 : parseInt(period.replace('OT', '')) + 1;
         nextP = `OT${otNumber}`;
       }
     } else {
-      // 🏀 PASSAGE POUR 4 QUARTS-TEMPS
       if (period === 'Q1') nextP = 'Q2';
       else if (period === 'Q2') nextP = 'Q3';
       else if (period === 'Q3') nextP = 'Q4';
@@ -511,9 +474,7 @@ export default function Scoreboard() {
       message: `Passer à ${nextP} et remettre le chrono à ${settings.periodDuration}:00 ?`,
       isDanger: false,
       onConfirm: () => {
-        setPeriod(nextP); 
-        setTime(settings.periodDuration * 60); 
-        setIsRunning(false);
+        setPeriod(nextP); setTime(settings.periodDuration * 60); setIsRunning(false);
         toast.success(`C'est parti pour ${nextP} !`);
       }
     });
@@ -531,7 +492,6 @@ export default function Scoreboard() {
     set(prev => prev.map(p => {
       if (p.id === playerId) {
         let up = { ...p };
-        
         if (type === 'SCORE') {
           up.points -= value;
           if (value === 1) { up.ftm -= 1; up.fta -= 1; }
@@ -542,7 +502,6 @@ export default function Scoreboard() {
           const newScoreB = !isA ? scoreB - value : scoreB;
           if (onLiveUpdate) onLiveUpdate(newScoreA, newScoreB);
         }
-        
         if (type === 'MISS') {
           if (value === 1) up.fta -= 1; else if (value === 2) up.fg2a -= 1; else up.fg3a -= 1;
         }
@@ -587,47 +546,21 @@ export default function Scoreboard() {
       }, 200); 
     } else if (time === 0) { setIsRunning(false); }
     return () => clearInterval(interval);
-  }, [isRunning]);
+  }, [isRunning, time]);
 
-  const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });
-  
-  useEffect(() => {
-    stateRef.current = { playersA, playersB, time, period, history, isRunning, startersValidated };
-  }, [playersA, playersB, time, period, history, isRunning, startersValidated]);
-
-  // DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx (Déclaration du Hook)
-
-  const { isOnline } = useMatchSync(
-    matchId,
-    canEdit,
-    { playersA, playersB, time, period, history, isRunning, startersValidated }, // Les valeurs
-    { setPlayersA, setPlayersB, setTime, setPeriod, setHistory, setIsRunning, setStartersValidated, setActiveAction }, // Les modificateurs
-    stateRef
-  );
-
-// FIN DE LA MODIFICATION
-  
   const handleAction = (incomingType, team, pid, incomingValue) => {
     if (!canEdit || isMatchOver) return; 
 
     if (incomingType === 'STARTERS') {
         const isA = team === 'A';
         const set = isA ? setPlayersA : setPlayersB;
-        
-        // On fait la vérification DIRECTEMENT dans la mise à jour (prev)
-        // pour empêcher les bugs si l'OTM clique super vite !
         set(prev => {
             const courtCount = prev.filter(p => p.status === 'court').length;
             const targetPlayer = prev.find(p => p.id === pid);
-            
-            // Si on essaie de faire rentrer un joueur alors qu'il y en a déjà 5
             if (targetPlayer?.status === 'bench' && courtCount >= 5) {
-                // On met un petit délai pour le toast pour éviter un warning React
                 setTimeout(() => toast.error("5 joueurs maximum sur le terrain !"), 10);
-                return prev; // 🛑 On bloque : on renvoie la liste sans la modifier !
+                return prev;
             }
-            
-            // Sinon, on bascule le statut normalement
             return prev.map(p => p.id === pid ? { ...p, status: p.status === 'court' ? 'bench' : 'court' } : p);
         });
         return;
@@ -803,178 +736,158 @@ export default function Scoreboard() {
     setPendingAction(null); setActiveAction(null);
   };
 
-  // DEBUT DE LA MODIFICATION - src/components/Scoreboard.jsx (fonction handleGeneratePDF)
-
   const handleGeneratePDF = async () => {
     const element = document.getElementById('pdf-scoresheet-template');
     if (!element) return;
-
-    // On rend le composant visible un très court instant pour le prendre en photo
     element.style.display = 'block';
     
     try {
-      // 🚀 IMPORT DYNAMIQUE (LAZY LOADING) : 
-      // On télécharge ces grosses librairies uniquement au moment où l'utilisateur clique !
       const { default: html2canvas } = await import('html2canvas');
       const { default: jsPDF } = await import('jspdf');
 
-      // On génère une image haute qualité (scale: 2) de la zone HTML
       const canvas = await html2canvas(element, { scale: 2, useCORS: true });
       const imgData = canvas.toDataURL('image/png');
       
-      // On crée le document PDF format A4
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`Feuille_Match_${teamA?.name}_vs_${teamB?.name}.pdf`);
-      
     } catch (err) {
       console.error("Erreur lors de la génération du PDF :", err);
       toast.error("Une erreur est survenue lors de la création du PDF.");
     } finally {
-      // On recache le composant pour ne pas polluer l'écran
       element.style.display = 'none';
     }
   };
 
-// FIN DE LA MODIFICATION
-
+  // 👇 DÉBUT DU RENDU RESPONSIVE TAILWIND 👇
   return (
-    <div className="scoreboard-container">
-      <div className="tm-flex-between" style={{ marginBottom:'20px' }}>
+    <div className="w-full h-full flex flex-col">
+      <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
         
-        {/* NOUVEAU : AFFICHAGE DE L'ÉTAT DU RÉSEAU POUR L'OTM */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <button className="btn-undo" onClick={handleExit}>⬅ RETOUR</button>
+        <div className="flex items-center gap-4">
+          <button className="bg-transparent text-[#888] font-bold border border-[#444] px-4 py-2 rounded-md hover:bg-[#333] hover:text-white transition-colors cursor-pointer" onClick={handleExit}>⬅ RETOUR</button>
           {canEdit && (
-            <span style={{ 
-              display: 'flex', alignItems: 'center', gap: '6px', 
-              fontSize: '0.8rem', fontWeight: 'bold', 
-              padding: '4px 8px', borderRadius: '20px', 
-              background: isOnline ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
-              color: isOnline ? '#2ecc71' : '#e74c3c',
-              border: `1px solid ${isOnline ? '#2ecc71' : '#e74c3c'}`
-            }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isOnline ? '#2ecc71' : '#e74c3c', boxShadow: `0 0 5px ${isOnline ? '#2ecc71' : '#e74c3c'}` }}></div>
+            <span className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border ${isOnline ? 'bg-[rgba(46,204,113,0.1)] text-[#2ecc71] border-[#2ecc71]' : 'bg-[rgba(231,76,60,0.1)] text-[#e74c3c] border-[#e74c3c]'}`}>
+              <div className={`w-2 h-2 rounded-full shadow-[0_0_5px] ${isOnline ? 'bg-[#2ecc71] shadow-[#2ecc71]' : 'bg-[#e74c3c] shadow-[#e74c3c]'}`}></div>
               {isOnline ? 'EN LIGNE' : 'HORS-LIGNE'}
             </span>
           )}
         </div>
 
-        <div className="view-tabs" style={{ margin:0 }}>
-            <button className={`btn-tab ${currentView === 'court' ? 'active' : ''}`} onClick={() => !isFinished && setCurrentView('court')}>TERRAIN</button>
-            <button className={`btn-tab ${currentView === 'boxscore' ? 'active' : ''}`} onClick={() => setCurrentView('boxscore')}>STATS</button>
-            {isMatchOver && <button onClick={handleGeneratePDF} className="sb-btn-print" style={{ background: 'white', color: 'black' }}>GÉNÉRER PDF 📄</button>}
-            {(!isMatchOver && canEdit) && <button onClick={handleFinishMatch} className="sb-btn-finish">TERMINER LE MATCH 🏁</button>}
+        <div className="flex gap-2">
+            <button className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${currentView === 'court' ? 'bg-[var(--accent-orange)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} onClick={() => !isFinished && setCurrentView('court')}>TERRAIN</button>
+            <button className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${currentView === 'boxscore' ? 'bg-[var(--accent-orange)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} onClick={() => setCurrentView('boxscore')}>STATS</button>
+            {isMatchOver && <button onClick={handleGeneratePDF} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors cursor-pointer">GÉNÉRER PDF 📄</button>}
+            {(!isMatchOver && canEdit) && <button onClick={handleFinishMatch} className="bg-[var(--success)] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-600 transition-colors cursor-pointer">TERMINER LE MATCH 🏁</button>}
         </div>
       </div>
       
-      <div className="header-stats" style={{ marginBottom: '40px' }}>
-        <div className="score-board" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <h2>{teamA?.name}</h2>
-            <p className="score-text team-score" style={{ marginBottom: '5px' }}>{scoreA}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 'bold' }}>FAUTES ÉQUIPE</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '16px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+      {/* HEADER SCORE (Le Panneau Central d'Affichage) */}
+      <div className="flex justify-center items-stretch gap-2 md:gap-8 mb-10 bg-[#111] p-4 rounded-xl border border-[#333] shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        {/* SCORE ÉQUIPE A */}
+        <div className="flex flex-col items-center flex-1">
+            <h2 className="text-sm md:text-xl font-black text-white m-0 truncate w-full text-center tracking-wider">{teamA?.name}</h2>
+            <p className="text-5xl md:text-7xl font-black text-[var(--accent-orange)] my-2 drop-shadow-[0_0_15px_rgba(255,107,0,0.4)]">{scoreA}</p>
+            <div className="flex flex-col items-center gap-1">
+                <span className="text-[0.65rem] text-[#888] font-bold tracking-widest">FAUTES ÉQUIPE</span>
+                <div className="flex items-center gap-2 h-4">
+                    <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map(idx => (
-                        <div key={idx} className={`foul-box ${idx <= teamFoulsA ? 'filled' : ''} ${idx === 5 && teamFoulsA >= 5 ? 'danger' : ''}`} style={{ width: '14px', height: '14px', borderRadius: '2px', border: '1px solid #555', backgroundColor: idx <= teamFoulsA ? (idx >= 5 ? 'var(--danger)' : 'var(--accent-orange)') : 'transparent' }} />
+                        <div key={idx} className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${idx <= teamFoulsA ? (idx >= 5 ? 'bg-[var(--danger)] border-[var(--danger)]' : 'bg-[var(--accent-orange)] border-[var(--accent-orange)]') : 'bg-transparent'}`} />
                       ))}
                     </div>
-                    {teamFoulsA >= 5 && <span style={{ background: 'var(--danger)', color: 'white', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', fontSize: '0.7rem', letterSpacing: '1px' }}>BONUS</span>}
+                    {teamFoulsA >= 5 && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest">BONUS</span>}
                 </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', background: 'rgba(255,255,255,0.05)', padding: '5px 10px', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.65rem', color: '#ccc', fontWeight: 'bold' }}>TEMPS MORTS</span>
-                <div style={{ display: 'flex', gap: '4px', marginRight: '5px' }}>
-                    {Array.from({ length: timeoutsA }).map((_, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent-orange)' }} />)}
+            <div className="flex items-center gap-2 mt-3 bg-white/5 px-3 py-1.5 rounded-lg">
+                <span className="text-[0.65rem] text-[#ccc] font-bold">TM</span>
+                <div className="flex gap-1 mr-1">
+                    {Array.from({ length: timeoutsA }).map((_, i) => <div key={i} className="w-2.5 h-2.5 rounded-full bg-[var(--accent-orange)] shadow-[0_0_5px_var(--accent-orange)]" />)}
                 </div>
-                {canEdit && <button onClick={() => handleTeamAction('TIMEOUT', 'A')} style={{ background: '#333', border: '1px solid #555', color: 'white', fontSize: '0.6rem', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer' }}>DEMANDER</button>}
+                {canEdit && <button onClick={() => handleTeamAction('TIMEOUT', 'A')} className="bg-[#333] border border-[#555] text-white text-[0.6rem] px-2 py-1 rounded cursor-pointer hover:bg-[#444]">DEMANDER</button>}
             </div>
         </div>
         
-        <div className="timer-section">
-          <div className="time-display sb-time-display-wrapper">
+        {/* LE CHRONOMÈTRE */}
+        <div className="flex flex-col items-center justify-center px-4 md:px-8 border-x border-[#333] bg-[#0a0a0a]">
+          <div className="text-4xl md:text-6xl font-black text-white font-mono tracking-tight drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
             {isEditing ? (
-              <div className="time-edit" onClick={e => e.stopPropagation()}>
-                <input type="number" value={editMin} onChange={e => setEditMin(e.target.value)} className="sb-time-edit-input" />
+              <div className="flex items-center justify-center gap-1" onClick={e => e.stopPropagation()}>
+                <input type="number" value={editMin} onChange={e => setEditMin(e.target.value)} className="w-12 md:w-16 bg-transparent text-center border-b-2 border-white text-4xl md:text-6xl text-white outline-none" />
                 <span>:</span>
-                <input type="number" value={editSec} onChange={e => setEditSec(e.target.value)} className="sb-time-edit-input" />
-                <button onClick={handleSaveTime} className="sb-time-edit-btn">OK</button>
+                <input type="number" value={editSec} onChange={e => setEditSec(e.target.value)} className="w-12 md:w-16 bg-transparent text-center border-b-2 border-white text-4xl md:text-6xl text-white outline-none" />
+                <button onClick={handleSaveTime} className="ml-2 bg-[var(--success)] text-white text-sm font-bold px-3 py-1 rounded cursor-pointer">OK</button>
               </div>
             ) : (
-              <span onClick={(e) => { if(!isMatchOver && canEdit) { e.stopPropagation(); setIsEditing(true); setEditMin(Math.floor(time/60)); setEditSec(time%60); }}}>
+              <span className="cursor-pointer hover:text-gray-300 transition-colors" onClick={(e) => { if(!isMatchOver && canEdit) { e.stopPropagation(); setIsEditing(true); setEditMin(Math.floor(time/60)); setEditSec(time%60); }}}>
                 {Math.floor(time/60)}:{time%60 < 10 ? '0'+time%60 : time%60}
               </span>
             )}
           </div>
           {(!isMatchOver && canEdit && activeAction?.type !== 'STARTERS') && (
-            <div className="sb-timer-controls">
-              <button onClick={() => setIsRunning(!isRunning)} className={`sb-btn-timer ${isRunning ? 'sb-btn-pause' : 'sb-btn-start'}`}>
+            <div className="flex gap-2 mt-4">
+              <button onClick={() => setIsRunning(!isRunning)} className={`px-4 py-2 rounded-lg font-black tracking-wider text-sm shadow-lg transition-all ${isRunning ? 'bg-[var(--danger)] text-white hover:bg-red-600' : 'bg-[var(--success)] text-white hover:bg-green-600'}`}>
                 {isRunning ? 'PAUSE' : 'START'}
               </button>
-              <button onClick={handleResetTime} className="sb-btn-timer sb-btn-reset">RESET</button>
+              <button onClick={handleResetTime} className="bg-[#333] text-white px-3 py-2 rounded-lg font-bold text-xs hover:bg-[#444] transition-colors">RESET</button>
             </div>
           )}
-          <div className="sb-period-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
-            <button onClick={(canEdit && !isMatchOver) ? nextPeriod : null} className={`sb-btn-period ${(!canEdit || isMatchOver) ? 'disabled' : 'clickable'}`}>
+          <div className="flex flex-col items-center gap-3 mt-4">
+            <button onClick={(canEdit && !isMatchOver) ? nextPeriod : null} className={`text-[#aaa] font-bold text-xs bg-white/5 border border-[#333] px-3 py-1.5 rounded-full tracking-widest ${(!canEdit || isMatchOver) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-white/10 hover:text-white transition-colors'}`}>
               PÉRIODE : {period}
             </button>
             <div 
                 onClick={() => (!isMatchOver && canEdit) && setPossession(p => p === 'A' ? 'B' : 'A')}
-                style={{ 
-                    display: 'flex', alignItems: 'center', gap: '20px', background: '#1a1a1a', 
-                    padding: '6px 20px', borderRadius: '20px', cursor: (!isMatchOver && canEdit) ? 'pointer' : 'default',
-                    border: '1px solid #333', userSelect: 'none',
-                    boxShadow: possession ? 'inset 0 0 10px rgba(0,0,0,0.5)' : 'none'
-                }}
+                className={`flex items-center gap-5 bg-[#1a1a1a] px-5 py-1.5 rounded-full border border-[#333] select-none ${(!isMatchOver && canEdit) ? 'cursor-pointer' : 'cursor-default'} ${possession ? 'shadow-inner' : ''}`}
             >
-                <span style={{ fontSize: '1.4rem', color: possession === 'A' ? 'var(--accent-orange)' : '#333', textShadow: possession === 'A' ? '0 0 8px var(--accent-orange)' : 'none', transition: 'all 0.2s' }}>◀</span>
-                <span style={{ fontSize: '0.65rem', fontWeight: 'bold', color: '#666', letterSpacing: '2px' }}>POSSESSION</span>
-                <span style={{ fontSize: '1.4rem', color: possession === 'B' ? 'var(--accent-blue)' : '#333', textShadow: possession === 'B' ? '0 0 8px var(--accent-blue)' : 'none', transition: 'all 0.2s' }}>▶</span>
+                <span className={`text-2xl transition-all duration-200 ${possession === 'A' ? 'text-[var(--accent-orange)] drop-shadow-[0_0_8px_var(--accent-orange)]' : 'text-[#333]'}`}>◀</span>
+                <span className="text-[0.65rem] font-bold text-[#666] tracking-widest">POSSESSION</span>
+                <span className={`text-2xl transition-all duration-200 ${possession === 'B' ? 'text-[var(--accent-blue)] drop-shadow-[0_0_8px_var(--accent-blue)]' : 'text-[#333]'}`}>▶</span>
             </div>
           </div>
         </div>
 
-        <div className="score-board" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <h2>{teamB?.name}</h2>
-            <p className="score-text team-score blue" style={{ marginBottom: '5px' }}>{scoreB}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#888', fontWeight: 'bold' }}>FAUTES ÉQUIPE</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '16px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+        {/* SCORE ÉQUIPE B */}
+        <div className="flex flex-col items-center flex-1">
+            <h2 className="text-sm md:text-xl font-black text-white m-0 truncate w-full text-center tracking-wider">{teamB?.name}</h2>
+            <p className="text-5xl md:text-7xl font-black text-[var(--accent-blue)] my-2 drop-shadow-[0_0_15px_rgba(0,212,255,0.4)]">{scoreB}</p>
+            <div className="flex flex-col items-center gap-1">
+                <span className="text-[0.65rem] text-[#888] font-bold tracking-widest">FAUTES ÉQUIPE</span>
+                <div className="flex items-center gap-2 h-4">
+                    <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map(idx => (
-                        <div key={idx} className={`foul-box ${idx <= teamFoulsB ? 'filled' : ''} ${idx === 5 && teamFoulsB >= 5 ? 'danger' : ''}`} style={{ width: '14px', height: '14px', borderRadius: '2px', border: '1px solid #555', backgroundColor: idx <= teamFoulsB ? (idx >= 5 ? 'var(--danger)' : 'var(--accent-blue)') : 'transparent' }} />
+                        <div key={idx} className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${idx <= teamFoulsB ? (idx >= 5 ? 'bg-[var(--danger)] border-[var(--danger)]' : 'bg-[var(--accent-blue)] border-[var(--accent-blue)]') : 'bg-transparent'}`} />
                       ))}
                     </div>
-                    {teamFoulsB >= 5 && <span style={{ background: 'var(--danger)', color: 'white', padding: '1px 5px', borderRadius: '3px', fontWeight: 'bold', fontSize: '0.7rem', letterSpacing: '1px' }}>BONUS</span>}
+                    {teamFoulsB >= 5 && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest">BONUS</span>}
                 </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '12px', background: 'rgba(255,255,255,0.05)', padding: '5px 10px', borderRadius: '6px' }}>
-                <span style={{ fontSize: '0.65rem', color: '#ccc', fontWeight: 'bold' }}>TEMPS MORTS</span>
-                <div style={{ display: 'flex', gap: '4px', marginRight: '5px' }}>
-                    {Array.from({ length: timeoutsB }).map((_, i) => <div key={i} style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'var(--accent-blue)' }} />)}
+            <div className="flex items-center gap-2 mt-3 bg-white/5 px-3 py-1.5 rounded-lg">
+                <span className="text-[0.65rem] text-[#ccc] font-bold">TM</span>
+                <div className="flex gap-1 mr-1">
+                    {Array.from({ length: timeoutsB }).map((_, i) => <div key={i} className="w-2.5 h-2.5 rounded-full bg-[var(--accent-blue)] shadow-[0_0_5px_var(--accent-blue)]" />)}
                 </div>
-                {canEdit && <button onClick={() => handleTeamAction('TIMEOUT', 'B')} style={{ background: '#333', border: '1px solid #555', color: 'white', fontSize: '0.6rem', padding: '3px 8px', borderRadius: '4px', cursor: 'pointer' }}>DEMANDER</button>}
+                {canEdit && <button onClick={() => handleTeamAction('TIMEOUT', 'B')} className="bg-[#333] border border-[#555] text-white text-[0.6rem] px-2 py-1 rounded cursor-pointer hover:bg-[#444]">DEMANDER</button>}
             </div>
         </div>
       </div>
 
       {currentView === 'court' ? (
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start', width: '100%' }}>
+        <div className="flex flex-col xl:flex-row gap-4 items-start w-full relative">
             
             {/* TEAM A (GAUCHE) */}
-            <div className="bento-team" style={{ flex: 1, minWidth: 0, padding: '15px' }}>
-                <h3 className="bento-zone-title" style={{ textAlign: 'center', color: 'var(--accent-orange)' }}>{teamA?.name}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', paddingBottom: '15px' }}>
+            <div className="flex-1 w-full bg-[#111] border border-[#222] rounded-xl p-4 shadow-lg">
+                <h3 className="text-center font-black tracking-widest text-[var(--accent-orange)] mb-4">{teamA?.name}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-4">
                   {playersA.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="sb-bench-title" style={{ textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px', color: '#888', margin: '0 0 10px 0', fontSize: '0.85rem', letterSpacing: '1px' }}>BANC</p>
-                <div className="players-grid">
+                <p className="text-center border-t border-[#333] pt-2 text-[#888] mb-2 text-sm tracking-widest font-bold">BANC</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
                   {playersA.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
@@ -983,11 +896,11 @@ export default function Scoreboard() {
 
             {/* BARRE D'ACTION (MILIEU) */}
             {canEdit && (
-              <div className={`action-bar-container ${activeAction?.type === 'STARTERS' ? 'success-mode' : (pendingAssist ? 'success-mode' : (activeAction?.type === 'SUB' ? 'sub-mode' : (pendingFoul ? 'danger-mode' : 'active-mode')))}`} style={{ width: '180px', flexShrink: 0, position: 'sticky', top: '20px', padding: '15px' }}>
+              <div className={`w-full xl:w-[180px] shrink-0 sticky top-5 p-4 rounded-xl border-2 transition-colors ${activeAction?.type === 'STARTERS' ? 'border-[var(--success)] bg-[rgba(52,199,89,0.1)]' : (pendingAssist ? 'border-[var(--success)] bg-[rgba(52,199,89,0.1)]' : (activeAction?.type === 'SUB' ? 'border-[var(--accent-purple)] bg-[rgba(157,78,221,0.1)]' : (pendingFoul ? 'border-[var(--danger)] bg-[rgba(255,59,48,0.1)]' : 'border-[#444] bg-[#1a1a1a]')))}`}>
                 {activeAction?.type === 'STARTERS' ? (
-                    <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>🏀 SÉLECTION TITULAIRES</span>
-                        <button className="action-btn" style={{background: 'var(--success)', color: 'white', border: 'none', padding: '12px 10px', fontSize: '0.85rem', fontWeight: 'bold'}} onClick={() => {
+                    <div className="flex flex-col gap-3">
+                        <span className="text-center text-xs font-bold text-[var(--success)] tracking-widest">🏀 SÉLECTION TITULAIRES</span>
+                        <button className="bg-[var(--success)] text-white border-none py-3 px-2 rounded-lg text-sm font-black cursor-pointer hover:bg-green-600 transition-colors shadow-lg" onClick={() => {
                             const courtA = playersA.filter(p=>p.status==='court').length;
                             const courtB = playersB.filter(p=>p.status==='court').length;
                             if (courtA !== 5 || courtB !== 5) {
@@ -1001,108 +914,101 @@ export default function Scoreboard() {
                         </button>
                     </div>
                 ) : pendingFoul ? (
-                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--danger)' }}>TYPE DE FAUTE ?</span>
-                    <button className="action-btn sb-action-btn-default" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('P')}>SIMPLE (P)</button>
-                    <button className="action-btn sb-action-btn-default" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('PO')}>OFFENSIVE (PO)</button>
-                    <button className="action-btn sb-action-btn-foul" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('T')}>TECHNIQUE (T)</button>
-                    <button className="action-btn sb-action-btn-foul" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => handleConfirmFoul('U')}>ANTISPORTIVE (U)</button>
-                    <button className="action-btn sb-action-btn-foul" style={{background: 'var(--danger)', color: 'white', border: 'none', padding: '10px', fontSize: '0.85rem'}} onClick={() => handleConfirmFoul('D')}>DISQ (D)</button>
-                    <button className="action-btn cancel-btn" style={{ padding: '10px', fontSize: '0.85rem', marginTop: '10px' }} onClick={() => setPendingFoul(null)}>ANNULER</button>
+                  <div className="flex flex-col gap-2">
+                    <span className="text-center text-xs font-bold text-[var(--danger)] tracking-widest mb-2">TYPE DE FAUTE ?</span>
+                    <button className="bg-[#333] text-white border border-[#555] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[#444]" onClick={() => handleConfirmFoul('P')}>SIMPLE (P)</button>
+                    <button className="bg-[#333] text-white border border-[#555] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[#444]" onClick={() => handleConfirmFoul('PO')}>OFFENSIVE (PO)</button>
+                    <button className="bg-transparent text-[var(--danger)] border-2 border-[var(--danger)] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors" onClick={() => handleConfirmFoul('T')}>TECHNIQUE (T)</button>
+                    <button className="bg-transparent text-[var(--danger)] border-2 border-[var(--danger)] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors" onClick={() => handleConfirmFoul('U')}>ANTISPORTIVE (U)</button>
+                    <button className="bg-[var(--danger)] text-white border-none py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-red-700" onClick={() => handleConfirmFoul('D')}>DISQ (D)</button>
+                    <button className="bg-transparent text-[#888] underline border-none py-2.5 rounded font-bold text-xs cursor-pointer hover:text-white mt-2" onClick={() => setPendingFoul(null)}>ANNULER</button>
                   </div>
                 ) : pendingAssist ? (
-                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <span className="sb-assist-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--success)' }}>QUI A FAIT LA PASSE ?</span>
-                    <button className="action-btn" style={{ background: '#444', color: 'white', border: 'none', padding: '10px', fontSize: '0.85rem' }} onClick={() => setPendingAssist(null)}>SANS PASSEUR</button>
+                  <div className="flex flex-col gap-3">
+                    <span className="text-center text-xs font-bold text-[var(--success)] tracking-widest">QUI A FAIT LA PASSE ?</span>
+                    <button className="bg-[#444] text-white border-none py-3 rounded font-bold text-sm cursor-pointer hover:bg-[#555]" onClick={() => setPendingAssist(null)}>SANS PASSEUR</button>
                   </div>
                 ) : activeAction?.type === 'SUB' ? (
-                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <span className="sb-sub-msg" style={{ textAlign: 'center', fontSize: '0.8rem', color: 'var(--accent-purple)' }}>MODE REMPLACEMENT</span>
-                    <button className="action-btn" style={{background: 'var(--accent-purple)', color: 'white', padding: '12px 10px', fontSize: '0.85rem', border: 'none', fontWeight: 'bold'}} onClick={handleConfirmSubs}>VALIDER CHANGEMENTS</button>
-                    {!isForcedSub && <button className="action-btn cancel-btn" style={{ padding: '10px', fontSize: '0.85rem' }} onClick={() => {setActiveAction(null); setPendingSubs([]);}}>ANNULER</button>}
+                  <div className="flex flex-col gap-3">
+                    <span className="text-center text-xs font-bold text-[var(--accent-purple)] tracking-widest">MODE REMPLACEMENT</span>
+                    <button className="bg-[var(--accent-purple)] text-white py-3 rounded-lg font-black text-sm border-none cursor-pointer shadow-lg hover:bg-purple-600 transition-colors" onClick={handleConfirmSubs}>VALIDER CHANGEMENTS</button>
+                    {!isForcedSub && <button className="bg-transparent text-[#888] underline border-none py-2 rounded font-bold text-xs cursor-pointer hover:text-white" onClick={() => {setActiveAction(null); setPendingSubs([]);}}>ANNULER</button>}
                   </div>
                 ) : (
-                  <div className="action-buttons" style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '5px' }}>
+                  <div className="flex flex-col w-full gap-2">
+                    <div className="flex gap-1.5">
                       {['PLUS1', 'PLUS2', 'PLUS3'].map(type => (
-                        <button key={type} className={`action-btn sb-action-btn-pts ${activeAction?.type === type ? 'selected' : ''}`} style={{ flex: 1, padding: '10px 0', fontSize: '1rem' }} onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}>+{type.replace('PLUS', '')}</button>
+                        <button key={type} className={`flex-1 py-2.5 rounded font-black text-base cursor-pointer transition-all border-2 ${activeAction?.type === type ? 'bg-white text-black border-white scale-105' : 'bg-transparent text-white border-[#555] hover:border-white'}`} onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}>+{type.replace('PLUS', '')}</button>
                       ))}
                     </div>
                     
-                    <div style={{ width: '100%', height: '1px', background: '#333', margin: '5px 0' }}></div>
+                    <div className="w-full h-px bg-[#333] my-1"></div>
 
                     {/* LIGNE REBONDS : OREB | DREB */}
-                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                    <div className="flex gap-1.5 w-full">
                         <button
-                            className={`action-btn sb-action-btn-reb ${activeAction?.type === 'OREB' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'OREB' ? 'bg-[var(--success)] text-white border-[var(--success)]' : 'bg-transparent text-[var(--success)] border-[var(--success)] hover:bg-[var(--success)] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'OREB', value: null})}>
                             OREB
                         </button>
                         <button
-                            className={`action-btn sb-action-btn-reb ${activeAction?.type === 'DREB' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'DREB' ? 'bg-[var(--success)] text-white border-[var(--success)]' : 'bg-transparent text-[var(--success)] border-[var(--success)] hover:bg-[var(--success)] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'DREB', value: null})}>
                             DREB
                         </button>
                     </div>
 
                     {/* LIGNE DÉFENSE : STL | BLK */}
-                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                    <div className="flex gap-1.5 w-full">
                         <button
-                            className={`action-btn sb-action-btn-def ${activeAction?.type === 'STL' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'STL' ? 'bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]' : 'bg-transparent text-[var(--accent-blue)] border-[var(--accent-blue)] hover:bg-[var(--accent-blue)] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'STL', value: null})}>
                             STL
                         </button>
                         <button
-                            className={`action-btn sb-action-btn-def ${activeAction?.type === 'BLK' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'BLK' ? 'bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]' : 'bg-transparent text-[var(--accent-blue)] border-[var(--accent-blue)] hover:bg-[var(--accent-blue)] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'BLK', value: null})}>
                             BLK
                         </button>
                     </div>
 
                     {/* LIGNE ERREURS/FAUTES : TOV | FOUL */}
-                    <div style={{ display: 'flex', gap: '5px', width: '100%' }}>
+                    <div className="flex gap-1.5 w-full">
                         <button
-                            className={`action-btn sb-action-btn-tov ${activeAction?.type === 'TOV' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'TOV' ? 'bg-[#888] text-white border-[#888]' : 'bg-transparent text-[#ccc] border-[#666] hover:bg-[#666] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'TOV', value: null})}>
                             TOV
                         </button>
                         <button
-                            className={`action-btn sb-action-btn-foul ${activeAction?.type === 'FOUL' ? 'selected' : ''}`}
-                            style={{ flex: 1, padding: '10px 0', fontSize: '0.8rem', fontWeight: 'bold' }}
+                            className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'FOUL' ? 'bg-[var(--danger)] text-white border-[var(--danger)]' : 'bg-transparent text-[var(--danger)] border-[var(--danger)] hover:bg-[var(--danger)] hover:text-white'}`}
                             onClick={() => setActiveAction({type: 'FOUL', value: null})}>
                             FOUL
                         </button>
                     </div>
 
-                    {/* BOUTON CHANGEMENT (Seul sur sa ligne) */}
+                    {/* BOUTON CHANGEMENT */}
                     <button
-                        className={`action-btn sb-action-btn-sub ${activeAction?.type === 'SUB' ? 'selected' : ''}`}
-                        style={{ width: '100%', padding: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}
+                        className={`w-full mt-1 py-2.5 rounded font-black tracking-widest text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'SUB' ? 'bg-[var(--accent-purple)] text-white border-[var(--accent-purple)]' : 'bg-transparent text-[var(--accent-purple)] border-[var(--accent-purple)] hover:bg-[var(--accent-purple)] hover:text-white'}`}
                         onClick={() => setActiveAction({type: 'SUB', value: null})}>
                         SUB
                     </button>
 
-                    {activeAction && <button onClick={() => setActiveAction(null)} className="action-btn cancel-btn" style={{ width: '100%', padding: '10px', fontSize: '0.85rem', marginTop: '10px' }}>ANNULER</button>}
+                    {activeAction && <button onClick={() => setActiveAction(null)} className="w-full mt-2 py-2 rounded font-bold text-xs bg-transparent text-[#888] underline border-none cursor-pointer hover:text-white">ANNULER</button>}
                   </div>
                 )}
               </div>
             )}
 
             {/* TEAM B (DROITE) */}
-            <div className="bento-team" style={{ flex: 1, minWidth: 0, padding: '15px' }}>
-                <h3 className="bento-zone-title" style={{ textAlign: 'center', color: 'var(--accent-blue)' }}>{teamB?.name}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', paddingBottom: '15px' }}>
+            <div className="flex-1 w-full bg-[#111] border border-[#222] rounded-xl p-4 shadow-lg">
+                <h3 className="text-center font-black tracking-widest text-[var(--accent-blue)] mb-4">{teamB?.name}</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-4">
                   {playersB.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="sb-bench-title" style={{ textAlign: 'center', borderTop: '1px solid #333', paddingTop: '10px', color: '#888', margin: '0 0 10px 0', fontSize: '0.85rem', letterSpacing: '1px' }}>BANC</p>
-                <div className="players-grid">
+                <p className="text-center border-t border-[#333] pt-2 text-[#888] mb-2 text-sm tracking-widest font-bold">BANC</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
                   {playersB.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
@@ -1111,18 +1017,18 @@ export default function Scoreboard() {
 
         </div>
       ) : (
-        <div className="boxscore-container">
+        <div className="flex flex-col gap-8 bg-[#1a1a1a] p-5 rounded-xl border border-[#333]">
           <BoxscoreTable title={teamA?.name} players={playersA} color="var(--accent-orange)" />
           <BoxscoreTable title={teamB?.name} players={playersB} color="var(--accent-blue)" />
         </div>
       )}
 
       {/* --- HISTORIQUE (Mode Play-by-Play Pro) --- */}
-      <div className="sb-history-panel" style={{ marginTop: '50px' }}>
-        <h3 className="sb-history-title">🗓️ Play-by-Play (Historique)</h3>
-        <div className="sb-history-list">
+      <div className="mt-12 bg-[#111] border border-[#222] p-5 rounded-xl shadow-lg">
+        <h3 className="text-white border-b border-[#333] pb-3 mb-5 text-lg font-bold">🗓️ Play-by-Play (Historique)</h3>
+        <div className="flex flex-col gap-2 max-h-[500px] overflow-y-auto pr-2">
           {history.length === 0 ? (
-            <p style={{textAlign: 'center', color: '#666', fontStyle: 'italic', padding: '20px'}}>Aucune action enregistrée</p>
+            <p className="text-center text-[#666] italic py-5">Aucune action enregistrée</p>
           ) : (
             history.map((act, i) => {
               const teamPlayers = act.team === 'A' ? playersA : playersB;
@@ -1130,53 +1036,49 @@ export default function Scoreboard() {
               const actionColor = act.team === 'A' ? 'var(--accent-orange)' : 'var(--accent-blue)';
               
               return (
-                <div key={i} className="sb-history-item" style={{ borderLeft: `3px solid ${actionColor}` }}>
-                  <div className="sb-history-time">
-                    <strong style={{color: 'white', marginRight: '4px'}}>{act.period}</strong> 
-                    {Math.floor(act.time/60)}:{act.time%60 < 10 ? '0'+act.time%60 : act.time%60}
-                  </div>
-                  
-                  <div className="sb-history-content">
-                    {act.type === 'SUB' && <span style={{ color: '#aaa' }}>🔄 REMPLACEMENT <span style={{fontSize: '0.75rem', marginLeft: '6px', color: '#666'}}>{act.details}</span></span>}
+                <div key={i} className="flex justify-between items-center bg-[#1a1a1a] p-3 rounded-md border-l-4" style={{ borderLeftColor: actionColor }}>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 text-center font-mono text-xs">
+                      <strong className="text-white block">{act.period}</strong> 
+                      <span className="text-[#888]">{Math.floor(act.time/60)}:{act.time%60 < 10 ? '0'+act.time%60 : act.time%60}</span>
+                    </div>
                     
-                    {act.type === 'SCORE' && (
-                      <span style={{ color: actionColor }}>
-                        {act.value === 1 ? '🎯 LF RÉUSSI (+1)' : act.value === 3 ? '🔥 3 PTS RÉUSSI (+3)' : '🏀 TIR RÉUSSI (+2)'} 
-                        <strong style={{color: 'white', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>
-                      </span>
-                    )}
-                    
-                    {act.type === 'MISS' && (
-                      <span style={{ color: '#777' }}>
-                        {act.value === 1 ? '❌ LF MANQUÉ' : act.value === 3 ? '❌ 3 PTS MANQUÉ' : '❌ TIR MANQUÉ'} 
-                        <strong style={{color: '#aaa', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>
-                      </span>
-                    )}
-                    
-                    {!['SUB', 'SCORE', 'MISS'].includes(act.type) && (
-                      <span style={{ color: actionColor }}>
-                        {act.type === 'TIMEOUT' ? '⏱️ TEMPS MORT' : 
-                         act.type === 'FOUL' ? `⚠️ FAUTE ${act.foulType === 'PO' ? 'OFFENSIVE' : act.foulType === 'T' ? 'TECHNIQUE' : act.foulType === 'U' ? 'ANTISPORTIVE' : act.foulType === 'D' ? 'DISQUALIFIANTE' : 'PERSONNELLE'}` :
-                         `${act.type === 'AST' ? '🤝 PASS D.' : act.type === 'OREB' ? '🛡️ REB OFF' : act.type === 'DREB' ? '🛡️ REB DEF' : act.type === 'STL' ? '🥷 INTERCEPTION' : act.type === 'BLK' ? '🧱 CONTRE' : act.type === 'TOV' ? '🗑️ BALLE PERDUE' : act.type}`}
-                         
-                         {act.type !== 'TIMEOUT' && <strong style={{color: 'white', marginLeft: '6px'}}>#{playerInfo?.number} {playerInfo?.name}</strong>}
-                      </span>
-                    )}
+                    <div className="text-sm font-bold tracking-wide">
+                      {act.type === 'SUB' && <span className="text-[#aaa]">🔄 REMPLACEMENT <span className="text-xs font-normal text-[#666] ml-2 block sm:inline">{act.details}</span></span>}
+                      
+                      {act.type === 'SCORE' && (
+                        <span style={{ color: actionColor }}>
+                          {act.value === 1 ? '🎯 LF RÉUSSI (+1)' : act.value === 3 ? '🔥 3 PTS RÉUSSI (+3)' : '🏀 TIR RÉUSSI (+2)'} 
+                          <strong className="text-white ml-2">#{playerInfo?.number} {playerInfo?.name}</strong>
+                        </span>
+                      )}
+                      
+                      {act.type === 'MISS' && (
+                        <span className="text-[#777]">
+                          {act.value === 1 ? '❌ LF MANQUÉ' : act.value === 3 ? '❌ 3 PTS MANQUÉ' : '❌ TIR MANQUÉ'} 
+                          <strong className="text-[#aaa] ml-2">#{playerInfo?.number} {playerInfo?.name}</strong>
+                        </span>
+                      )}
+                      
+                      {!['SUB', 'SCORE', 'MISS'].includes(act.type) && (
+                        <span style={{ color: actionColor }}>
+                          {act.type === 'TIMEOUT' ? '⏱️ TEMPS MORT' : 
+                           act.type === 'FOUL' ? `⚠️ FAUTE ${act.foulType === 'PO' ? 'OFFENSIVE' : act.foulType === 'T' ? 'TECHNIQUE' : act.foulType === 'U' ? 'ANTISPORTIVE' : act.foulType === 'D' ? 'DISQUALIFIANTE' : 'PERSONNELLE'}` :
+                           `${act.type === 'AST' ? '🤝 PASS D.' : act.type === 'OREB' ? '🛡️ REB OFF' : act.type === 'DREB' ? '🛡️ REB DEF' : act.type === 'STL' ? '🥷 INTERCEPTION' : act.type === 'BLK' ? '🧱 CONTRE' : act.type === 'TOV' ? '🗑️ BALLE PERDUE' : act.type}`}
+                           
+                           {act.type !== 'TIMEOUT' && <strong className="text-white ml-2">#{playerInfo?.number} {playerInfo?.name}</strong>}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   
                   {(!isMatchOver && canEdit) && (
                     <button onClick={() => { 
-  setConfirmData({
-    isOpen: true,
-    title: "Supprimer l'action",
-    message: "Voulez-vous vraiment supprimer cette action de l'historique ? Le score et les fautes seront recalculés.",
-    isDanger: true,
-    onConfirm: () => {
-      deleteAction(i);
-      toast.success("Action supprimée avec succès");
-    }
-  });
-}} className="sb-btn-delete-action" title="Supprimer l'action">
+                      setConfirmData({
+                        isOpen: true, title: "Supprimer l'action", message: "Voulez-vous vraiment supprimer cette action de l'historique ? Le score et les fautes seront recalculés.", isDanger: true,
+                        onConfirm: () => { deleteAction(i); toast.success("Action supprimée avec succès"); }
+                      });
+                    }} className="text-[#555] bg-transparent border-none text-xl cursor-pointer hover:text-[var(--danger)] p-2 transition-colors" title="Supprimer l'action">
                       ✕
                     </button>
                   )}
@@ -1187,7 +1089,7 @@ export default function Scoreboard() {
         </div>
       </div>
 
-{/* --- LE MODÈLE CACHÉ POUR L'EXPORT PDF --- */}
+      {/* --- LE MODÈLE CACHÉ POUR L'EXPORT PDF (Garde ses styles inline exprès !) --- */}
       <div id="pdf-scoresheet-template" style={{ display: 'none', position: 'absolute', top: 0, left: 0, width: '800px', background: 'white', color: 'black', padding: '40px', fontFamily: 'sans-serif', zIndex: -100 }}>
         
         {/* EN-TÊTE DU PDF */}
@@ -1232,7 +1134,6 @@ export default function Scoreboard() {
                     <td style={{ border: '1px solid black', padding: '8px', textTransform: 'uppercase' }}>{p.name}</td>
                     <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{p.points}</td>
                     <td style={{ border: '1px solid black', padding: '8px', textAlign: 'center' }}>
-                      {/* On affiche les lettres des fautes P, T, U... ou des cases vides */}
                       <div style={{ display: 'flex', justifyContent: 'center', gap: '3px' }}>
                         {[0, 1, 2, 3, 4].map(fIdx => {
                           const foulLetter = (p.foulList && p.foulList[fIdx]) ? p.foulList[fIdx] : '';
@@ -1270,7 +1171,6 @@ export default function Scoreboard() {
         </div>
         
       </div>
-
-    </div> // <-- Ta dernière div fermante
+    </div> 
   );
 }

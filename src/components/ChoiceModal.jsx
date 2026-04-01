@@ -1,44 +1,28 @@
-// DEBUT DE LA MODIFICATION - NOUVEAU FICHIER : src/components/ChoiceModal.jsx
-
 import React from 'react';
 
 export default function ChoiceModal({ isOpen, title, message, optionA, optionB, onChoose, onCancel }) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 9999, backdropFilter: 'blur(3px)'
-    }}>
-      <div className="glass-effect modal-content" style={{
-        background: '#1a1a1a', padding: '25px', borderRadius: '12px',
-        border: '1px solid var(--accent-orange)',
-        width: '90%', maxWidth: '400px', textAlign: 'center',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-      }}>
-        <h3 style={{ marginTop: 0, color: 'var(--accent-orange)', marginBottom: '15px' }}>
+    <div className="fixed inset-0 bg-black/75 flex justify-center items-center z-[9999] backdrop-blur-[3px] p-4">
+      <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-orange)] w-full max-w-[400px] text-center shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <h3 className="mt-0 mb-4 text-[var(--accent-orange)] text-xl font-bold">
           {title}
         </h3>
-        <p style={{ color: '#ccc', marginBottom: '25px', fontSize: '0.95rem', lineHeight: '1.5' }}>
+        <p className="text-[#ccc] mb-6 text-[0.95rem] leading-relaxed">
           {message}
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+        <div className="flex flex-col gap-3 mb-5">
           <button 
             onClick={() => onChoose('A')} 
-            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
-            onMouseOver={(e) => e.target.style.borderColor = 'var(--accent-orange)'}
-            onMouseOut={(e) => e.target.style.borderColor = '#444'}
+            className="p-3 bg-[#222] text-white border border-[#444] rounded-lg cursor-pointer font-bold text-base hover:border-[var(--accent-orange)] transition-colors"
           >
             👉 {optionA}
           </button>
           <button 
             onClick={() => onChoose('B')} 
-            style={{ padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
-            onMouseOver={(e) => e.target.style.borderColor = 'var(--accent-orange)'}
-            onMouseOut={(e) => e.target.style.borderColor = '#444'}
+            className="p-3 bg-[#222] text-white border border-[#444] rounded-lg cursor-pointer font-bold text-base hover:border-[var(--accent-orange)] transition-colors"
           >
             👉 {optionB}
           </button>
@@ -46,7 +30,7 @@ export default function ChoiceModal({ isOpen, title, message, optionA, optionB, 
 
         <button 
           onClick={onCancel} 
-          style={{ padding: '8px 20px', background: 'transparent', color: '#888', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+          className="px-5 py-2 bg-transparent text-[#888] border-none cursor-pointer underline hover:text-white transition-colors"
         >
           Annuler
         </button>
@@ -54,5 +38,3 @@ export default function ChoiceModal({ isOpen, title, message, optionA, optionB, 
     </div>
   );
 }
-
-// FIN DE LA MODIFICATION

@@ -59,50 +59,45 @@ export default function Auth() {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#111', color: 'white', padding: '20px' }}>
-      <div style={{ background: '#222', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '450px', boxShadow: '0 4px 15px rgba(0,0,0,0.5)' }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '20px', color: 'var(--accent-orange, #ff6b00)' }}>
+    <div className="flex justify-center items-center min-h-screen bg-[#111] text-white p-5">
+      <div className="bg-[#222] p-8 sm:p-10 rounded-xl w-full max-w-[450px] shadow-[0_4px_20px_rgba(0,0,0,0.6)] border border-[#333]">
+        <h2 className="text-center mb-6 text-[var(--accent-orange,#ff6b00)] text-2xl font-black tracking-wide">
           {isLogin ? 'Connexion' : 'Créer un compte'}
         </h2>
         
         {message.text && (
-          <div style={{ padding: '10px', marginBottom: '15px', borderRadius: '5px', backgroundColor: message.type === 'error' ? 'rgba(255,0,0,0.1)' : 'rgba(0,255,0,0.1)', color: message.type === 'error' ? '#ff4444' : '#44ff44', textAlign: 'center', fontSize: '0.9rem' }}>
+          <div className={`p-3 mb-5 rounded-lg text-center text-sm font-bold ${message.type === 'error' ? 'bg-[rgba(255,0,0,0.1)] text-[#ff4444] border border-[#ff4444]' : 'bg-[rgba(0,255,0,0.1)] text-[#44ff44] border border-[#44ff44]'}`}>
             {message.text}
           </div>
         )}
 
-        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+        <form onSubmit={handleAuth} className="flex flex-col gap-4">
           
           {!isLogin && (
             <>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              {/* flex-col sur mobile, flex-row sur écran plus large */}
+              <div className="flex flex-col sm:flex-row gap-3">
                 <input 
                   type="text" placeholder="Prénom" value={firstName} onChange={(e) => setFirstName(e.target.value)} required
-                  style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white', width: '100%' }}
+                  className="flex-1 p-3 rounded-lg border border-[#444] bg-[#333] text-white w-full focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                 />
                 <input 
                   type="text" placeholder="Nom" value={lastName} onChange={(e) => setLastName(e.target.value)} required
-                  style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white', width: '100%' }}
+                  className="flex-1 p-3 rounded-lg border border-[#444] bg-[#333] text-white w-full focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                 />
               </div>
 
               <input 
                 type="text" placeholder="Ville" value={city} onChange={(e) => setCity(e.target.value)} required
-                style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
+                className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
               />
 
-              {/* 🛠️ ZONE DES POSTES MODIFIÉE (Multilignes sans scroll) */}
-              <div style={{ marginTop: '5px', marginBottom: '5px', width: '100%' }}>
-                <p style={{ margin: '0 0 10px 0', fontSize: '0.85rem', color: '#aaa', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              {/* ZONE DES POSTES MODIFIÉE */}
+              <div className="my-2 w-full">
+                <p className="m-0 mb-3 text-xs text-[#aaa] text-center uppercase tracking-widest font-bold">
                   Votre Poste
                 </p>
-                <div style={{ 
-                  display: 'flex', 
-                  flexWrap: 'wrap', /* 👈 LA MAGIE EST ICI : Autorise le passage à la ligne */
-                  gap: '8px', 
-                  justifyContent: 'center', /* Centre joliment les boutons restants */
-                  paddingBottom: '5px' 
-                }}>
+                <div className="flex flex-wrap gap-2 justify-center pb-1">
                   {POSITION_OPTIONS.map(pos => {
                     const isSelected = position === pos;
                     return (
@@ -110,31 +105,11 @@ export default function Auth() {
                         key={pos}
                         type="button"
                         onClick={() => setPosition(pos)}
-                        onMouseOver={(e) => {
-                          if (!isSelected) {
-                            e.target.style.background = '#444';
-                            e.target.style.borderColor = '#666';
-                          }
-                        }}
-                        onMouseOut={(e) => {
-                          if (!isSelected) {
-                            e.target.style.background = '#2a2a2a';
-                            e.target.style.borderColor = '#444';
-                          }
-                        }}
-                        style={{
-                          padding: '8px 15px',
-                          borderRadius: '20px',
-                          border: isSelected ? '2px solid var(--accent-orange, #ff6b00)' : '1px solid #444',
-                          background: isSelected ? 'rgba(255, 107, 0, 0.15)' : '#2a2a2a',
-                          color: isSelected ? 'var(--accent-orange, #ff6b00)' : '#ccc',
-                          cursor: 'pointer',
-                          fontSize: '0.85rem',
-                          fontWeight: isSelected ? 'bold' : 'normal',
-                          transition: 'all 0.2s ease',
-                          outline: 'none',
-                          /* On enlève le flexShrink inutile vu qu'on passe à la ligne */
-                        }}
+                        className={`px-4 py-2 rounded-full text-[0.85rem] cursor-pointer transition-all outline-none border ${
+                          isSelected 
+                            ? 'border-[var(--accent-orange,#ff6b00)] bg-[rgba(255,107,0,0.15)] text-[var(--accent-orange,#ff6b00)] font-bold shadow-[0_0_10px_rgba(255,107,0,0.2)]' 
+                            : 'border-[#444] bg-[#2a2a2a] text-[#ccc] font-normal hover:bg-[#444] hover:border-[#666] hover:text-white'
+                        }`}
                       >
                         {pos}
                       </button>
@@ -147,26 +122,28 @@ export default function Auth() {
 
           <input 
             type="email" placeholder="Votre adresse email" value={email} onChange={(e) => setEmail(e.target.value)} required
-            style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
+            className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
           />
           <input 
             type="password" placeholder="Votre mot de passe (6 carac. min)" value={password} onChange={(e) => setPassword(e.target.value)} required
-            style={{ padding: '12px', borderRadius: '8px', border: '1px solid #444', background: '#333', color: 'white' }}
+            className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
           />
           <button 
             type="submit" 
             disabled={loading}
-            style={{ padding: '14px', borderRadius: '8px', border: 'none', background: 'var(--accent-orange, #ff6b00)', color: 'white', fontWeight: 'bold', cursor: loading ? 'wait' : 'pointer', marginTop: '10px', fontSize: '1rem', letterSpacing: '1px', transition: '0.2s' }}
+            className={`p-3.5 rounded-lg border-none bg-[var(--accent-orange,#ff6b00)] text-white font-bold mt-2 text-base tracking-wide transition-all ${
+              loading ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-orange-600 hover:shadow-[0_0_15px_rgba(255,107,0,0.4)] hover:-translate-y-0.5'
+            }`}
           >
             {loading ? 'Chargement...' : (isLogin ? 'SE CONNECTER' : "S'INSCRIRE")}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '25px', fontSize: '0.9rem', color: '#888' }}>
+        <p className="text-center mt-6 text-sm text-[#888]">
           {isLogin ? "Pas encore de compte ?" : "Vous avez déjà un compte ?"}
           <button 
             onClick={() => { setIsLogin(!isLogin); setMessage({text:'', type:''}); }} 
-            style={{ background: 'none', border: 'none', color: 'white', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline', marginLeft: '5px' }}
+            className="bg-transparent border-none text-white font-bold cursor-pointer underline ml-2 hover:text-[var(--accent-orange)] transition-colors"
           >
             {isLogin ? "S'inscrire" : "Se connecter"}
           </button>

@@ -1,5 +1,3 @@
-// DEBUT DE LA MODIFICATION - NOUVEAU FICHIER : src/components/PromptModal.jsx
-
 import React, { useState, useEffect } from 'react';
 
 export default function PromptModal({ isOpen, title, message, placeholder, onConfirm, onCancel }) {
@@ -13,22 +11,12 @@ export default function PromptModal({ isOpen, title, message, placeholder, onCon
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" style ={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 9999, backdropFilter: 'blur(3px)'
-    }}>
-      <div className="glass-effect modal-content" style={{
-        background: '#1a1a1a', padding: '25px', borderRadius: '12px',
-        border: '1px solid var(--accent-blue)',
-        width: '90%', maxWidth: '400px', textAlign: 'center',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-      }}>
-        <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', marginBottom: '15px' }}>
+    <div className="fixed inset-0 bg-black/75 flex justify-center items-center z-[9999] backdrop-blur-[3px] p-4">
+      <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-blue)] w-full max-w-[400px] text-center shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <h3 className="mt-0 mb-4 text-[var(--accent-blue)] text-xl font-bold">
           {title}
         </h3>
-        <p style={{ color: '#ccc', marginBottom: '20px', fontSize: '0.95rem', whiteSpace: 'pre-wrap', lineHeight: '1.4' }}>
+        <p className="text-[#ccc] mb-5 text-[0.95rem] whitespace-pre-wrap leading-relaxed">
           {message}
         </p>
         
@@ -37,16 +25,21 @@ export default function PromptModal({ isOpen, title, message, placeholder, onCon
           value={inputValue} 
           onChange={(e) => setInputValue(e.target.value)} 
           placeholder={placeholder} 
-          className="tm-input" 
-          style={{ width: '100%', marginBottom: '25px', boxSizing: 'border-box', textAlign: 'center', fontSize: '1.1rem' }} 
+          className="w-full mb-6 p-3 rounded-lg bg-[#222] border border-[#444] text-white text-center text-lg focus:outline-none focus:border-[var(--accent-blue)] transition-colors" 
           autoFocus 
         />
 
-        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
-          <button onClick={onCancel} style={{ padding: '10px 20px', background: '#333', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}>
+        <div className="flex gap-4 justify-center">
+          <button 
+            onClick={onCancel} 
+            className="px-5 py-2.5 bg-[#333] text-white border-none rounded-lg cursor-pointer font-bold flex-1 hover:bg-[#444] transition-colors"
+          >
             Annuler
           </button>
-          <button onClick={() => onConfirm(inputValue)} className="tm-btn-success" style={{ padding: '10px 20px', border: 'none', flex: 1 }}>
+          <button 
+            onClick={() => onConfirm(inputValue)} 
+            className="px-5 py-2.5 bg-[var(--success)] text-white border-none rounded-lg cursor-pointer font-bold flex-1 hover:bg-green-600 shadow-lg transition-colors"
+          >
             Valider
           </button>
         </div>
@@ -54,5 +47,3 @@ export default function PromptModal({ isOpen, title, message, placeholder, onCon
     </div>
   );
 }
-
-// FIN DE LA MODIFICATION

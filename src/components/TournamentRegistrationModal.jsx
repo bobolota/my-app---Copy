@@ -12,20 +12,35 @@ export default function TournamentRegistrationModal({
   if (!registerModalTourney) return null;
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-      <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', maxWidth: '500px', width: '100%', border: '2px solid var(--accent-blue)', position: 'relative' }}>
-        <button onClick={() => { setRegisterModalTourney(null); setSelectedTeamToRegister(""); }} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', fontSize: '1.5rem', cursor: 'pointer' }}>✕</button>
+    <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[1000] p-4">
+      <div className="bg-[#1a1a1a] p-8 rounded-xl border-2 border-[var(--accent-blue)] w-full max-w-[500px] relative shadow-2xl">
+        <button 
+          onClick={() => { setRegisterModalTourney(null); setSelectedTeamToRegister(""); }} 
+          className="absolute top-4 right-4 bg-transparent border-none text-[#888] text-2xl cursor-pointer hover:text-white transition-colors"
+        >
+          ✕
+        </button>
         
-        <h2 style={{ marginTop: 0, color: 'white', fontSize: '1.5rem' }}>S'inscrire au tournoi</h2>
-        <h3 style={{ color: 'var(--accent-blue)', marginTop: 0 }}>{registerModalTourney.name}</h3>
+        <h2 className="mt-0 mb-1 text-white text-2xl font-bold">S'inscrire au tournoi</h2>
+        <h3 className="m-0 text-[var(--accent-blue)] text-lg">{registerModalTourney.name}</h3>
         
-        <div style={{ marginTop: '25px' }}>
-          <label style={{ display: 'block', marginBottom: '10px', color: '#aaa', fontSize: '0.9rem' }}>Sélectionne l'équipe :</label>
-          <select value={selectedTeamToRegister} onChange={e => setSelectedTeamToRegister(e.target.value)} style={{ width: '100%', padding: '12px', background: '#222', color: 'white', border: '1px solid #444', borderRadius: '6px', marginBottom: '20px' }}>
+        <div className="mt-8">
+          <label className="block mb-3 text-[#aaa] text-sm font-bold">Sélectionne l'équipe :</label>
+          <select 
+            value={selectedTeamToRegister} 
+            onChange={e => setSelectedTeamToRegister(e.target.value)} 
+            className="w-full p-3 bg-[#222] text-white border border-[#444] rounded-lg mb-6 focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
+          >
             <option value="">-- Choisir une équipe --</option>
             {myCaptainTeams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          <button onClick={submitRegistration} style={{ width: '100%', background: 'var(--success)', color: 'white', border: 'none', padding: '15px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>VALIDER L'INSCRIPTION ✅</button>
+          
+          <button 
+            onClick={submitRegistration} 
+            className="w-full bg-[var(--success)] text-white border-none p-4 rounded-lg font-bold text-base cursor-pointer hover:bg-green-600 transition-colors shadow-lg"
+          >
+            VALIDER L'INSCRIPTION ✅
+          </button>
         </div>
       </div>
     </div>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
-// DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx (Ligne 3)
 import TournamentStats from './TournamentStats';
 import PlayoffsTab from './PlayoffsTab';
 import GroupStageTab from './GroupStageTab';
@@ -12,7 +11,6 @@ import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import TeamEditor from './TeamEditor';
 import PlanningTab from './PlanningTab';
-// FIN DE LA MODIFICATION
 
 
 export default function TournamentManager() {
@@ -30,38 +28,22 @@ export default function TournamentManager() {
 
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('tm_active_tab') || "poules");
 
-  // ---------------------------------------------------------
-  // 🪄 MAGIE DU TEMPS RÉEL : Écoute des mises à jour Supabase
-  // ---------------------------------------------------------
   useEffect(() => {
     if (!tourney?.id) return;
-
-    // 1. On crée un canal de communication direct avec la base de données
     const realtimeChannel = supabase
       .channel(`tourney-updates-${tourney.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE', // On écoute uniquement les modifications
-          schema: 'public',
-          table: 'tournaments',
-          filter: `id=eq.${tourney.id}` // On n'écoute que CE tournoi en particulier
-        },
+        { event: 'UPDATE', schema: 'public', table: 'tournaments', filter: `id=eq.${tourney.id}` },
         (payload) => {
-          // 2. Dès qu'une modification (un score, un nouveau match) arrive, on met à jour le Nuage !
           console.log("⚡ Mise à jour en direct reçue !");
           setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...payload.new } : t));
         }
       )
       .subscribe();
 
-    // 3. On coupe le canal proprement quand l'utilisateur quitte la page
-    return () => {
-      supabase.removeChannel(realtimeChannel);
-    };
+    return () => { supabase.removeChannel(realtimeChannel); };
   }, [tourney?.id, setTournaments]);
-  // ---------------------------------------------------------
-  
 
   useEffect(() => {
     localStorage.setItem('tm_active_tab', activeTab);
@@ -70,8 +52,6 @@ export default function TournamentManager() {
   const [teamName, setTeamName] = useState("");
   const [editId, setEditId] = useState(null);
   
-  
-  // Le brouillon d'ajout multiple
   const [groupCount, setGroupCount] = useState(1);
     
   const [globalTeams, setGlobalTeams] = useState([]);
@@ -79,17 +59,15 @@ export default function TournamentManager() {
   const [choiceData, setChoiceData] = useState({ isOpen: false, title: '', message: '', optionA: '', optionB: '', onChoose: null });
   const closeChoice = () => setChoiceData(prev => ({ ...prev, isOpen: false }));
 
-  // --- ÉTATS POUR LA MODALE OTM ---
   const [otmProfiles, setOtmProfiles] = useState([]);
   const [otmModal, setOtmModal] = useState(null);
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
-   const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
+  const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
   const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
-  const [selectedOtms, setSelectedOtms] = useState([]); // Pour les cases à cocher
-  const [customOtm, setCustomOtm] = useState("");       // Pour le texte libre
+  const [selectedOtms, setSelectedOtms] = useState([]); 
+  const [customOtm, setCustomOtm] = useState("");       
 
-  // --- Toujours connaître le nom de l'utilisateur connecté ---
   const [currentUserName, setCurrentUserName] = useState("");
 
   useEffect(() => {
@@ -102,7 +80,6 @@ export default function TournamentManager() {
     fetchMyName();
   }, [session]);
 
-  // On récupère les profils de ceux qui ont débloqué le mode OTM
   useEffect(() => {
     if (!canEdit) return;
     const fetchOtms = async () => {
@@ -110,7 +87,12 @@ export default function TournamentManager() {
         setOtmProfiles([]);
         return;
       }
-      const { data } = await supabase.from('profiles').select('id, full_name').in('id', tourney.otm_ids);
+      
+      // 👇 ON FILTRE LES NULL ICI (Sécurité anti-crash) 👇
+      const validOtmIds = tourney.otm_ids.filter(Boolean);
+      if (validOtmIds.length === 0) return;
+
+      const { data } = await supabase.from('profiles').select('id, full_name').in('id', validOtmIds);
       if (data) setOtmProfiles(data);
     };
     fetchOtms();
@@ -128,10 +110,8 @@ export default function TournamentManager() {
   const update = async (data) => {
     if (!canEdit) return; 
 
-    // 1. Mise à jour instantanée de l'écran local
     setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...data } : t));
 
-    // 2. BOUCLIER ANTI-TOAST POSTGRES : 
     const safePayload = {
       ...data,
       teams: data.teams !== undefined ? data.teams : tourney.teams,
@@ -145,20 +125,16 @@ export default function TournamentManager() {
       .eq('id', tourney.id)
       .select();
 
-    // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx (Fonction update)
-
     if (error) {
       console.error("Erreur de sauvegarde Supabase :", error);
-      toast.error("Erreur de synchronisation avec le cloud."); // 👈 CHANGÉ
+      toast.error("Erreur de synchronisation avec le cloud.");
     } else if (!updatedRows || updatedRows.length === 0) {
-      toast.error("Blocage silencieux Supabase (Problème de droits RLS).", { duration: 6000 }); // 👈 CHANGÉ
+      toast.error("Blocage silencieux Supabase (Problème de droits RLS).", { duration: 6000 });
     } else {
-      // Optionnel : Un petit toast de succès discret quand ça sauvegarde bien !
       toast.success("Sauvegardé", { position: 'bottom-right', duration: 1500, style: { fontSize: '0.8rem', padding: '4px 8px' }});
     }
   };
 
-// FIN DE LA MODIFICATION
 
   const getGroupLimit = (t, gNum) => {
     const val = t?.qualifiedSettings?.[gNum];
@@ -175,23 +151,18 @@ export default function TournamentManager() {
         const s = isA ? m.scoreA : m.scoreB; 
         const o = isA ? m.scoreB : m.scoreA;
         
-        // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx
+        if (m.status === 'forfeit') {
+          if (s > o) points += 2; 
+          else points += 0;       
+        } else {
+          if (s > o) points += 2; else points += 1; 
+        }
+        diff += (s - o);
+      });
+      return { ...team, points, diff };
+    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
+  };
 
-        if (m.status === 'forfeit') {
-          if (s > o) points += 2; 
-          else points += 0;       
-        } else {
-          if (s > o) points += 2; else points += 1; 
-        }
-        diff += (s - o);
-      });
-      return { ...team, points, diff };
-    }).sort((a,b) => b.points - a.points || b.diff - a.diff);
-  };
-
-  // ---------------------------------------------------------
-  // 👇 VOICI LA FONCTION QU'IL MANQUAIT (getStandings) 👇
-  // ---------------------------------------------------------
   const getStandings = (groupId) => {
     const groupTeams = (tourney.teams || []).filter(t => t.groupId === groupId);
     const standings = groupTeams.map(team => {
@@ -214,26 +185,24 @@ export default function TournamentManager() {
         pointsAgainst += theirScore;
 
         if (myScore > theirScore) {
-          points += 2; // Victoire = 2 pts
+          points += 2; 
           won += 1;
         } else {
-          points += 1; // Défaite = 1 pt
+          points += 1; 
           lost += 1;
         }
       });
 
-      // Gestion des forfaits (qui donnent 0 pt au lieu de 1)
       const forfeits = (tourney.schedule || []).filter(m => 
         (m.teamA?.id === team.id || m.teamB?.id === team.id) && m.status === 'forfeit'
       );
       forfeits.forEach(m => {
         const isTeamA = m.teamA?.id === team.id;
-        // Si c'est l'autre équipe qui a forfait, on a gagné (2 pts). Sinon on a 0 pt.
         const myScore = isTeamA ? m.scoreA : m.scoreB;
         if(myScore > 0) {
             points += 2;
             won += 1;
-            pointsFor += 20; // Score forfait classique
+            pointsFor += 20; 
         } else {
             lost += 1;
             pointsAgainst += 20;
@@ -250,19 +219,15 @@ export default function TournamentManager() {
       };
     });
 
-    // Tri par points, puis différence de points
     return standings.sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points;
       return b.diff - a.diff;
     });
   };
-  // ---------------------------------------------------------
 
-  useEffect(() => {
-    if (!canEdit) return; 
-    if (!tourney.playoffs || !tourney.playoffs.matches) return;
-
-// FIN DE LA MODIFICATION
+  useEffect(() => {
+    if (!canEdit) return; 
+    if (!tourney.playoffs || !tourney.playoffs.matches) return;
     
     let updated = false;
     const newMatches = [...tourney.playoffs.matches];
@@ -330,11 +295,9 @@ export default function TournamentManager() {
          optionB: match.teamB?.name || "Équipe B",
          onChoose: (choice) => {
            if (choice === 'A') {
-             // Si A fait forfait, B gagne 20 à 0
              updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
              toast.success(`Forfait de ${match.teamA?.name} enregistré`);
            } else if (choice === 'B') {
-             // Si B fait forfait, A gagne 20 à 0
              updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
              toast.success(`Forfait de ${match.teamB?.name} enregistré`);
            }
@@ -350,17 +313,14 @@ export default function TournamentManager() {
         m.id === matchId ? { ...m, status, scoreA, scoreB } : m
       );
       
-      // 🛠️ FIX : On met à jour l'objet complet des playoffs pour déclencher le useEffect de progression
       update({ 
         playoffs: { 
           ...tourney.playoffs, 
           matches: newMatches,
-          // On change le status global temporairement pour forcer React à recalculer l'arbre
           status: 'updating' 
         } 
       });
 
-      // On repasse en 'started' juste après
       setTimeout(() => {
         update({ playoffs: { ...tourney.playoffs, matches: newMatches, status: 'started' } });
       }, 100);
@@ -428,8 +388,6 @@ export default function TournamentManager() {
     });
   };
 
-  // DEBUT DE LA MODIFICATION - src/components/TournamentManager.jsx
-
   const generatePlayoffs = () => {
     if (!canEdit) return;
 
@@ -447,7 +405,6 @@ export default function TournamentManager() {
       return;
     }
 
-    // NOUVEAU : La fonction qui fait vraiment le calcul
     const executeGeneration = () => {
       const qualifiedTeams = [];
       const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
@@ -531,9 +488,8 @@ export default function TournamentManager() {
       update({ playoffs: { size, matches, status: 'started' } });
       setActiveTab("finale");
       toast.success("Phase finale générée avec succès !");
-    }; // FIN DE executeGeneration
+    }; 
 
-    // NOUVEAU : La logique d'ouverture de la modale
     if (tourney.playoffs) {
        setConfirmData({
          isOpen: true,
@@ -547,7 +503,6 @@ export default function TournamentManager() {
     }
   };
 
-// FIN DE LA MODIFICATION
 
   const addTeam = () => {
     if (!canEdit || !teamName.trim()) return;
@@ -562,23 +517,40 @@ export default function TournamentManager() {
       return;
     }
     try {
-      const { data: members } = await supabase.from('team_members').select('player_id').eq('team_id', gTeam.id).eq('status', 'accepted');
+      // 👇 On récupère manual_name pour les joueurs fantômes
+      const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', gTeam.id).eq('status', 'accepted');
+      
       let newPlayers = [];
       if (members && members.length > 0) {
-        const { data: profiles } = await supabase.from('profiles').select('id, full_name').in('id', members.map(m => m.player_id));
+        
+        // 👇 LA CORRECTION EST ICI : on filtre les `null` avec .filter(Boolean)
+        const validPlayerIds = members.map(m => m.player_id).filter(Boolean);
+        
+        // On ne fait la requête que s'il y a de vrais joueurs
+        const { data: profiles } = validPlayerIds.length > 0 
+          ? await supabase.from('profiles').select('id, full_name').in('id', validPlayerIds)
+          : { data: [] };
+
         newPlayers = members.map((m, i) => {
-          const prof = profiles.find(p => p.id === m.player_id);
-          return { id: m.player_id, name: prof?.full_name || "Joueur Inconnu", number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20 };
+          const prof = profiles?.find(p => p.id === m.player_id);
+          return { 
+            // Si c'est un fantôme, on lui donne un faux ID unique pour le match
+            id: m.player_id || `ghost_${Math.random()}`, 
+            name: prof?.full_name || m.manual_name || "Joueur Manuel", 
+            number: String(i + 4), 
+            licenseStatus: 'to_check', 
+            paid: 0, 
+            totalDue: 20 
+          };
         });
       }
 
-      // 🛡️ NOUVEAU : LA BARRIÈRE DE SÉCURITÉ (Un joueur = Une équipe)
       let conflictingPlayer = null;
       let conflictingTeam = null;
       
       for (const newPlayer of newPlayers) {
         for (const team of tourney.teams) {
-          if (team.players.some(p => p.id === newPlayer.id)) {
+          if (team.players.some(p => p.id === newPlayer.id && !newPlayer.id.startsWith('ghost_'))) {
             conflictingPlayer = newPlayer;
             conflictingTeam = team;
             break;
@@ -589,7 +561,7 @@ export default function TournamentManager() {
 
       if (conflictingPlayer) {
         toast.error(`"${conflictingPlayer.name}" joue déjà pour l'équipe "${conflictingTeam.name}".`);
-        return; // On annule l'importation de l'équipe
+        return; 
       }
 
       update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), global_id: gTeam.id, name: gTeam.name, players: newPlayers, groupId: null }] });
@@ -598,7 +570,7 @@ export default function TournamentManager() {
   };
 
   const importGlobalTeam = () => {
-    // Cette fonction reste vide ou peut être supprimée car handleDirectImport prend le relais
+    
   };
 
   
@@ -673,56 +645,67 @@ export default function TournamentManager() {
 
   const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
 
-  
+  // 👇 L'INTERFACE EST MAINTENANT 100% TAILWIND CSS 👇
   return (
-    <div className="tm-container">
-      <div className="tm-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <h1 className="tm-title" style={{ margin: 0 }}>{tourney.name}</h1>
+    <div className="flex flex-col w-full h-full">
+      <div className="flex flex-col items-start gap-3 mb-5">
+        
+        <div className="flex items-center gap-4 flex-wrap w-full">
+            <h1 className="text-2xl md:text-3xl font-bold text-white m-0 flex-1">{tourney.name}</h1>
             
-            {/* Affichage du code pour les organisateurs */}
             {canEdit && tourney.pin_code && (
-              <span style={{ 
-                  background: 'rgba(0, 102, 204, 0.1)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', 
-                  padding: '6px 12px', borderRadius: '6px', fontSize: '1rem', fontWeight: 'bold', letterSpacing: '1px'
-              }}>
+              <span className="bg-[rgba(0,102,204,0.1)] border border-[var(--accent-blue)] text-[var(--accent-blue)] px-3 py-1.5 rounded-md text-sm md:text-base font-bold tracking-wide">
                 🔑 CODE OTM : {tourney.pin_code}
               </span>
             )}
 
-            {/* Bouton de déblocage pour les spectateurs/joueurs */}
             {!canManageMatch && session && (
               <button 
                 onClick={handleUnlockOtm} 
-                style={{ 
-                  background: '#1a1a1a', border: '1px dashed var(--accent-blue)', color: 'var(--accent-blue)', 
-                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' 
-                }}
-                onMouseOver={(e) => e.target.style.background = 'rgba(0, 102, 204, 0.2)'}
-                onMouseOut={(e) => e.target.style.background = '#1a1a1a'}
+                className="bg-[#1a1a1a] border border-dashed border-[var(--accent-blue)] text-[var(--accent-blue)] px-3 py-1.5 rounded-md cursor-pointer font-bold transition-colors hover:bg-[rgba(0,102,204,0.2)] text-sm md:text-base"
               >
                 🔓 Débloquer la Table de Marque
               </button>
             )}
         </div>
-        <div className="tm-tabs" style={{ marginTop: '10px' }}>
-            <button className={`btn-tab ${activeTab === 'planning' ? 'active' : ''}`} onClick={() => setActiveTab('planning')}>PLANNING</button>
-            <button onClick={() => setActiveTab("poules")} className={`tm-tab ${activeTab === "poules" ? 'active' : 'inactive'}`}>POULES</button>
-            <button onClick={() => setActiveTab("finale")} className={`tm-tab ${activeTab === "finale" ? 'active' : 'inactive'}`}>PHASE FINALE</button>
-            <button onClick={() => setActiveTab("stats")} className={`tm-tab ${activeTab === "stats" ? 'active' : 'inactive'}`}>STATISTIQUES 📈</button>
+
+        {/* ONGLETS SCROLLABLES SUR MOBILE */}
+        <div className="flex gap-2 mt-3 overflow-x-auto w-full pb-2 scrollbar-hide">
+            <button 
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'planning' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} 
+              onClick={() => setActiveTab('planning')}
+            >
+              PLANNING
+            </button>
+            <button 
+              onClick={() => setActiveTab("poules")} 
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'poules' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
+            >
+              POULES
+            </button>
+            <button 
+              onClick={() => setActiveTab("finale")} 
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'finale' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
+            >
+              PHASE FINALE
+            </button>
+            <button 
+              onClick={() => setActiveTab("stats")} 
+              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'stats' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
+            >
+              STATISTIQUES 📈
+            </button>
         </div>
       </div>
 
-
-
       {activeTab === 'planning' && (
-  <PlanningTab 
-    tourney={tourney} 
-    handleLaunchMatch={handleLaunchMatch} 
-    canEdit={canEdit} 
-    currentUserName={currentUserName} 
-  />
-)}
+        <PlanningTab 
+          tourney={tourney} 
+          handleLaunchMatch={handleLaunchMatch} 
+          canEdit={canEdit} 
+          currentUserName={currentUserName} 
+        />
+      )}
 
       {activeTab === "poules" && (
         <GroupStageTab 
@@ -753,7 +736,6 @@ export default function TournamentManager() {
           getGroupLimit={getGroupLimit}
         />
       )}
-
           
       {activeTab === "finale" && (
         <PlayoffsTab 
@@ -769,25 +751,24 @@ export default function TournamentManager() {
         />
       )}
 
-
       {activeTab === "stats" && (
         <TournamentStats tourney={tourney} />
       )}
 
 
-      {/* --- MODALE D'ASSIGNATION D'OTM --- */}      
+      {/* --- MODALE D'ASSIGNATION D'OTM 100% TAILWIND --- */}      
       {otmModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-          <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-blue)', width: '90%', maxWidth: '500px' }}>
-            <h3 style={{ marginTop: 0, color: 'var(--accent-blue)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👤 Assigner des OTM</h3>
+        <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[9999] p-4">
+          <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-blue)] w-full max-w-lg shadow-2xl">
+            <h3 className="mt-0 text-[var(--accent-blue)] border-b border-[#333] pb-3 mb-4 text-xl font-bold">👤 Assigner des OTM</h3>
             
-            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Cocher les OTM connectés :</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '20px', background: '#222', padding: '10px', borderRadius: '6px', maxHeight: '150px', overflowY: 'auto' }}>
+            <label className="block mb-2 text-[#ccc] text-sm">Cocher les OTM connectés :</label>
+            <div className="flex flex-col gap-2 mb-5 bg-[#222] p-3 rounded-md max-h-[150px] overflow-y-auto">
               {otmProfiles.length === 0 ? (
-                <span style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic' }}>Aucun OTM n'a rejoint le tournoi.</span>
+                <span className="text-sm text-[#888] italic">Aucun OTM n'a rejoint le tournoi.</span>
               ) : (
                 otmProfiles.map(prof => (
-                  <label key={prof.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '0.9rem' }}>
+                  <label key={prof.id} className="flex items-center gap-3 cursor-pointer text-sm text-white hover:bg-[#333] p-2 rounded transition-colors">
                     <input 
                       type="checkbox" 
                       checked={selectedOtms.includes(prof.full_name)}
@@ -798,7 +779,7 @@ export default function TournamentManager() {
                           setSelectedOtms(selectedOtms.filter(name => name !== prof.full_name));
                         }
                       }}
-                      style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                      className="scale-125 cursor-pointer accent-[var(--accent-blue)]"
                     />
                     {prof.full_name}
                   </label>
@@ -806,35 +787,39 @@ export default function TournamentManager() {
               )}
             </div>
 
-            <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Autre (ex: Terrain 1, Bénévoles...) :</label>
+            <label className="block mb-2 text-[#ccc] text-sm">Autre (ex: Terrain 1, Bénévoles...) :</label>
             <input 
               type="text" 
               value={customOtm}
               onChange={(e) => setCustomOtm(e.target.value)}
-              className="tm-input"
-              style={{ 
-                width: '100%', 
-                marginBottom: '25px',
-                boxSizing: 'border-box' /* 🛠️ LA CORRECTION EST LÀ */
-              }}
+              className="w-full mb-6 p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
               placeholder="Saisir un texte libre..."
             />
 
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setOtmModal(null)} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Annuler</button>
-              <button onClick={() => {
-                // On rassemble les cases cochées ET le texte libre, séparés par " - "
-                const finalVal = [...selectedOtms, customOtm.trim()].filter(Boolean).join(' - ');
-                
-                if (otmModal.isPlayoff) {
-                  const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                } else {
-                  const newSchedule = tourney.schedule.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-                  update({ schedule: newSchedule });
-                }
-                setOtmModal(null);
-              }} className="tm-btn-success" style={{ padding: '10px 20px', fontSize: '1rem' }}>Valider</button>
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => setOtmModal(null)} 
+                className="bg-[#333] text-white px-4 py-2 rounded-md font-bold hover:bg-[#444] transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button 
+                onClick={() => {
+                  const finalVal = [...selectedOtms, customOtm.trim()].filter(Boolean).join(' - ');
+                  
+                  if (otmModal.isPlayoff) {
+                    const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
+                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                  } else {
+                    const newSchedule = tourney.schedule.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
+                    update({ schedule: newSchedule });
+                  }
+                  setOtmModal(null);
+                }} 
+                className="bg-[var(--success)] text-white px-5 py-2 rounded-md text-base font-bold hover:bg-green-600 transition-colors cursor-pointer"
+              >
+                Valider
+              </button>
             </div>
           </div>
         </div>

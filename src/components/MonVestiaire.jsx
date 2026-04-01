@@ -11,21 +11,25 @@ export default function MonVestiaire({
   setNewTeamName, 
   newTeamCity, 
   setNewTeamCity,
-  cancelPendingRequest // <--- AJOUTE ÇA ICI
-  
+  cancelPendingRequest
 }) {
 
   const { session } = useAuth();
 
   return (
     <>
-      <h1 style={{ color: 'white', borderBottom: '2px solid #333', paddingBottom: '10px' }}>👟 Mon Vestiaire</h1>
-      <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginTop: '30px' }}>
+      <h1 className="text-white border-b-2 border-[#333] pb-2 text-2xl font-bold">
+        👟 Mon Vestiaire
+      </h1>
+      
+      {/* 👇 MAGIE RESPONSIVE : flex-col sur mobile, flex-row (côte à côte) sur grand écran (lg) 👇 */}
+      <div className="flex flex-col lg:flex-row gap-8 mt-8">
         
         {/* COLONNE GAUCHE : MES ÉQUIPES */}
-        <div style={{ flex: '1', minWidth: '300px' }}>
-          <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333', marginBottom: '30px' }}>
-            <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>🛡️ Mes Équipes</h2>
+        <div className="flex-1 min-w-[300px]">
+          <div className="bg-[#1a1a1a] p-5 rounded-xl border border-[#333] mb-8">
+            <h2 className="m-0 mb-5 text-[var(--accent-blue)] text-lg font-bold">🛡️ Mes Équipes</h2>
+            
             {myTeams.length === 0 ? (
               <div className="empty-state-container">
                 <div className="empty-state-icon">🪑</div>
@@ -35,75 +39,77 @@ export default function MonVestiaire({
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div className="flex flex-col gap-4">
                 {myTeams.map(mt => {
                   const team = mt.global_teams;
                   const isCaptain = team.captain_id === session.user.id;
                   
-                  // CAS 1 : INVITATION (On ne touche pas à cette carte, car elle a besoin des boutons d'action)
+                  // CAS 1 : INVITATION
                   if (mt.status === 'invited') {
                     return (
-                      <div key={team.id} style={{ background: '#222', padding: '15px', borderRadius: '8px', borderLeft: `4px solid var(--accent-purple)` }}>
-                        <strong style={{ fontSize: '1.2rem', display: 'block' }}>{team.name}</strong>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--accent-purple)' }}>✉️ Le capitaine t'invite !</span>
-                        <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                      <div key={team.id} className="bg-[#222] p-4 rounded-lg border-l-4 border-[var(--accent-purple)]">
+                        <strong className="text-xl block text-white">{team.name}</strong>
+                        <span className="text-sm text-[var(--accent-purple)]">✉️ Le capitaine t'invite !</span>
+                        
+                        <div className="mt-4 flex gap-3">
                           <button 
                             onClick={() => respondToInvite(team.id, true)} 
                             disabled={hasTeam}
-                            style={{ background: hasTeam ? '#444' : 'var(--success)', color: hasTeam ? '#888' : 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', cursor: hasTeam ? 'not-allowed' : 'pointer' }}
+                            className={`px-3 py-1.5 rounded text-sm font-bold transition-colors ${
+                              hasTeam 
+                                ? 'bg-[#444] text-[#888] cursor-not-allowed' 
+                                : 'bg-[var(--success)] text-white hover:bg-green-600 cursor-pointer'
+                            }`}
                           >
                             ACCEPTER
                           </button>
-                          <button onClick={() => respondToInvite(team.id, false)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>REFUSER</button>
+                          <button 
+                            onClick={() => respondToInvite(team.id, false)} 
+                            className="bg-[var(--danger)] text-white hover:bg-red-600 px-3 py-1.5 rounded text-sm font-bold cursor-pointer transition-colors"
+                          >
+                            REFUSER
+                          </button>
                         </div>
-                        {hasTeam && <span style={{ display: 'block', marginTop: '8px', fontSize: '0.75rem', color: 'var(--danger)' }}>Quitte d'abord ton équipe actuelle pour accepter.</span>}
+                        {hasTeam && <span className="block mt-2 text-xs text-[var(--danger)] font-bold">Quitte d'abord ton équipe actuelle pour accepter.</span>}
                       </div>
                     );
                   }
 
-                  // CAS 2 : ÉQUIPE ACTIVE OU EN ATTENTE (On rend la carte entière cliquable)
+                  // CAS 2 : ÉQUIPE ACTIVE OU EN ATTENTE
                   const isPending = mt.status === 'pending';
                   return (
                     <div 
                       key={team.id} 
-                      // NOUVEAU : On ajoute l'événement de clic et la classe CSS sur la div entière
                       onClick={() => !isPending && openTeamManager(team)}
-                      className={!isPending ? "team-card-interactive" : ""}
-                      style={{ 
-                        background: '#222', 
-                        padding: '15px', 
-                        borderRadius: '8px', 
-                        borderLeft: `4px solid ${isPending ? 'var(--accent-orange)' : 'var(--success)'}`,
-                        // On force la bordure transparente pour que l'effet de survol (qui change la bordure) ne décale pas la carte
-                        borderTop: '1px solid transparent',
-                        borderRight: '1px solid transparent',
-                        borderBottom: '1px solid transparent',
-                        cursor: isPending ? 'default' : 'pointer'
-                      }}
+                      // On garde ta classe team-card-interactive pour l'animation que tu avais sûrement dans index.css
+                      className={`bg-[#222] p-4 rounded-lg border-l-4 border-y border-r border-y-transparent border-r-transparent transition-all ${
+                        !isPending ? "team-card-interactive cursor-pointer border-l-[var(--success)]" : "cursor-default border-l-[var(--accent-orange)]"
+                      }`}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div className="flex justify-between items-start">
                         <div>
-                          <strong style={{ fontSize: '1.2rem', display: 'block' }}>{team.name}</strong>
-                          <span style={{ fontSize: '0.8rem', color: '#888' }}>{team.city || 'Ville non renseignée'}</span>
+                          <strong className="text-xl block text-white">{team.name}</strong>
+                          <span className="text-xs text-gray-400">{team.city || 'Ville non renseignée'}</span>
                         </div>
-                        {isCaptain && <span style={{ background: 'var(--accent-purple)', padding: '3px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 'bold' }}>CAPITAINE 👑</span>}
+                        {isCaptain && <span className="bg-[var(--accent-purple)] px-2 py-1 rounded text-[10px] font-bold text-white tracking-wider">CAPITAINE 👑</span>}
                       </div>
-                      <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '0.85rem' }}>
-                          {isPending ? <span style={{ color: 'var(--accent-orange)' }}>⏳ Candidature en attente...</span> : <span style={{ color: 'var(--success)' }}>✅ Membre actif</span>}
+                      
+                      <div className="mt-4 flex justify-between items-center">
+                        <div className="text-sm font-bold">
+                          {isPending ? <span className="text-[var(--accent-orange)]">⏳ Candidature en attente...</span> : <span className="text-[var(--success)]">✅ Membre actif</span>}
                         </div>
                         
                         {!isPending ? (
-                          <div style={{ fontSize: '0.75rem', color: '#666', fontWeight: 'bold' }}>
+                          <div className="text-xs text-gray-400 font-bold tracking-wider">
                             {isCaptain ? "GÉRER ⚙️" : "EFFECTIF 👁️"}
                           </div>
                         ) : (
                           <button 
                             onClick={(e) => { 
-                              e.stopPropagation(); // Empêche le clic de déclencher l'ouverture de la carte
+                              e.stopPropagation(); 
                               cancelPendingRequest(team.id); 
                             }} 
-                            style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold' }}
+                            className="bg-transparent text-[var(--danger)] border border-[var(--danger)] px-2 py-1 rounded cursor-pointer text-xs font-bold hover:bg-[var(--danger)] hover:text-white transition-colors"
                           >
                             Annuler
                           </button>
@@ -117,33 +123,36 @@ export default function MonVestiaire({
           </div>
         </div>
 
-        {/* COLONNE DROITE : CRÉATION D'ÉQUIPE (inchangée) */}
-        <div style={{ flex: '1', minWidth: '300px' }}>
+        {/* COLONNE DROITE : CRÉATION D'ÉQUIPE */}
+        <div className="flex-1 min-w-[300px]">
           {hasTeam ? (
-            <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px dashed var(--danger)', textAlign: 'center' }}>
-              <h2 style={{ margin: '0 0 10px 0', color: 'var(--danger)' }}>🚫 Limite de franchise atteinte.</h2>
-              <p style={{ color: '#888', fontSize: '0.9rem' }}>Tu es déjà engagé dans 3 équipes maximum. Quitte l'une d'entre elles pour pouvoir en fonder ou en rejoindre une nouvelle</p>
+            <div className="bg-[#1a1a1a] p-5 rounded-xl border border-dashed border-[var(--danger)] text-center">
+              <h2 className="m-0 mb-3 text-[var(--danger)] text-lg font-bold">🚫 Limite de franchise atteinte.</h2>
+              <p className="text-gray-400 text-sm">Tu es déjà engagé dans 3 équipes maximum. Quitte l'une d'entre elles pour pouvoir en fonder ou en rejoindre une nouvelle.</p>
             </div>
           ) : (
-            <div style={{ background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px dashed #444' }}>
-              <h2 style={{ margin: '0 0 20px 0', color: 'white' }}>➕ Fonder une franchise</h2>
-              <form onSubmit={handleCreateTeam} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div className="bg-[#1a1a1a] p-5 rounded-xl border border-dashed border-[#444]">
+              <h2 className="m-0 mb-5 text-white text-lg font-bold">➕ Fonder une franchise</h2>
+              <form onSubmit={handleCreateTeam} className="flex flex-col gap-4">
                 <input 
                   type="text" 
                   placeholder="Nom de l'équipe (ex: Chicago Bulls)" 
                   value={newTeamName} 
                   onChange={e => setNewTeamName(e.target.value)} 
                   required 
-                  style={{ padding: '12px', borderRadius: '6px', border: '1px solid #444', background: '#222', color: 'white' }} 
+                  className="p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                 />
                 <input 
                   type="text" 
                   placeholder="Ville (Obligatoire)" 
                   value={newTeamCity} 
                   onChange={e => setNewTeamCity(e.target.value)} 
-                  style={{ padding: '12px', borderRadius: '6px', border: '1px solid #444', background: '#222', color: 'white' }} 
+                  className="p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                 />
-                <button type="submit" style={{ padding: '12px', borderRadius: '6px', background: 'var(--accent-orange)', color: 'white', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>
+                <button 
+                  type="submit" 
+                  className="p-3 rounded-md bg-[var(--accent-orange)] text-white font-bold cursor-pointer hover:opacity-90 transition-opacity"
+                >
                   CRÉER MON ÉQUIPE
                 </button>
               </form>

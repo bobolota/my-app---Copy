@@ -1,4 +1,3 @@
-// DEBUT DE LA MODIFICATION - src/components/Sidebar.jsx
 import React from 'react';
 import { useAppContext } from '../context/AppContext';
 
@@ -10,21 +9,24 @@ export default function Sidebar({
 }) {
   const { activeMenu, setActiveMenu, view, setView, userSubscription } = useAppContext();
 
-  // On recrée ta fonction de clic directement ici !
   const handleMenuClick = (menuName) => {
     setActiveMenu(menuName);
     setView('dashboard');
-    setIsSidebarOpen(false); // Ferme automatiquement le menu sur mobile après un clic
+    setIsSidebarOpen(false); 
   };
 
   return (
     <aside className={`app-sidebar ${isSidebarCollapsed ? 'collapsed' : ''} ${isSidebarOpen ? 'mobile-open' : ''}`}>
       <div className="sidebar-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <span style={{ minWidth: '25px', textAlign: 'center', fontSize: '1.4rem' }}>🏀</span>
+        
+        {/* 👇 ICI : Fini les style={{...}}, bonjour Tailwind (flex, items-center, gap-4) 👇 */}
+        <div className="flex items-center gap-4">
+          <span className="min-w-[25px] text-center text-2xl">🏀</span>
           
           {!isSidebarCollapsed && (
-            <span style={{ color: 'var(--accent-orange)', fontWeight: 900, letterSpacing: '2px', fontSize: '1.9rem' }}>
+            // text-[var(--accent-orange)] permet d'utiliser tes couleurs CSS existantes !
+            // font-black = fontWeight: 900 | tracking-widest = letter-spacing | text-3xl = fontSize
+            <span className="text-[var(--accent-orange)] font-black tracking-widest text-3xl">
               SWISH
             </span>
           )}
@@ -76,4 +78,3 @@ export default function Sidebar({
     </aside>
   );
 }
-// FIN DE LA MODIFICATION

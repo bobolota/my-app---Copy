@@ -1,40 +1,30 @@
-// DEBUT DE LA MODIFICATION - NOUVEAU FICHIER : src/components/ConfirmModal.jsx
-
 import React from 'react';
 
 export default function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmText = "Confirmer", cancelText = "Annuler", isDanger = false }) {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 9999, backdropFilter: 'blur(3px)'
-    }}>
-      <div className="glass-effect modal-content" style={{
-        background: '#1a1a1a', padding: '25px', borderRadius: '12px',
-        border: `1px solid ${isDanger ? 'var(--danger)' : 'var(--accent-blue)'}`,
-        width: '90%', maxWidth: '400px', textAlign: 'center',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)'
-      }}>
-        <h3 style={{ marginTop: 0, color: isDanger ? 'var(--danger)' : 'var(--accent-blue)', marginBottom: '15px' }}>
+    <div className="fixed inset-0 bg-black/75 flex justify-center items-center z-[9999] backdrop-blur-[3px] p-4">
+      <div 
+        className={`bg-[#1a1a1a] p-6 rounded-xl border w-full max-w-[400px] text-center shadow-[0_10px_30px_rgba(0,0,0,0.5)] ${isDanger ? 'border-[var(--danger)]' : 'border-[var(--accent-blue)]'}`}
+      >
+        <h3 className={`mt-0 mb-4 text-xl font-bold ${isDanger ? 'text-[var(--danger)]' : 'text-[var(--accent-blue)]'}`}>
           {title}
         </h3>
-        <p style={{ color: '#ccc', marginBottom: '25px', fontSize: '0.95rem', lineHeight: '1.5' }}>
+        <p className="text-[#ccc] mb-6 text-[0.95rem] leading-relaxed">
           {message}
         </p>
-        <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+        
+        <div className="flex gap-4 justify-center">
           <button 
             onClick={onCancel} 
-            style={{ padding: '10px 20px', background: '#333', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}
+            className="px-5 py-2.5 bg-[#333] text-white border-none rounded-lg cursor-pointer font-bold flex-1 hover:bg-[#444] transition-colors"
           >
             {cancelText}
           </button>
           <button 
             onClick={onConfirm} 
-            className="tm-btn-success"
-            style={{ padding: '10px 20px', background: isDanger ? 'var(--danger)' : 'var(--success)', border: 'none', flex: 1 }}
+            className={`px-5 py-2.5 border-none rounded-lg cursor-pointer font-bold flex-1 text-white shadow-lg transition-colors ${isDanger ? 'bg-[var(--danger)] hover:bg-red-700' : 'bg-[var(--success)] hover:bg-green-600'}`}
           >
             {confirmText}
           </button>
@@ -43,5 +33,3 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
     </div>
   );
 }
-
-// FIN DE LA MODIFICATION

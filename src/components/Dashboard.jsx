@@ -10,9 +10,8 @@ export default function Dashboard() {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [pinCode, setPinCode] = useState("");
-  const { session } = useAuth(); // Ça, c'est ce qu'on a fait tout à l'heure
+  const { session } = useAuth();
   
-  // 👇 AJOUTE CETTE LIGNE : On aspire tout le reste !
   const { tournaments, setTournaments, setActiveTourneyId, setView, userRole, userSubscription } = useAppContext();
 
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
@@ -53,7 +52,6 @@ export default function Dashboard() {
       organizer_id: session.user.id,
       pin_code: generatedPin,
       otm_ids: [],
-      // CORRECTION ICI : "matchsettings" tout en minuscules pour la base de données !
       matchsettings: {
         periodCount: parseInt(periodCount) || 4,
         periodDuration: parseInt(periodDuration) || 10,
@@ -72,7 +70,7 @@ export default function Dashboard() {
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) {
       console.error("Erreur de sauvegarde :", error);
-      Toast.error("Erreur lors de la création du tournoi dans le cloud.");
+      toast.error("Erreur lors de la création du tournoi dans le cloud.");
     }
   };
 
@@ -81,14 +79,13 @@ export default function Dashboard() {
     
     try {
       const { data, error } = await supabase.rpc('join_as_otm', { pin: pinCode.trim().toUpperCase() });
-      
       if (error) throw error;
       
-      Toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi.");
+      toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi.");
       setPinCode("");
       
     } catch (error) {
-      Toast.error(error.message || "Code PIN invalide.");
+      toast.error(error.message || "Code PIN invalide.");
     }
   };
 
@@ -99,32 +96,19 @@ export default function Dashboard() {
     setDraggedId(tourney.id);
     e.dataTransfer.setData("tourneyId", tourney.id);
     e.dataTransfer.effectAllowed = "move";
-    setTimeout(() => {
-      if(e.target) {
-        e.target.style.opacity = "0.2";
-        e.target.style.transform = "scale(0.95)";
-      }
-    }, 0);
   };
 
   const onDragEnd = (e, tourney) => {
-    const canEditTourney = userRole === 'ADMIN' || tourney.organizer_id === session.user.id;
-    if (!canEditTourney) return;
-
     setDraggedId(null);
-    if(e.target) {
-      e.target.style.opacity = "1";
-      e.target.style.transform = "scale(1)";
-    }
   };
 
   const onDragOver = (e) => {
     e.preventDefault();
-    e.currentTarget.classList.add('drag-over');
+    e.currentTarget.classList.add('bg-[rgba(255,255,255,0.05)]'); // Effet visuel au survol
   };
 
   const onDragLeave = (e) => {
-    e.currentTarget.classList.remove('drag-over');
+    e.currentTarget.classList.remove('bg-[rgba(255,255,255,0.05)]');
   };
 
   const onDrop = async (e, newStatus) => {
@@ -136,7 +120,7 @@ export default function Dashboard() {
 
     const tourney = tournaments.find(t => t.id === id);
     if (userRole !== 'ADMIN' && tourney.organizer_id !== session.user.id) {
-        Toast.error("Seul l'organisateur peut déplacer le tournoi.");
+        toast.error("Seul l'organisateur peut déplacer le tournoi.");
         return;
     }
 
@@ -146,23 +130,21 @@ export default function Dashboard() {
     const { error } = await supabase.from('tournaments').update({ status: newStatus }).eq('id', id);
     if (error) {
       console.error("Erreur de mise à jour :", error);
-      Toast.error("Erreur lors du déplacement du tournoi.");
+      toast.error("Erreur lors du déplacement du tournoi.");
     }
   };
 
   const deleteTourney = (e, id) => {
-    e.stopPropagation(); // On empêche le clic d'ouvrir le tournoi
+    e.stopPropagation(); 
     
     setConfirmData({
       isOpen: true,
       title: "Supprimer le tournoi ? 🙈",
       message: "Veux-tu supprimer ce tournoi DÉFINITIVEMENT ?",
-      isDanger: true, // Bouton rouge !
+      isDanger: true, 
       onConfirm: async () => {
-        // 1. On le retire visuellement de l'écran immédiatement
         setTournaments(tournaments.filter(t => t.id !== id));
 
-        // 2. On ruse : au lieu de .delete(), on fait un .update() pour le cacher.
         const { error } = await supabase
           .from('tournaments')
           .update({ status: 'deleted' })
@@ -172,24 +154,25 @@ export default function Dashboard() {
           console.error("Erreur lors de la mise à jour du statut :", error);
           toast.error("Erreur de connexion avec le cloud.");
         } else {
-          toast.success("Le tournoi a été supprimé !"); // Petit bonus UX ✨
+          toast.success("Le tournoi a été supprimé !"); 
         }
       }
     });
   };
 
-  const renderColumn = (title, status, color) => (
+  const renderColumn = (title, status, color, accentHex) => (
     <div 
-      className="dashboard-column"
+      className="flex flex-col flex-1 min-w-[300px] bg-[#1a1a1a] rounded-xl border border-[#333] transition-colors p-4 pb-8"
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, status)}
     >
-      <h3 className="dashboard-col-title" style={{ borderBottom: `3px solid ${color}` }}>
-        {title} <span style={{ opacity: 0.4 }}>({visibleTournaments.filter(t => t.status === status).length})</span>
-      </h3>
+      <div className="flex justify-between items-center mb-5 pb-3 border-b-4" style={{ borderBottomColor: accentHex }}>
+        <h3 className="m-0 text-white font-bold tracking-wider">{title}</h3>
+        <span className="text-[#888] font-bold text-xl">{visibleTournaments.filter(t => t.status === status || (!t.status && status === 'preparing')).length}</span>
+      </div>
       
-      <div className="dashboard-scroll-area">
+      <div className="flex flex-col gap-4 overflow-y-auto max-h-[600px] custom-scrollbar pr-2">
         {visibleTournaments
           .filter(t => t.status === status || (!t.status && status === 'preparing'))
           .map(t => {
@@ -202,28 +185,33 @@ export default function Dashboard() {
                 onDragStart={(e) => onDragStart(e, t)}
                 onDragEnd={(e) => onDragEnd(e, t)}
                 onClick={() => { setActiveTourneyId(t.id); setView('tournament'); }}
-                className={`dashboard-card ${draggedId === t.id ? 'grabbing' : ''}`}
-                style={{ cursor: isOwnerOrAdmin ? 'grab' : 'pointer' }}
+                className={`bg-[#222] p-4 rounded-xl border-l-4 transition-all duration-200 relative group shadow-md ${draggedId === t.id ? 'opacity-50 scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'opacity-100 hover:-translate-y-1 hover:shadow-lg'} ${isOwnerOrAdmin ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                style={{ borderLeftColor: accentHex }}
               >
-                <div className="dashboard-card-header">
-                  <strong className="dashboard-card-title" style={{ color: color }}>{t.name}</strong>
+                <div className="flex justify-between items-start mb-2 pr-6">
+                  <strong className="text-lg font-heading text-white truncate">{t.name}</strong>
                   {isOwnerOrAdmin && (
-                    <button onClick={(e) => deleteTourney(e, t.id)} className="dashboard-btn-delete">✕</button>
+                    <button 
+                      onClick={(e) => deleteTourney(e, t.id)} 
+                      className="absolute top-2 right-2 text-[#555] bg-transparent border-none text-xl cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-all"
+                      title="Supprimer"
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
                 
-                {/* CORRECTION ICI AUSSI : matchsettings */}
-                <div style={{ fontSize: '0.65rem', color: '#666', marginTop: '5px', background: '#111', padding: '4px 8px', borderRadius: '4px', display: 'inline-block' }}>
-                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | TM: {t.matchsettings?.timeoutsHalf1 || 2} (1ère) - {t.matchsettings?.timeoutsHalf2 || 3} (2ème)
+                <div className="inline-block bg-[#111] text-[#ccc] text-[0.7rem] px-2 py-1 rounded border border-[#444] font-bold mb-3">
+                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | TM: {t.matchsettings?.timeoutsHalf1 || 2} - {t.matchsettings?.timeoutsHalf2 || 3}
                 </div>
 
-                <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+                <div className="flex justify-between items-center text-xs font-bold text-[#888] border-t border-dashed border-[#333] pt-3">
                   <span>👥 {t.teams?.length || 0} équipes | 📅 {t.schedule?.length || 0} matchs</span>
                   {(!isOwnerOrAdmin && t.otm_ids?.includes(session.user.id)) && (
-                      <span style={{ color: 'var(--accent-blue)', fontWeight: 'bold' }}>OTM 📝</span>
+                      <span className="text-[var(--accent-blue)] bg-[rgba(0,212,255,0.1)] px-2 py-1 rounded-md">OTM 📝</span>
                   )}
                 </div>
-                {isOwnerOrAdmin && <div className="dashboard-drag-handle">⠿ GLISSER POUR PORTER</div>}
+                {isOwnerOrAdmin && <div className="absolute bottom-2 right-2 text-[#444] text-[0.6rem] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">GLISSER ⠿</div>}
               </div>
             );
           })}
@@ -232,87 +220,84 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h1 className="dashboard-title">🛰️ Centre de Contrôle</h1>
+    <div className="flex flex-col w-full h-full max-w-[1400px] mx-auto p-2 sm:p-5">
+      <div className="mb-8">
+        <h1 className="text-3xl text-white border-b-2 border-[#333] pb-3 mb-6 font-bold">
+          🛰️ Centre de Contrôle
+        </h1>
         
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        {canCreate && (
+          <div className="bg-[#1a1a1a] p-5 rounded-xl border border-dashed border-[var(--accent-purple)] w-full xl:max-w-[800px] shadow-lg">
+            <strong className="block text-base text-[var(--accent-purple)] mb-4 uppercase tracking-widest">
+              🛠 Créer un nouveau tournoi
+            </strong>
             
+            <input 
+              className="w-full p-3 rounded-lg border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)] transition-colors mb-4 text-lg"
+              placeholder="Nom de l'événement (ex: Summer League 2026)..." 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+            />
             
-            {canCreate && (
-              <div className="dashboard-controls" style={{ background: '#1a1a1a', padding: '15px', borderRadius: '12px', border: '1px dashed var(--accent-purple)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <strong style={{fontSize: '0.9rem', color: 'var(--accent-purple)'}}>🛠 Créer un nouveau tournoi</strong>
-                  
-                  <input 
-  className="dashboard-input"
-  placeholder="Nom du tournoi..." 
-  value={name} 
-  onChange={e => setName(e.target.value)} 
-  style={{ 
-    width: '100%', 
-    marginBottom: '5px',
-    boxSizing: 'border-box' /* 🛠️ AJOUTE CETTE LIGNE ICI */
-  }}
-/>
-                  
-                  <div style={{ display: 'flex', gap: '15px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Périodes</label>
-                          <input type="number" min="1" max="10" className="dashboard-input" value={periodCount} onChange={e => setPeriodCount(e.target.value)} style={{ width: '60px', padding: '8px' }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>Min/Période</label>
-                          <input type="number" min="1" max="60" className="dashboard-input" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} style={{ width: '70px', padding: '8px' }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>TM 1ère MT</label>
-                          <input type="number" min="0" max="10" className="dashboard-input" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} style={{ width: '65px', padding: '8px' }} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <label style={{fontSize: '0.7rem', color: '#888', marginBottom: '4px'}}>TM 2ème MT</label>
-                          <input type="number" min="0" max="10" className="dashboard-input" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} style={{ width: '65px', padding: '8px' }} />
-                      </div>
-                      
-                      <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                        <button onClick={create} className="dashboard-btn-create" style={{ padding: '10px 20px', height: '37px' }}>+ CRÉER</button>
-                      </div>
-                  </div>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-[0.75rem] text-[#888] font-bold uppercase tracking-wider">Périodes</label>
+                <input type="number" min="1" max="10" className="w-[70px] p-2.5 rounded-lg border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)]" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
               </div>
-            )}
-
-        </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[0.75rem] text-[#888] font-bold uppercase tracking-wider">Min/Période</label>
+                <input type="number" min="1" max="60" className="w-[85px] p-2.5 rounded-lg border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)]" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[0.75rem] text-[#888] font-bold uppercase tracking-wider">TM 1ère MT</label>
+                <input type="number" min="0" max="10" className="w-[80px] p-2.5 rounded-lg border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)]" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[0.75rem] text-[#888] font-bold uppercase tracking-wider">TM 2ème MT</label>
+                <input type="number" min="0" max="10" className="w-[80px] p-2.5 rounded-lg border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)]" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
+              </div>
+              
+              <button 
+                onClick={create} 
+                className="bg-[var(--accent-purple)] text-white border-none rounded-lg px-6 py-2.5 font-bold cursor-pointer hover:bg-purple-600 transition-all shadow-[0_4px_15px_rgba(157,78,221,0.3)] hover:-translate-y-0.5 ml-auto sm:ml-0"
+              >
+                + CRÉER
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="dashboard-pipeline">
-        {renderColumn("PRÉPARATION", "preparing", "var(--accent-purple)")}
-        {renderColumn("EN COURS", "ongoing", "var(--accent-orange)")}
-        {renderColumn("TERMINÉ", "finished", "var(--success)")}
+      <div className="flex flex-col lg:flex-row gap-6 overflow-x-auto pb-5 custom-scrollbar">
+        {renderColumn("PRÉPARATION", "preparing", "var(--accent-purple)", "#9d4edd")}
+        {renderColumn("EN COURS", "ongoing", "var(--accent-orange)", "#ff6b00")}
+        {renderColumn("TERMINÉ", "finished", "var(--success)", "#2ecc71")}
       </div>
 
       {/* --- MODALES DU SCOREBOARD --- */}
-            <ConfirmModal 
-              isOpen={confirmData.isOpen}
-              title={confirmData.title}
-              message={confirmData.message}
-              onConfirm={() => {
-                if (confirmData.onConfirm) confirmData.onConfirm();
-                closeConfirm();
-              }}
-              onCancel={closeConfirm}
-              isDanger={confirmData.isDanger}
-            />
-      
-            <PromptModal 
-              isOpen={promptData.isOpen}
-              title={promptData.title}
-              message={promptData.message}
-              placeholder={promptData.placeholder}
-              onConfirm={(value) => {
-                if (promptData.onConfirm) promptData.onConfirm(value);
-                closePrompt();
-              }}
-              onCancel={closePrompt}
-            />
+      <ConfirmModal 
+        isOpen={confirmData.isOpen}
+        title={confirmData.title}
+        message={confirmData.message}
+        onConfirm={() => {
+          if (confirmData.onConfirm) confirmData.onConfirm();
+          closeConfirm();
+        }}
+        onCancel={closeConfirm}
+        isDanger={confirmData.isDanger}
+      />
+
+      <PromptModal 
+        isOpen={promptData.isOpen}
+        title={promptData.title}
+        message={promptData.message}
+        placeholder={promptData.placeholder}
+        onConfirm={(value) => {
+          if (promptData.onConfirm) promptData.onConfirm(value);
+          closePrompt();
+        }}
+        onCancel={closePrompt}
+      />
 
     </div>
   );

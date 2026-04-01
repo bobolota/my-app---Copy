@@ -2,10 +2,17 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}", // 👈 C'est ici qu'on dit à Tailwind d'analyser tes fichiers React
+    "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      fontFamily: {
+        // 'sans' remplace la police par défaut de tout le site (Texte en Arial)
+        sans: ['Arial', 'Helvetica', 'sans-serif'],
+        // 'heading' crée notre police pour les titres (Poppins)
+        heading: ['Poppins', 'sans-serif'],
+      },
+    },
   },
   plugins: [],
 }

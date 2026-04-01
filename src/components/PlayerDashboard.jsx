@@ -13,6 +13,9 @@ import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import { useDashboardData } from '../hooks/useDashboardData';
 
+// 👇 On importe notre nouveau composant !
+import TeamManagerView from './TeamManagerView'; 
+
 export default function PlayerDashboard() {
   const { session } = useAuth(); 
   const { myTeams, allTeams, allPlayers, allTournaments, userProfile, careerStats, loading, refetch } = useDashboardData(session);
@@ -27,12 +30,8 @@ export default function PlayerDashboard() {
   const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
   const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
   
-  
-
   const [managingTeam, setManagingTeam] = useState(null);
   const [roster, setRoster] = useState([]);
-  
-  // 👇 NOUVEAU : État pour le nom du joueur manuel
   const [newGhostName, setNewGhostName] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -52,8 +51,6 @@ export default function PlayerDashboard() {
   useEffect(() => {
     setManagingTeam(null);
   }, [currentTab]);
-
-    
 
   const handleSearchPlayer = async () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
@@ -79,7 +76,7 @@ export default function PlayerDashboard() {
     const { data: ptData } = await supabase.from('team_members').select('global_teams(name)').eq('player_id', player.id).eq('status', 'accepted');
     if (ptData) playerTeams = ptData.map(d => d.global_teams).filter(Boolean);
 
-    setSelectedProfile({ ...player, stats: pStats, relationStatus, playerTeams });
+    setSelectedProfile({ ...player, stats: {}, relationStatus, playerTeams });
     setInviteTeamId("");
   };
 
@@ -93,7 +90,7 @@ export default function PlayerDashboard() {
       if (teamError) throw teamError;
       const { error: memberError } = await supabase.from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
       if (memberError) throw memberError;
-      setNewTeamName(""); setNewTeamCity(""); fetchData(); 
+      setNewTeamName(""); setNewTeamCity(""); refetch(); 
       toast.success("Ton équipe a été créée avec succès ! 🎉");
     } catch (error) { toast.error("Erreur : " + error.message); }
   };
@@ -103,7 +100,7 @@ export default function PlayerDashboard() {
     try {
       const { error } = await supabase.from('team_members').insert([{ team_id: teamId, player_id: session.user.id, status: 'pending' }]);
       if (error && error.code === '23505') toast.error("Tu as déjà fait une demande pour cette équipe !");
-      else if (!error) { toast.success("Demande envoyée !"); fetchData(); }
+      else if (!error) { toast.success("Demande envoyée !"); refetch(); }
     } catch (error) {}
   };
 
@@ -117,7 +114,7 @@ export default function PlayerDashboard() {
         try {
           await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
           toast.success("Candidature annulée.");
-          fetchData(); 
+          refetch(); 
         } catch (error) { toast.error("Erreur lors de l'annulation."); }
       }
     });
@@ -144,7 +141,7 @@ export default function PlayerDashboard() {
       } else {
         await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', session.user.id);
       }
-      fetchData();
+      refetch();
     } catch (error) {}
   };
 
@@ -154,7 +151,6 @@ export default function PlayerDashboard() {
     loadRoster(team.id); 
   };
 
-  // 👇 MODIFIÉ : Récupère aussi les manual_name (Joueurs fantômes)
   const loadRoster = async (teamId) => {
     try {
       const { data: members } = await supabase.from('team_members').select('id, status, player_id, manual_name').eq('team_id', teamId);
@@ -177,7 +173,6 @@ export default function PlayerDashboard() {
     setRoster(prev => prev.map(p => p.player_id === playerId ? { ...p, status: 'accepted' } : p));
   };
 
-  // 👇 MODIFIÉ : Gère la suppression des Vrais ET des Faux joueurs
   const removePlayer = (identifier, isGhost = false, isSelfLeave = false) => {
     setConfirmData({
       isOpen: true,
@@ -197,7 +192,7 @@ export default function PlayerDashboard() {
           
           if (isSelfLeave) { 
             setManagingTeam(null); 
-            fetchData(); 
+            refetch(); 
           } else { 
             setRoster(prev => prev.filter(p => p.isGhost ? p.manual_name !== identifier : p.player_id !== identifier)); 
           }
@@ -206,7 +201,6 @@ export default function PlayerDashboard() {
     });
   };
 
-  // 👇 NOUVEAU : Fonction d'ajout de joueur fantôme
   const handleAddGhostPlayer = async (e) => {
     e.preventDefault();
     const name = newGhostName.trim();
@@ -226,7 +220,6 @@ export default function PlayerDashboard() {
       setNewGhostName("");
       loadRoster(managingTeam.id);
     } catch(err) { 
-      console.error("DÉTAIL ERREUR SUPABASE :", err);
       toast.error("Erreur Supabase : " + (err.message || err.details || "Regarde la console")); 
     }
   };
@@ -247,7 +240,7 @@ export default function PlayerDashboard() {
           setManagingTeam({ ...managingTeam, captain_id: selectedNewCaptainId });
           setTransferModalOpen(false);
           setSelectedNewCaptainId("");
-          fetchData();
+          refetch();
         } catch (error) { toast.error("Erreur : " + error.message); }
       }
     });
@@ -265,7 +258,7 @@ export default function PlayerDashboard() {
           if (error) throw error;
           toast.success("L'équipe a été dissoute avec succès. 💥");
           setManagingTeam(null);
-          fetchData();
+          refetch();
         } catch (error) { toast.error("Erreur : " + error.message); }
       }
     });
@@ -275,15 +268,11 @@ export default function PlayerDashboard() {
     if (!selectedTeamToRegister) return toast.error("Sélectionne une équipe !");
     try {
       const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
-      
-      // On récupère les membres acceptés de l'équipe
       const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
       
-      // 👇 LA NOUVELLE RÈGLE DES 5 JOUEURS EST ICI 👇
       if (!members || members.length < 5) {
         return toast.error(`Effectif incomplet 🛑\n\nL'équipe "${teamToReg.name}" n'a que ${members?.length || 0} joueur(s) validé(s). Il en faut au minimum 5 pour s'inscrire à un tournoi !`);
       }
-      // 👆 ---------------------------------------- 👆
 
       let newPlayers = [];
       if (members && members.length > 0) {
@@ -314,7 +303,7 @@ export default function PlayerDashboard() {
       await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: newTeamObj });
       
       toast.success(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
-      setRegisterModalTourney(null); setSelectedTeamToRegister(""); fetchData();
+      setRegisterModalTourney(null); setSelectedTeamToRegister(""); refetch();
 
     } catch(err) {
       console.error(err);
@@ -322,11 +311,8 @@ export default function PlayerDashboard() {
     }
   };
 
-  // 👇 NOUVEAU : FONCTION POUR QUITTER UN TOURNOI 👇
   const handleLeaveTournament = (tourney, teamGlobalId) => {
-    if (tourney.status !== 'preparing') {
-      return toast.error("Impossible 🛑 : Le tournoi a déjà commencé !");
-    }
+    if (tourney.status !== 'preparing') return toast.error("Impossible 🛑 : Le tournoi a déjà commencé !");
 
     const myGlobalTeam = myTeams.find(mt => mt.global_teams.id === teamGlobalId)?.global_teams;
     if (!myGlobalTeam || myGlobalTeam.captain_id !== session.user.id) {
@@ -341,33 +327,18 @@ export default function PlayerDashboard() {
       onConfirm: async () => {
         const loadingToast = toast.loading("Désinscription en cours...");
         try {
-          
-          // 1. On récupère la liste exacte du tournoi
-          const { data: currentTourney, error: fetchError } = await supabase
-            .from('tournaments')
-            .select('teams')
-            .eq('id', tourney.id)
-            .single();
-
+          const { data: currentTourney, error: fetchError } = await supabase.from('tournaments').select('teams').eq('id', tourney.id).single();
           if (fetchError) throw fetchError;
 
-          // 2. On filtre en Javascript (C'est infaillible)
           const currentTeams = currentTourney.teams || [];
           const updatedTeams = currentTeams.filter(t => t.global_id !== teamGlobalId);
 
-          // 3. On demande à Supabase de forcer la sauvegarde avec notre nouvelle RPC
-          const { error: rpcError } = await supabase.rpc('update_tournament_teams', { 
-            t_id: tourney.id, 
-            new_teams: updatedTeams 
-          });
-
+          const { error: rpcError } = await supabase.rpc('update_tournament_teams', { t_id: tourney.id, new_teams: updatedTeams });
           if (rpcError) throw rpcError;
 
           toast.success("Ton équipe a été retirée du tournoi.", { id: loadingToast });
-          fetchData(); 
-          
+          refetch(); 
         } catch (error) {
-          console.error("DÉTAIL ERREUR :", error);
           toast.error("Erreur lors de la désinscription.", { id: loadingToast });
         }
       }
@@ -376,15 +347,15 @@ export default function PlayerDashboard() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '20px', width: '100%' }}>
-        <div className="skeleton skeleton-title"></div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', marginTop: '30px' }}>
+      <div className="w-full max-w-[1200px] mx-auto p-5">
+        <div className="h-8 bg-[#333] rounded w-1/3 animate-pulse mb-8"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map(n => (
-            <div key={n} style={{ background: '#111', padding: '20px', borderRadius: '12px', border: '1px solid #222' }}>
-              <div className="skeleton skeleton-text" style={{ width: '60%', height: '24px' }}></div>
-              <div className="skeleton skeleton-text-short" style={{ marginTop: '15px' }}></div>
-              <div className="skeleton skeleton-text-short" style={{ width: '30%' }}></div>
-              <div className="skeleton skeleton-card" style={{ height: '40px', marginTop: '20px' }}></div>
+            <div key={n} className="bg-[#111] p-5 rounded-xl border border-[#222]">
+              <div className="h-6 bg-[#333] rounded w-3/5 animate-pulse mb-4"></div>
+              <div className="h-4 bg-[#333] rounded w-full animate-pulse mb-2"></div>
+              <div className="h-4 bg-[#333] rounded w-2/5 animate-pulse mb-5"></div>
+              <div className="h-10 bg-[#333] rounded w-full animate-pulse"></div>
             </div>
           ))}
         </div>
@@ -396,272 +367,91 @@ export default function PlayerDashboard() {
   const availableTeams = allTeams.filter(t => !myTeamIds.includes(t.id));
   const myCaptainTeams = myTeams.filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted').map(mt => mt.global_teams);
 
+  // 👇 L'AFFICHAGE DE LA GESTION D'ÉQUIPE VIA NOTRE NOUVEAU COMPOSANT 👇
   if (managingTeam) {
-    const isCaptainView = managingTeam.captain_id === session.user.id;
-    const pendingPlayers = roster.filter(p => p.status === 'pending');
-    const acceptedPlayers = roster.filter(p => p.status === 'accepted');
-    const invitedPlayers = roster.filter(p => p.status === 'invited');
-
     return (
-      <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', color: 'white' }}>
-        <button onClick={() => { setManagingTeam(null); localStorage.removeItem('managingTeamId'); }} className="btn-tab" style={{ marginBottom: '20px' }}>
-          ⬅ RETOUR
-        </button>
-        
-        <h1 style={{ color: 'var(--accent-blue)', borderBottom: '2px solid #333', paddingBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          <span>{isCaptainView ? '👑 Gestion' : '🏀 Équipe'} : {managingTeam.name}</span>
-          {isCaptainView && (
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {acceptedPlayers.length > 1 && (
-                <button onClick={() => setTransferModalOpen(true)} style={{ background: 'transparent', color: 'var(--accent-orange)', border: '1px solid var(--accent-orange)', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                  👑 CHANGER DE CAPITAINE
-                </button>
-              )}
-              <button onClick={handleDeleteTeam} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                DISSOUDRE 💥
-              </button>
-            </div>
-          )}
-        </h1>
+      <>
+        <TeamManagerView 
+          session={session}
+          managingTeam={managingTeam}
+          setManagingTeam={setManagingTeam}
+          roster={roster}
+          acceptedPlayers={roster.filter(p => p.status === 'accepted')}
+          pendingPlayers={roster.filter(p => p.status === 'pending')}
+          invitedPlayers={roster.filter(p => p.status === 'invited')}
+          isCaptainView={managingTeam.captain_id === session.user.id}
+          setTransferModalOpen={setTransferModalOpen}
+          handleDeleteTeam={handleDeleteTeam}
+          viewPlayerProfile={viewPlayerProfile}
+          acceptPlayer={acceptPlayer}
+          removePlayer={removePlayer}
+          handleAddGhostPlayer={handleAddGhostPlayer}
+          newGhostName={newGhostName}
+          setNewGhostName={setNewGhostName}
+        />
 
-        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginTop: '30px' }}>
-          {isCaptainView && (
-            <div style={{ flex: '1', minWidth: '300px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              
-              <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px solid var(--accent-orange)' }}>
-                <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-orange)' }}>⏳ Candidatures ({pendingPlayers.length})</h2>
-                {pendingPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic' }}>Aucune demande.</p> : null}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {pendingPlayers.map(p => (
-                    <div key={p.id || p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px' }}>
-                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil">{p.full_name}</strong>
-                      <div style={{ display: 'flex', gap: '10px' }}>
-                        <button onClick={() => acceptPlayer(p.player_id)} style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>ACCEPTER</button>
-                        <button onClick={() => removePlayer(p.player_id, false)} style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>REFUSER</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ background: '#222', padding: '20px', borderRadius: '12px', border: '1px dashed var(--accent-blue)' }}>
-                <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)' }}>✉️ Invitations ({invitedPlayers.length})</h2>
-                {invitedPlayers.length === 0 ? <p style={{ color: '#888', fontStyle: 'italic', fontSize: '0.9rem' }}>Aucune invitation en attente.</p> : null}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {invitedPlayers.map(p => (
-                    <div key={p.id || p.player_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#111', padding: '12px', borderRadius: '6px', borderLeft: '3px solid var(--accent-blue)' }}>
-                      <strong onClick={() => viewPlayerProfile({ id: p.player_id, full_name: p.full_name })} className="mercato-player-name-interactive" title="Voir le profil">{p.full_name}</strong>
-                      <button onClick={() => removePlayer(p.player_id, false)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Annuler</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          )}
-          
-          <div style={{ flex: '1', minWidth: '300px', background: '#1a1a1a', padding: '20px', borderRadius: '12px', border: '1px solid #333' }}>
-            <h2 style={{ margin: '0 0 20px 0', color: 'var(--success)' }}>✅ Effectif ({acceptedPlayers.length})</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {acceptedPlayers.map(p => {
-                const isMe = p.player_id === session.user.id;
-                const isTheCaptain = p.player_id === managingTeam.captain_id;
-                return (
-                  <div key={p.id || p.player_id || p.manual_name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#222', padding: '12px', borderRadius: '6px', borderLeft: '4px solid var(--success)', flexWrap: 'wrap', gap: '10px' }}>
-                    <strong 
-                      onClick={() => !p.isGhost && viewPlayerProfile({ id: p.player_id, full_name: p.full_name })}
-                      className={!p.isGhost ? "mercato-player-name-interactive" : ""}
-                      style={{ color: isTheCaptain ? 'var(--accent-purple)' : 'white' }}
-                    >
-                      {p.full_name} {isTheCaptain && '👑'} {isMe && '(Toi)'}
-                      {p.isGhost && <span style={{fontSize: '0.75rem', color: '#888', marginLeft: '6px'}}>(Ajout Manuel)</span>}
-                    </strong>
-                    
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      {!isCaptainView && isMe && <button onClick={() => removePlayer(p.player_id, false, true)} style={{ background: 'transparent', color: 'var(--danger)', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Quitter</button>}
-                      
-                      {/* 👇 BOUTON DE SUPPRESSION POUR LE CAPITAINE 👇 */}
-                      {isCaptainView && !isTheCaptain && (
-                        <button onClick={() => removePlayer(p.isGhost ? p.manual_name : p.player_id, p.isGhost)} style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }} title="Retirer ce joueur">✕</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 👇 LE FAMEUX FORMULAIRE D'AJOUT MANUEL 👇 */}
-            {isCaptainView && (
-              <form onSubmit={handleAddGhostPlayer} style={{ display: 'flex', gap: '10px', marginTop: '20px', borderTop: '1px dashed #333', paddingTop: '20px' }}>
-                <input 
-                  type="text" 
-                  value={newGhostName} 
-                  onChange={e => setNewGhostName(e.target.value)} 
-                  placeholder="Nom du joueur sans compte..." 
-                  style={{ flex: 1, padding: '10px', borderRadius: '6px', background: '#111', color: 'white', border: '1px solid #444' }} 
-                />
-                <button type="submit" disabled={!newGhostName.trim()} style={{ background: 'var(--success)', color: 'white', border: 'none', padding: '0 15px', borderRadius: '6px', fontWeight: 'bold', cursor: newGhostName.trim() ? 'pointer' : 'not-allowed', opacity: newGhostName.trim() ? 1 : 0.5 }}>
-                  AJOUTER
-                </button>
-              </form>
-            )}
-
-          </div>
-        </div>
-
+        {/* La modale de transfert du capitanat reste ici car elle dépend de l'état du Dashboard */}
         {transferModalOpen && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
-            <div style={{ background: '#1a1a1a', padding: '25px', borderRadius: '12px', border: '1px solid var(--accent-orange)', width: '90%', maxWidth: '400px' }}>
-              <h3 style={{ marginTop: 0, color: 'var(--accent-orange)', borderBottom: '1px solid #333', paddingBottom: '10px' }}>👑 Nommer un nouveau Capitaine</h3>
+          <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[9999] p-4">
+            <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-orange)] w-full max-w-[400px]">
+              <h3 className="mt-0 mb-4 text-[var(--accent-orange)] border-b border-[#333] pb-3 text-lg font-bold">👑 Nommer un nouveau Capitaine</h3>
               
-              <label style={{ display: 'block', marginBottom: '8px', color: '#ccc', fontSize: '0.85rem' }}>Sélectionner le joueur :</label>
+              <label className="block mb-2 text-[#ccc] text-sm">Sélectionner le joueur :</label>
               <select
                 value={selectedNewCaptainId}
                 onChange={(e) => setSelectedNewCaptainId(e.target.value)}
-                style={{ width: '100%', marginBottom: '25px', padding: '10px', borderRadius: '6px', background: '#222', color: 'white', border: '1px solid #555' }}
+                className="w-full mb-6 p-3 rounded-md bg-[#222] text-white border border-[#555] focus:outline-none focus:border-[var(--accent-orange)]"
               >
                 <option value="">-- Choisir dans l'effectif --</option>
-                {/* On empêche de donner le brassard à un joueur fantôme ou à soi-même */}
-                {acceptedPlayers.filter(p => p.player_id !== session.user.id && !p.isGhost).map(p => (
+                {roster.filter(p => p.status === 'accepted' && p.player_id !== session.user.id && !p.isGhost).map(p => (
                   <option key={p.player_id} value={p.player_id}>{p.full_name}</option>
                 ))}
               </select>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} style={{ background: '#333', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Annuler</button>
-                <button onClick={handleTransferCaptaincy} style={{ padding: '10px 20px', fontSize: '1rem', background: 'var(--accent-orange)', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Valider</button>
+              <div className="flex gap-3 justify-end">
+                <button onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} className="bg-[#333] text-white px-4 py-2 rounded-md font-bold cursor-pointer hover:bg-[#444] transition-colors">Annuler</button>
+                <button onClick={handleTransferCaptaincy} className="bg-[var(--accent-orange)] text-white px-5 py-2 rounded-md font-bold cursor-pointer hover:bg-orange-600 transition-colors">Valider</button>
               </div>
             </div>
           </div>
         )}
 
+        {/* Les modales habituelles */}
         <PlayerProfileModal 
-          selectedProfile={selectedProfile}
-          setSelectedProfile={setSelectedProfile}          
-          myCaptainTeams={myCaptainTeams}
-          inviteTeamId={inviteTeamId}
-          setInviteTeamId={setInviteTeamId}
-          handleInvitePlayer={handleInvitePlayer}
-          managingTeam={managingTeam}
-          removePlayer={removePlayer}
+          selectedProfile={selectedProfile} setSelectedProfile={setSelectedProfile} myCaptainTeams={myCaptainTeams} inviteTeamId={inviteTeamId} setInviteTeamId={setInviteTeamId} handleInvitePlayer={handleInvitePlayer} managingTeam={managingTeam} removePlayer={removePlayer}
         />
-
-        <ConfirmModal 
-          isOpen={confirmData.isOpen}
-          title={confirmData.title}
-          message={confirmData.message}
-          onConfirm={() => {
-            if (confirmData.onConfirm) confirmData.onConfirm();
-            closeConfirm();
-          }}
-          onCancel={closeConfirm}
-          isDanger={confirmData.isDanger}
-        />
-
-        <PromptModal 
-          isOpen={promptData.isOpen}
-          title={promptData.title}
-          message={promptData.message}
-          placeholder={promptData.placeholder}
-          onConfirm={(value) => {
-            if (promptData.onConfirm) promptData.onConfirm(value);
-            closePrompt();
-          }}
-          onCancel={closePrompt}
-        />
-
-      </div>
+        <ConfirmModal isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message} onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }} onCancel={closeConfirm} isDanger={confirmData.isDanger} />
+        <PromptModal isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder} onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }} onCancel={closePrompt} />
+      </>
     );
   }
 
   return (
-    <div style={{ maxWidth: currentTab === 'explorer' ? '100%' : '1200px', margin: '0 auto', color: 'white', width: '100%' }}>
+    <div className={`mx-auto text-white w-full ${currentTab === 'explorer' ? 'max-w-full' : 'max-w-[1200px]'}`}>
       {currentTab === 'vestiaire' && (
         <MonVestiaire          
-          myTeams={myTeams}
-          hasTeam={hasTeam}
-          respondToInvite={respondToInvite}
-          openTeamManager={openTeamManager}
-          handleCreateTeam={handleCreateTeam}
-          newTeamName={newTeamName}
-          setNewTeamName={setNewTeamName}
-          newTeamCity={newTeamCity}
-          setNewTeamCity={setNewTeamCity}
-          cancelPendingRequest={cancelPendingRequest}
+          myTeams={myTeams} hasTeam={hasTeam} respondToInvite={respondToInvite} openTeamManager={openTeamManager} handleCreateTeam={handleCreateTeam} newTeamName={newTeamName} setNewTeamName={setNewTeamName} newTeamCity={newTeamCity} setNewTeamCity={setNewTeamCity} cancelPendingRequest={cancelPendingRequest}
         />
       )}
 
       {currentTab === 'mercato' && (
         <Mercato 
-          availableTeams={availableTeams}
-          hasTeam={hasTeam}
-          handleJoinTeam={handleJoinTeam}
-          allPlayers={allPlayers} 
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          handleSearchPlayer={handleSearchPlayer} 
-          searchResults={searchResults}
-          viewPlayerProfile={viewPlayerProfile}
+          availableTeams={availableTeams} hasTeam={hasTeam} handleJoinTeam={handleJoinTeam} allPlayers={allPlayers} searchQuery={searchQuery} setSearchQuery={setSearchQuery} handleSearchPlayer={handleSearchPlayer} searchResults={searchResults} viewPlayerProfile={viewPlayerProfile}
         />
       )}
 
       {currentTab === 'carriere' && <MaCarriere careerStats={careerStats} />}
 
       {currentTab === 'explorer' && (
-        <ExplorerTournois           
-          allTournaments={allTournaments} 
-          myTeams={myTeams} 
-          setRegisterModalTourney={setRegisterModalTourney} 
-          setActiveTourneyId={setActiveTourneyId}
-          setView={setView}
-          handleLeaveTournament={handleLeaveTournament} // 👈 ON PASSE LA FONCTION ICI
+        <ExplorerTournois          
+          allTournaments={allTournaments} myTeams={myTeams} setRegisterModalTourney={setRegisterModalTourney} setActiveTourneyId={setActiveTourneyId} setView={setView} handleLeaveTournament={handleLeaveTournament}
         />
       )}
 
-      <PlayerProfileModal 
-        selectedProfile={selectedProfile}
-        setSelectedProfile={setSelectedProfile}        
-        myCaptainTeams={myCaptainTeams}
-        inviteTeamId={inviteTeamId}
-        setInviteTeamId={setInviteTeamId}
-        handleInvitePlayer={handleInvitePlayer}
-        managingTeam={managingTeam}
-        removePlayer={removePlayer}
-      />
-
-      <TournamentRegistrationModal 
-        registerModalTourney={registerModalTourney}
-        setRegisterModalTourney={setRegisterModalTourney}
-        selectedTeamToRegister={selectedTeamToRegister}
-        setSelectedTeamToRegister={setSelectedTeamToRegister}
-        myCaptainTeams={myCaptainTeams}
-        submitRegistration={submitRegistration}
-      />
-
-      <ConfirmModal 
-        isOpen={confirmData.isOpen}
-        title={confirmData.title}
-        message={confirmData.message}
-        onConfirm={() => {
-          if (confirmData.onConfirm) confirmData.onConfirm();
-          closeConfirm();
-        }}
-        onCancel={closeConfirm}
-        isDanger={confirmData.isDanger}
-      />
-
-      <PromptModal 
-        isOpen={promptData.isOpen}
-        title={promptData.title}
-        message={promptData.message}
-        placeholder={promptData.placeholder}
-        onConfirm={(value) => {
-          if (promptData.onConfirm) promptData.onConfirm(value);
-          closePrompt();
-        }}
-        onCancel={closePrompt}
-      />
-      
+      <PlayerProfileModal selectedProfile={selectedProfile} setSelectedProfile={setSelectedProfile} myCaptainTeams={myCaptainTeams} inviteTeamId={inviteTeamId} setInviteTeamId={setInviteTeamId} handleInvitePlayer={handleInvitePlayer} managingTeam={managingTeam} removePlayer={removePlayer} />
+      <TournamentRegistrationModal registerModalTourney={registerModalTourney} setRegisterModalTourney={setRegisterModalTourney} selectedTeamToRegister={selectedTeamToRegister} setSelectedTeamToRegister={setSelectedTeamToRegister} myCaptainTeams={myCaptainTeams} submitRegistration={submitRegistration} />
+      <ConfirmModal isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message} onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }} onCancel={closeConfirm} isDanger={confirmData.isDanger} />
+      <PromptModal isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder} onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }} onCancel={closePrompt} />
     </div>
   );
 }

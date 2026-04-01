@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
-// 👇 1. ON AJOUTE handleLeaveTournament ICI
 export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView, handleLeaveTournament }) {
   const [filterFinished, setFilterFinished] = useState('all');
   const { session } = useAuth();
@@ -19,7 +18,7 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   }, [allTournaments]);
 
   if (!isReady) {
-    return <div style={{ flex: 1, backgroundColor: 'transparent' }}></div>;
+    return <div className="flex-1 bg-transparent"></div>;
   }
   // --- FIN DE L'ANTI-FLASH ---
   
@@ -51,12 +50,12 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
 
   const renderTeamTags = (teams) => {
     if (!teams || teams.length === 0) {
-      return <p style={{ color: '#666', fontStyle: 'italic', fontSize: '0.8rem', margin: '0 0 15px 0' }}>Aucune équipe inscrite pour le moment.</p>;
+      return <p className="text-[#666] italic text-xs mb-4">Aucune équipe inscrite pour le moment.</p>;
     }
     return (
-      <div className="teams-tags-container" style={{ marginBottom: '15px' }}>
+      <div className="flex flex-wrap gap-2 mb-4">
         {teams.map((team, idx) => (
-          <span key={idx} className="team-tag">
+          <span key={idx} className="bg-[var(--bg-lighter)] border border-[#333] text-white text-xs px-2.5 py-1 rounded-md font-bold shadow-sm">
             🛡️ {team.name}
           </span>
         ))}
@@ -66,34 +65,37 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
 
   
   return (
-    <div className="dashboard-container" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="w-full flex-1 flex flex-col box-border pt-4">
       
-      <h1 className="text-red-500 font-bold text-4xl">
+      <h1 className="text-white border-b-2 border-[#333] pb-2 text-2xl font-bold">
         🌍 Explorer les tournois
       </h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-8">
         
         {/* COLONNE 1 : TOURNOIS PUBLICS (Inscription) */}
-        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-purple)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
+          <h2 className="m-0 mb-5 text-[var(--accent-purple)] text-base text-center uppercase tracking-wider font-bold">
             🟢 Inscription ouverte
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
+          <div className="flex flex-col gap-4 flex-1">
             {publicTourneys.length === 0 ? (
-              <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun tournoi disponible.</p>
+              <p className="text-[#666] italic text-center text-sm">Aucun tournoi disponible.</p>
             ) : (
               publicTourneys.map(t => (
-                <div key={t.id} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', boxShadow: 'var(--shadow-sm)' }}>
-                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                <div key={t.id} className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] shadow-md">
+                  <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
+                  <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
                   
                   {renderTeamTags(t.teams)}
                   
                   {myCaptainTeams.length === 0 ? (
-                    <span style={{ fontSize: '0.85rem', color: 'var(--danger)', fontStyle: 'italic', fontWeight: 'bold' }}>Fonde une équipe pour t'inscrire.</span>
+                    <span className="text-sm text-[var(--danger)] italic font-bold block mt-2">Fonde une équipe pour t'inscrire.</span>
                   ) : (
-                    <button onClick={() => setRegisterModalTourney(t)} style={{ width: '100%', background: 'transparent', color: 'var(--accent-purple)', border: '2px solid var(--accent-purple)', padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: '0.2s' }} onMouseOver={e => {e.target.style.background='var(--accent-purple)'; e.target.style.color='white'}} onMouseOut={e => {e.target.style.background='transparent'; e.target.style.color='var(--accent-purple)'}}>
+                    <button 
+                      onClick={() => setRegisterModalTourney(t)} 
+                      className="w-full bg-transparent text-[var(--accent-purple)] border-2 border-[var(--accent-purple)] p-2.5 rounded-lg cursor-pointer font-bold transition-colors hover:bg-[var(--accent-purple)] hover:text-white mt-2"
+                    >
                       S'INSCRIRE
                     </button>
                   )}
@@ -104,22 +106,28 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
         </div>
 
         {/* COLONNE 2 : TOURNOIS EN COURS (À SUIVRE) */}
-        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ margin: '0 0 20px 0', color: 'var(--accent-blue)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
+          <h2 className="m-0 mb-5 text-[var(--accent-blue)] text-base text-center uppercase tracking-wider font-bold">
             🔥 Suivre un tournoi
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
+          <div className="flex flex-col gap-4 flex-1">
             {ongoingOtherTourneys.length === 0 ? (
-              <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun autre tournoi en cours.</p>
+              <p className="text-[#666] italic text-center text-sm">Aucun autre tournoi en cours.</p>
             ) : (
               ongoingOtherTourneys.map(t => (
-                <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', cursor: 'pointer', transition: 'transform 0.2s, box-shadow 0.2s' }} onMouseOver={e => {e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='var(--shadow-glow-blue)'}} onMouseOut={e => {e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='none'}}>
-                  <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
-                  <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                <div 
+                  key={t.id} 
+                  onClick={() => handleOpenTourney(t.id)} 
+                  className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-[var(--accent-blue)]"
+                >
+                  <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
+                  <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
                   
                   {renderTeamTags(t.teams)}
 
-                  <span style={{ fontSize: '0.85rem', color: 'var(--accent-blue)', fontWeight: 'bold', display: 'block', textAlign: 'center', background: 'rgba(0, 212, 255, 0.1)', padding: '8px', borderRadius: '6px' }}>👀 Suivre les matchs & Stats</span>
+                  <span className="text-sm text-[var(--accent-blue)] font-bold block text-center bg-[rgba(0,212,255,0.1)] p-2 rounded-lg mt-2">
+                    👀 Suivre les matchs & Stats
+                  </span>
                 </div>
               ))
             )}
@@ -127,56 +135,45 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
         </div>
 
         {/* COLONNE 3 : MES TOURNOIS */}
-        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ margin: '0 0 20px 0', color: 'var(--success)', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
+          <h2 className="m-0 mb-5 text-[var(--success)] text-base text-center uppercase tracking-wider font-bold">
             ✅ Inscrit
           </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
+          <div className="flex flex-col gap-4 flex-1">
             {myActiveTourneys.length === 0 ? (
-              <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Tu n'es inscrit à aucun tournoi actif.</p>
+              <p className="text-[#666] italic text-center text-sm">Tu n'es inscrit à aucun tournoi actif.</p>
             ) : (
               myActiveTourneys.map(t => {
-                // 👇 2. LOGIQUE POUR SAVOIR SI ON EST CAPITAINE DE L'ÉQUIPE INSCRITE
                 const myRegisteredTeam = t.teams && t.teams.find(team => myAcceptedTeamIds.includes(team.global_id));
                 const isCaptainOfThisTeam = myRegisteredTeam && myCaptainTeams.some(capTeam => capTeam.id === myRegisteredTeam.global_id);
 
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', borderLeft: '4px solid var(--success)', cursor: 'pointer', transition: 'transform 0.2s' }} onMouseOver={e => e.currentTarget.style.transform='translateY(-4px)'} onMouseOut={e => e.currentTarget.style.transform='none'}>
-                    <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
-                    <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                  <div 
+                    key={t.id} 
+                    onClick={() => handleOpenTourney(t.id)} 
+                    className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] border-l-4 border-l-[var(--success)] cursor-pointer shadow-md transition-transform duration-200 hover:-translate-y-1"
+                  >
+                    <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
+                    <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
                     
                     {renderTeamTags(t.teams)}
 
-                    <div style={{ textAlign: 'center', background: t.status === 'ongoing' ? 'rgba(255, 107, 0, 0.1)' : 'rgba(52, 199, 89, 0.1)', padding: '8px', borderRadius: '6px' }}>
+                    <div className={`text-center p-2 rounded-lg mt-2 ${t.status === 'ongoing' ? 'bg-[rgba(255,107,0,0.1)]' : 'bg-[rgba(52,199,89,0.1)]'}`}>
                       {t.status === 'ongoing' ? (
-                          <span style={{ fontSize: '0.85rem', color: 'var(--accent-orange)', fontWeight: 'bold' }}>🔥 EN JEU (Suivre l'avancée)</span>
+                          <span className="text-sm text-[var(--accent-orange)] font-bold">🔥 EN JEU (Suivre l'avancée)</span>
                       ) : (
-                          <span style={{ fontSize: '0.85rem', color: 'var(--success)', fontWeight: 'bold' }}>🗓️ Voir les engagés</span>
+                          <span className="text-sm text-[var(--success)] font-bold">🗓️ Voir les engagés</span>
                       )}
                     </div>
 
-                    {/* 👇 3. LE BOUTON DÉSINSCRIPTION 👇 */}
+                    {/* LE BOUTON DÉSINSCRIPTION */}
                     {t.status === 'preparing' && isCaptainOfThisTeam && (
                       <button 
                         onClick={(e) => {
-                          e.stopPropagation(); // Évite que le clic n'ouvre le tournoi en arrière-plan
+                          e.stopPropagation(); 
                           handleLeaveTournament(t, myRegisteredTeam.global_id);
                         }}
-                        style={{ 
-                          width: '100%', 
-                          marginTop: '10px', 
-                          background: 'transparent', 
-                          color: 'var(--danger)', 
-                          border: '1px solid var(--danger)', 
-                          padding: '8px', 
-                          borderRadius: '6px', 
-                          cursor: 'pointer', 
-                          fontWeight: 'bold', 
-                          fontSize: '0.85rem',
-                          transition: '0.2s'
-                        }}
-                        onMouseOver={e => {e.target.style.background='var(--danger)'; e.target.style.color='white'}} 
-                        onMouseOut={e => {e.target.style.background='transparent'; e.target.style.color='var(--danger)'}}
+                        className="w-full mt-3 bg-transparent text-[var(--danger)] border border-[var(--danger)] p-2 rounded-lg cursor-pointer font-bold text-sm transition-colors hover:bg-[var(--danger)] hover:text-white"
                       >
                         DÉSINCRIRE L'ÉQUIPE 🚪
                       </button>
@@ -189,48 +186,52 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
         </div>
 
         {/* COLONNE 4 : TOURNOIS TERMINÉS */}
-        <div style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
-          <h2 style={{ margin: '0 0 10px 0', color: '#888', fontSize: '1rem', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
+          <h2 className="m-0 mb-3 text-[#888] text-base text-center uppercase tracking-wider font-bold">
             🏁 Terminés
           </h2>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
+          <div className="flex justify-center gap-2 mb-5">
             <button 
               onClick={() => setFilterFinished('all')}
-              style={{ background: filterFinished === 'all' ? '#555' : '#222', color: 'white', border: filterFinished === 'all' ? '1px solid #777' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filterFinished === 'all' ? 'bold' : 'normal' }}
+              className={`px-3 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${filterFinished === 'all' ? 'bg-[#555] text-white border border-[#777] font-bold' : 'bg-[#222] text-white border border-[#444] font-normal hover:bg-[#333]'}`}
             >
               Tous
             </button>
             <button 
               onClick={() => setFilterFinished('mine')}
-              style={{ background: filterFinished === 'mine' ? 'var(--success)' : '#222', color: 'white', border: filterFinished === 'mine' ? '1px solid var(--success)' : '1px solid #444', padding: '6px 12px', borderRadius: '6px', fontSize: '0.8rem', cursor: 'pointer', fontWeight: filterFinished === 'mine' ? 'bold' : 'normal' }}
+              className={`px-3 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${filterFinished === 'mine' ? 'bg-[var(--success)] text-white border border-[var(--success)] font-bold' : 'bg-[#222] text-white border border-[#444] font-normal hover:bg-[#333]'}`}
             >
               Mes participations
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', flex: 1 }}>
+          <div className="flex flex-col gap-4 flex-1">
             {finishedTourneys.length === 0 ? (
-              <p style={{ color: '#666', fontStyle: 'italic', textAlign: 'center' }}>Aucun historique.</p>
+              <p className="text-[#666] italic text-center text-sm">Aucun historique.</p>
             ) : (
               finishedTourneys.map(t => {
                 const iParticipated = isRegisteredIn(t);
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '12px', border: '1px solid #333', opacity: 0.8, cursor: 'pointer', transition: 'opacity 0.2s, transform 0.2s' }} onMouseOver={e => {e.currentTarget.style.opacity='1'; e.currentTarget.style.transform='translateY(-2px)'}} onMouseOut={e => {e.currentTarget.style.opacity='0.8'; e.currentTarget.style.transform='none'}}>
-                    <strong style={{ fontSize: '1.2rem', display: 'block', color: 'white', marginBottom: '5px', fontFamily: 'var(--font-heading)' }}>{t.name}</strong>
-                    <span style={{ fontSize: '0.85rem', color: '#888', display: 'block', marginBottom: '15px', fontWeight: 'bold' }}>📅 {t.date || 'Date non définie'}</span>
+                  <div 
+                    key={t.id} 
+                    onClick={() => handleOpenTourney(t.id)} 
+                    className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] opacity-80 cursor-pointer shadow-md transition-all duration-200 hover:opacity-100 hover:-translate-y-1 hover:border-[#555]"
+                  >
+                    <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
+                    <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
                     
-                    <div className="teams-tags-container" style={{ marginBottom: '15px', opacity: 0.7 }}>
+                    <div className="flex flex-wrap gap-2 mb-4 opacity-70">
                       {(t.teams || []).map((team, idx) => (
-                        <span key={idx} className="team-tag" style={{ background: '#333', color: '#ccc', borderColor: '#555' }}>
+                        <span key={idx} className="bg-[#333] border border-[#555] text-[#ccc] text-xs px-2.5 py-1 rounded-md font-bold">
                           🛡️ {team.name}
                         </span>
                       ))}
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '10px', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '0.85rem', color: '#aaa', fontWeight: 'bold' }}>📊 Voir les archives</span>
-                      {iParticipated && <span style={{ fontSize: '0.7rem', background: 'var(--success)', color: 'white', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>J'y étais !</span>}
+                    <div className="flex justify-between items-center bg-black/20 p-2.5 rounded-lg mt-2">
+                      <span className="text-sm text-[#aaa] font-bold">📊 Voir les archives</span>
+                      {iParticipated && <span className="text-[10px] bg-[var(--success)] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">J'y étais !</span>}
                     </div>
                   </div>
                 );

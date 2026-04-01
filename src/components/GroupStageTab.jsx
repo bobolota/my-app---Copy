@@ -9,53 +9,46 @@ export default function GroupStageTab({
   setEditId, deleteTeam, groupCount, setGroupCount, update, getGroupStandings, getGroupLimit
 }) {
   
-  // 👇 NOUVEAU : État pour mémoriser quel match tu es en train de glisser
+  // État pour mémoriser quel match tu es en train de glisser
   const [draggedMatchId, setDraggedMatchId] = useState(null);
 
   // ==========================================
   // 👥 VUE JOUEUR / SPECTATEUR
   // ==========================================
   if (!canEdit) {
-    // On cherche si l'utilisateur appartient à une équipe pour la mettre en surbrillance
     const myTeam = (tourney?.teams || []).find(t =>
       t.players && t.players.some(p => p.name === currentUserName)
     );
     const myTeamName = myTeam?.name;
 
     return (
-      <div style={{ padding: '10px 0' }}>
-        
-        {/* S'il n'y a pas encore de poules générées */}
+      <div className="py-2">
         {savedGroupIds.length === 0 ? (
-          <div className="empty-state-container" style={{ marginTop: '40px' }}>
+          <div className="empty-state-container mt-10">
             <div className="empty-state-icon">📊</div>
             <h3 className="empty-state-title">Phase de poules en attente</h3>
             <p className="empty-state-desc">Les poules n'ont pas encore été définies par les organisateurs.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '25px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {savedGroupIds.map(gNum => {
               const standings = getGroupStandings(gNum);
               const limit = getGroupLimit(tourney, gNum);
-              
-              // On ne récupère que les matchs terminés pour cette poule
               const groupMatches = (tourney.schedule || []).filter(m => m.group === gNum && ['finished', 'canceled', 'forfeit'].includes(m.status));
 
               return (
-                <div key={gNum} style={{ background: '#111', borderRadius: '12px', padding: '20px', border: '1px solid #222', display: 'flex', flexDirection: 'column' }}>
+                <div key={gNum} className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col">
                   
-                  {/* EN-TÊTE POULE */}
-                  <h3 style={{ margin: '0 0 15px 0', color: 'var(--accent-purple)', textAlign: 'center', fontSize: '1.2rem', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  <h3 className="m-0 mb-4 text-[var(--accent-purple)] text-center text-lg uppercase tracking-wider font-bold">
                     🏆 POULE {gNum}
                   </h3>
 
-                  {/* TABLEAU DE CLASSEMENT */}
-                  <table style={{ width: '100%', fontSize: '0.9rem', marginBottom: '20px', borderCollapse: 'collapse' }}>
+                  <table className="w-full text-sm mb-5 border-collapse">
                     <thead>
-                      <tr style={{ color: '#888', borderBottom: '1px solid #333', textAlign: 'left' }}>
-                        <th style={{ paddingBottom: '8px' }}>CLASSEMENT</th>
-                        <th style={{ paddingBottom: '8px', textAlign: 'center' }}>PTS</th>
-                        <th style={{ paddingBottom: '8px', textAlign: 'right' }}>+/-</th>
+                      <tr className="text-[#888] border-b border-[#333] text-left">
+                        <th className="pb-2">CLASSEMENT</th>
+                        <th className="pb-2 text-center">PTS</th>
+                        <th className="pb-2 text-right">+/-</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -64,16 +57,12 @@ export default function GroupStageTab({
                         const isQualified = idx < limit;
                         
                         return (
-                          <tr key={team.id} style={{ 
-                            background: isMyTeam ? 'rgba(157, 78, 221, 0.15)' : 'transparent', 
-                            borderBottom: '1px solid #222',
-                            color: isQualified ? '#fff' : '#888'
-                          }}>
-                            <td style={{ padding: '12px 5px', borderLeft: isMyTeam ? '4px solid var(--accent-purple)' : '4px solid transparent', fontWeight: isMyTeam ? 'bold' : 'normal' }}>
+                          <tr key={team.id} className={`border-b border-[#222] ${isMyTeam ? 'bg-[rgba(157,78,221,0.15)]' : 'bg-transparent'} ${isQualified ? 'text-white' : 'text-[#888]'}`}>
+                            <td className={`py-3 px-1.5 ${isMyTeam ? 'border-l-4 border-[var(--accent-purple)] font-bold' : 'border-l-4 border-transparent'}`}>
                               {idx + 1}. {team.name} {isQualified && "⭐"}
                             </td>
-                            <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{team.points}</td>
-                            <td style={{ textAlign: 'right', color: team.diff > 0 ? 'var(--success)' : (team.diff < 0 ? 'var(--danger)' : 'inherit') }}>
+                            <td className="text-center font-bold">{team.points}</td>
+                            <td className={`text-right font-bold ${team.diff > 0 ? 'text-[var(--success)]' : (team.diff < 0 ? 'text-[var(--danger)]' : 'inherit')}`}>
                               {team.diff > 0 ? `+${team.diff}` : team.diff}
                             </td>
                           </tr>
@@ -82,30 +71,29 @@ export default function GroupStageTab({
                     </tbody>
                   </table>
 
-                  {/* HISTORIQUE DES MATCHS JOUÉS */}
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ color: '#aaa', fontSize: '0.8rem', textTransform: 'uppercase', marginBottom: '10px', borderBottom: '1px dashed #333', paddingBottom: '5px' }}>
+                  <div className="flex-1 mt-auto">
+                    <h4 className="text-[#aaa] text-xs uppercase mb-2 border-b border-dashed border-[#333] pb-1 font-bold">
                       Résultats validés
                     </h4>
                     
                     {groupMatches.length > 0 ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="flex flex-col gap-2">
                         {groupMatches.map(m => (
-                          <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'var(--bg-card)', padding: '10px 15px', borderRadius: '8px', fontSize: '0.85rem', border: '1px solid #333' }}>
-                            <span style={{ flex: 1, textAlign: 'right', color: m.scoreA > m.scoreB ? 'var(--success)' : (m.status === 'finished' ? '#888' : 'white'), fontWeight: m.scoreA > m.scoreB ? 'bold' : 'normal' }}>
+                          <div key={m.id} className="flex justify-between items-center bg-[var(--bg-card)] px-3 py-2 rounded-lg text-sm border border-[#333]">
+                            <span className={`flex-1 text-right truncate ${m.scoreA > m.scoreB ? 'text-[var(--success)] font-bold' : (m.status === 'finished' ? 'text-[#888]' : 'text-white')}`}>
                               {m.teamA?.name || 'TBD'}
                             </span>
-                            <b style={{ padding: '0 15px', letterSpacing: '1px' }}>
+                            <b className="px-3 tracking-wider text-white">
                               {m.status === 'canceled' ? 'ANNULÉ' : `${m.scoreA || 0} - ${m.scoreB || 0}`}
                             </b>
-                            <span style={{ flex: 1, textAlign: 'left', color: m.scoreB > m.scoreA ? 'var(--success)' : (m.status === 'finished' ? '#888' : 'white'), fontWeight: m.scoreB > m.scoreA ? 'bold' : 'normal' }}>
+                            <span className={`flex-1 text-left truncate ${m.scoreB > m.scoreA ? 'text-[var(--success)] font-bold' : (m.status === 'finished' ? 'text-[#888]' : 'text-white')}`}>
                               {m.teamB?.name || 'TBD'}
                             </span>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p style={{ textAlign: 'center', fontSize: '0.8rem', color: '#666', fontStyle: 'italic', marginTop: '20px' }}>
+                      <p className="text-center text-xs text-[#666] italic mt-4">
                         Aucun match terminé pour le moment.
                       </p>
                     )}
@@ -124,264 +112,260 @@ export default function GroupStageTab({
   // 🛠️ VUE ORGANISATEUR (Avec Drag & Drop !)
   // ==========================================
   return (
-        <div style={{ display: 'grid', gridTemplateColumns: '480px 1fr', gap: '30px', alignItems: 'flex-start' }}>
-          
-          {/* COLONNE GAUCHE : CONFIGURATION (1 & 2) - ÉLARGIE */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
-            
-            {/* 1. ÉQUIPES ET LICENCES */}
-            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0 }}>
-              <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>1. Équipes et Licences</h3>
-              {canEdit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input className="tm-input" style={{ flex: 1 }} placeholder="Nom manuel..." value={teamName} onChange={(e) => setTeamName(e.target.value)} />
-                    <button onClick={addTeam} className="tm-btn-success">AJOUTER</button>
-                  </div>
+    <div className="flex flex-col xl:flex-row gap-8 items-start w-full">
+      
+      {/* COLONNE GAUCHE : CONFIGURATION (1 & 2) */}
+      <div className="flex flex-col gap-6 w-full xl:w-[480px] shrink-0">
+        
+        {/* 1. ÉQUIPES ET LICENCES */}
+        <div className="tm-panel glass-effect p-5 m-0 border border-[#333] rounded-xl shadow-lg">
+          <h3 className="text-lg mt-0 mb-4 font-bold text-white">1. Équipes et Licences</h3>
+          {canEdit && (
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-2">
+                <input className="tm-input flex-1 p-2 rounded bg-[#222] border border-[#444] text-white focus:outline-none focus:border-[var(--accent-blue)]" placeholder="Nom manuel..." value={teamName} onChange={(e) => setTeamName(e.target.value)} />
+                <button onClick={addTeam} className="tm-btn-success px-4 font-bold cursor-pointer transition-transform active:scale-95">AJOUTER</button>
+              </div>
 
-                  <div style={{ position: 'relative' }}>
-                    <input 
-                      className="tm-input" 
-                      placeholder="🔍 Chercher équipe réseau..." 
-                      value={teamSearchQuery} 
-                      onChange={(e) => setTeamSearchQuery(e.target.value)} 
-                      style={{ width: '100%', boxSizing: 'border-box' }} 
-                    />
-                    {teamSearchQuery.length >= 2 && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#1a1a1a', border: '1px solid var(--accent-blue)', zIndex: 100, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 10px 20px rgba(0,0,0,0.5)' }}>
-                        {globalTeams.filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase())).map(gt => (
-                          <div key={gt.id} onClick={() => handleDirectImport(gt)} style={{ padding: '12px', cursor: 'pointer', borderBottom: '1px solid #333', fontSize: '0.9rem', color: 'white' }} onMouseOver={e => e.target.style.background = 'var(--accent-blue)'} onMouseOut={e => e.target.style.background = 'transparent'}>
-                            🏀 {gt.name} <span style={{ color: '#aaa', fontSize: '0.75rem' }}>({gt.city || '...'})</span>
-                          </div>
-                        ))}
+              <div className="relative">
+                <input 
+                  className="w-full p-2 rounded bg-[#222] border border-[#444] text-white focus:outline-none focus:border-[var(--accent-blue)]" 
+                  placeholder="🔍 Chercher équipe réseau..." 
+                  value={teamSearchQuery} 
+                  onChange={(e) => setTeamSearchQuery(e.target.value)} 
+                />
+                {teamSearchQuery.length >= 2 && (
+                  <div className="absolute top-full left-0 right-0 bg-[#1a1a1a] border border-[var(--accent-blue)] z-50 max-h-[200px] overflow-y-auto shadow-[0_10px_20px_rgba(0,0,0,0.5)] rounded-b-md">
+                    {globalTeams.filter(t => t.name.toLowerCase().includes(teamSearchQuery.toLowerCase())).map(gt => (
+                      <div 
+                        key={gt.id} 
+                        onClick={() => handleDirectImport(gt)} 
+                        className="p-3 cursor-pointer border-b border-[#333] text-sm text-white hover:bg-[var(--accent-blue)] transition-colors"
+                      >
+                        🏀 {gt.name} <span className="text-[#aaa] text-xs">({gt.city || '...'})</span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* GRILLE D'ÉQUIPES LIMITÉE À 6 (AVEC PAGINATION) */}
-              <div style={{ marginTop: '15px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', minHeight: '160px' }}>
-                  {(tourney.teams || [])
-                    .slice(teamPage * teamsPerPage, (teamPage + 1) * teamsPerPage)
-                    .map(t => (
-                    <div 
-                      key={t.id} 
-                      onClick={() => setEditId(t.id)} 
-                      className="tm-card" 
-                      style={{ position: 'relative', margin: 0, padding: '10px 12px', cursor: 'pointer', border: '1px solid #333', minHeight: 'auto', transition: '0.2s' }}
-                      onMouseOver={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
-                      onMouseOut={e => e.currentTarget.style.borderColor = '#333'}
-                    >
-                      {t.global_id && <div style={{ position: 'absolute', top: '-5px', right: '-5px', background: 'var(--accent-blue)', borderRadius: '50%', width: '16px', height: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.6rem' }}>🌐</div>}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', maxWidth: '85%' }}>
-                          <b style={{ fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</b>
-                          <span style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '2px' }}>
-                              {t.players.filter(p => p.licenseStatus === 'validated').length}/{t.players.length} OK
-                          </span>
-                        </div>
-                        {canEdit && (
-                          <button onClick={(e) => { e.stopPropagation(); deleteTeam(t.id); }} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '1rem', padding: '0 0 0 8px' }}>✕</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* BOUTONS DE PAGINATION */}
-                {tourney.teams?.length > teamsPerPage && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '15px', padding: '5px', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
-                    <button disabled={teamPage === 0} onClick={() => setTeamPage(p => p - 1)} style={{ background: 'none', border: '1px solid #444', color: teamPage === 0 ? '#444' : 'white', cursor: teamPage === 0 ? 'default' : 'pointer', borderRadius: '4px', padding: '2px 8px' }}>◀</button>
-                    <span style={{ fontSize: '0.75rem', color: '#888' }}>Page {teamPage + 1} / {Math.ceil(tourney.teams.length / teamsPerPage)}</span>
-                    <button disabled={(teamPage + 1) * teamsPerPage >= tourney.teams?.length} onClick={() => setTeamPage(p => p + 1)} style={{ background: 'none', border: '1px solid #444', color: (teamPage + 1) * teamsPerPage >= tourney.teams?.length ? '#444' : 'white', cursor: (teamPage + 1) * teamsPerPage >= tourney.teams?.length ? 'default' : 'pointer', borderRadius: '4px', padding: '2px 8px' }}>▶</button>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
-
-            {/* 2. PLANNING & GROUPES */}
-            <div className="tm-panel glass-effect" style={{ padding: '20px', margin: 0, borderLeft: '4px solid var(--accent-purple)' }}>
-              <h3 style={{ fontSize: '1.1rem', marginTop: 0, marginBottom: '15px' }}>2. Planning & Groupes</h3>
-              {canEdit && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <label style={{ fontSize: '0.9rem' }}>Nombre de poules :</label>
-                      <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="tm-input" style={{ width: '60px' }} />
+          )}
+          
+          {/* GRILLE D'ÉQUIPES LIMITÉE À 6 (AVEC PAGINATION) */}
+          <div className="mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-h-[160px]">
+              {(tourney.teams || [])
+                .slice(teamPage * teamsPerPage, (teamPage + 1) * teamsPerPage)
+                .map(t => (
+                <div 
+                  key={t.id} 
+                  onClick={() => setEditId(t.id)} 
+                  className="relative m-0 p-3 cursor-pointer border border-[#333] bg-[#222] rounded-lg transition-colors hover:border-[var(--accent-blue)] group"
+                >
+                  {t.global_id && <div className="absolute -top-1 -right-1 bg-[var(--accent-blue)] rounded-full w-4 h-4 flex justify-center items-center text-[0.6rem] shadow-sm">🌐</div>}
+                  <div className="flex justify-between items-center">
+                    <div className="flex flex-col max-w-[85%]">
+                      <b className="text-sm text-white truncate">{t.name}</b>
+                      <span className="text-xs text-[#aaa] mt-0.5">
+                          {t.players.filter(p => p.licenseStatus === 'validated').length}/{t.players.length} OK
+                      </span>
                     </div>
-                    <button onClick={generateMatches} className="tm-btn-success tm-btn-purple" style={{ width: '100%', padding: '12px', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                      🎲 GÉNÉRER LE PLANNING AUTO
-                    </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* COLONNE DROITE : POULES ET PLANNING */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '25px', alignItems: 'start', paddingBottom: '20px' }}>
-            {savedGroupIds.map(gNum => {
-                const standings = getGroupStandings(gNum);
-                const limit = getGroupLimit(tourney, gNum);
-                return (
-                  <div key={gNum} className="tm-group-col" style={{ minWidth: 0 }}>
-                    <div className="tm-flex-between" style={{ marginBottom: '12px' }}>
-                      <h4 style={{ margin: 0, fontSize: '1.1rem' }}>POULE {gNum}</h4>
-                      <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>Qualifiés :</span>
-                        <input type="number" disabled={!canEdit} value={tourney.qualifiedSettings?.[gNum] ?? 2} onChange={(e) => update({ qualifiedSettings: { ...(tourney.qualifiedSettings || {}), [gNum]: parseInt(e.target.value) || 0 } })} className="tm-mini-input" style={{ width: '45px' }} />
-                      </div>
-                    </div>
-                    
-                    <table style={{ width: '100%', fontSize: '0.8rem', marginBottom: '18px' }}>
-                      <thead><tr style={{ color: '#666', fontSize: '0.7rem' }}><th align="left">NOM</th><th align="right">PTS</th><th align="right">+/-</th></tr></thead>
-                      <tbody>
-                        {standings.map((team, idx) => (
-                          <tr key={team.id} style={{ color: idx < limit ? '#fff' : '#444' }}>
-                            <td style={{ padding: '6px 0' }}>{idx + 1}. {team.name} {idx < limit && "⭐"}</td>
-                            <td align="right">{team.points}</td>
-                            <td align="right" style={{ color: team.diff > 0 ? 'var(--success)' : (team.diff < 0 ? 'var(--danger)' : '#666') }}>{team.diff > 0 ? `+${team.diff}` : team.diff}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-                      {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
-                        const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
-                        const isFinished = m.status === 'finished';
-                        const isCanceled = m.status === 'canceled';
-                        const isForfeit = m.status === 'forfeit';
-                        
-                        let hasValidatedStarters = m.startersValidated === true;
-                        if (!hasValidatedStarters) {
-                            try {
-                                const localSave = localStorage.getItem(`basketMatchSave_${m.id}`);
-                                if (localSave) {
-                                    hasValidatedStarters = JSON.parse(localSave).startersValidated === true;
-                                }
-                            } catch(e) {}
-                        }
-                        
-                        const isOngoing = !isFinished && !isCanceled && !isForfeit && hasValidatedStarters;
-                        const canClick = isReady || isFinished;
-                        const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
-                        const canLaunchThisMatch = canEdit || isAssignedOtm;
-
-                        return (
-                          <div 
-                            key={m.id} 
-                            className="tm-match-row" 
-                            
-                            // 👇 NOUVEAU : LOGIQUE DE GLISSER-DÉPOSER 👇
-                            draggable={canEdit}
-                            onDragStart={() => setDraggedMatchId(m.id)}
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              if (!draggedMatchId || draggedMatchId === m.id) return;
-                              
-                              // On récupère tout le planning
-                              const newSchedule = [...tourney.schedule];
-                              
-                              // On trouve les positions de départ et d'arrivée
-                              const draggedIdx = newSchedule.findIndex(x => x.id === draggedMatchId);
-                              const targetIdx = newSchedule.findIndex(x => x.id === m.id);
-                              
-                              // On déplace l'élément
-                              const [draggedItem] = newSchedule.splice(draggedIdx, 1);
-                              newSchedule.splice(targetIdx, 0, draggedItem);
-                              
-                              // On sauvegarde dans la base de données
-                              update({ schedule: newSchedule });
-                              setDraggedMatchId(null);
-                            }}
-                            // 👆 FIN DE LA LOGIQUE 👆
-
-                            style={{ 
-                              padding: '12px', 
-                              borderLeft: `4px solid ${isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#666' : (canClick ? 'var(--success)' : 'var(--danger)'))}`, 
-                              position: 'relative',
-                              opacity: draggedMatchId === m.id ? 0.5 : 1, // Effet visuel quand on glisse
-                              cursor: canEdit ? 'grab' : 'default'
-                            }}
-                          >
-                             {canEdit && <div style={{ position: 'absolute', top: '8px', right: '12px', color: '#666', fontSize: '1.2rem' }} title="Glisser pour déplacer le match">⠿</div>}
-                             
-                             {/* RUBANS VISUELS */}
-                             {isOngoing && <div className="tm-ribbon-ongoing">EN COURS</div>}
-                             {isFinished && <div className="tm-ribbon-finished">TERMINÉ</div>}
-                             {isCanceled && <div className="tm-ribbon-finished" style={{background: '#555'}}>ANNULÉ</div>}
-                             {isForfeit && <div className="tm-ribbon-finished" style={{background: 'var(--danger)'}}>FORFAIT</div>}
-                             
-                             {/* NOMS DES ÉQUIPES ET SCORES */}
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '40px' }}>
-                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}><span style={{ fontSize: '0.9rem', color: isFinished ? (m.scoreA > m.scoreB ? 'var(--success)' : 'var(--danger)') : 'white' }}>{m.teamA?.name || 'Équipe A'}</span>{(isFinished || isCanceled || isForfeit) && <b>{m.scoreA}</b>}</div>
-                               <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}><span style={{ fontSize: '0.9rem', color: isFinished ? (m.scoreB > m.scoreA ? 'var(--success)' : 'var(--danger)') : 'white' }}>{m.teamB?.name || 'Équipe B'}</span>{(isFinished || isCanceled || isForfeit) && <b>{m.scoreB}</b>}</div>
-                               {m.otm && <div style={{ fontSize: '0.75rem', color: '#888', marginTop: '4px' }}>📋 OTM : <span style={{color: 'var(--accent-blue)', fontWeight: 'bold'}}>{m.otm}</span></div>}
-                             </div>
-
-                             {/* SAISIE HORAIRE ET TERRAIN */}
-                             {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
-                               <div style={{ display: 'flex', gap: '8px', marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed #333' }}>
-                                 <input
-                                   type="time"
-                                   value={m.time || ''}
-                                   onChange={(e) => {
-                                     const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
-                                     update({ schedule: newSchedule });
-                                   }}
-                                   style={{ flex: 1, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
-                                 />
-                                 <input
-                                   type="text"
-                                   placeholder="Terrain (ex: Court 1)"
-                                   value={m.court || ''}
-                                   onChange={(e) => {
-                                     const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
-                                     update({ schedule: newSchedule });
-                                   }}
-                                   style={{ flex: 2, padding: '6px', fontSize: '0.75rem', background: '#222', color: '#ccc', border: '1px solid #444', borderRadius: '4px' }}
-                                 />
-                               </div>
-                             )}
-                                                  
-                             {/* BOUTONS D'ACTION */}
-                             <div style={{ display: 'flex', gap: '10px', marginTop: '12px', height: '36px' }}>
-                               <button 
-                                 onClick={(e) => {
-                                   e.stopPropagation();
-                                   if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { 
-                                    toast.error("Impossible de lancer : il manque des joueurs.");
-                                    return; 
-                                  }
-                                   if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
-                                 }}
-                                 className={`tm-launch-btn ${canClick ? 'ready' : 'not-ready'}`} 
-                                 style={{ backgroundColor: isOngoing ? 'var(--accent-blue)' : ((isCanceled || isForfeit) ? '#333' : ''), flex: 1, margin: 0, padding: '0 10px', fontSize: '0.8rem', height: '100%' }}
-                                 disabled={isCanceled || isForfeit}
-                               >
-                                  {isCanceled ? "ANNULÉ" : isForfeit ? "FORFAIT" : (isFinished ? "STATS" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE" : "LANCER LE MATCH") : "DIRECT"))}
-                               </button>
-                               
-                               {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
-                                 <div style={{ display: 'flex', gap: '6px' }}>
-                                   <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} style={{ backgroundColor: '#222', border: '1px solid #444', borderRadius: '6px', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="OTM">👤</button>
-                                   <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} style={{ backgroundColor: '#444', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="Annuler">❌</button>
-                                   <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} style={{ backgroundColor: 'var(--danger)', border: 'none', borderRadius: '6px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }} title="Forfait">🏳️</button>
-                                 </div>
-                               )}
-                             </div>
-                          </div>
-                        );
-                      })}
-
-                    </div>
+                    {canEdit && (
+                      <button onClick={(e) => { e.stopPropagation(); deleteTeam(t.id); }} className="bg-transparent border-none text-[#666] cursor-pointer text-base pl-2 opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-all">✕</button>
+                    )}
                   </div>
-                );
-            })}
+                </div>
+              ))}
+            </div>
+
+            {/* BOUTONS DE PAGINATION */}
+            {tourney.teams?.length > teamsPerPage && (
+              <div className="flex justify-center items-center gap-4 mt-4 p-1 bg-white/5 rounded-lg">
+                <button disabled={teamPage === 0} onClick={() => setTeamPage(p => p - 1)} className={`bg-transparent border border-[#444] rounded px-2 py-0.5 ${teamPage === 0 ? 'text-[#444] cursor-default' : 'text-white cursor-pointer hover:bg-[#333] transition-colors'}`}>◀</button>
+                <span className="text-xs text-[#888] font-bold">Page {teamPage + 1} / {Math.ceil(tourney.teams.length / teamsPerPage)}</span>
+                <button disabled={(teamPage + 1) * teamsPerPage >= tourney.teams?.length} onClick={() => setTeamPage(p => p + 1)} className={`bg-transparent border border-[#444] rounded px-2 py-0.5 ${(teamPage + 1) * teamsPerPage >= tourney.teams?.length ? 'text-[#444] cursor-default' : 'text-white cursor-pointer hover:bg-[#333] transition-colors'}`}>▶</button>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* 2. PLANNING & GROUPES */}
+        <div className="tm-panel glass-effect p-5 m-0 border border-[#333] border-l-4 border-l-[var(--accent-purple)] rounded-xl shadow-lg">
+          <h3 className="text-lg mt-0 mb-4 font-bold text-white">2. Planning & Groupes</h3>
+          {canEdit && (
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-gray-300">Nombre de poules :</label>
+                  <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="tm-input w-16 p-2 rounded bg-[#222] border border-[#444] text-white text-center focus:outline-none focus:border-[var(--accent-purple)]" />
+                </div>
+                <button onClick={generateMatches} className="w-full p-3 bg-[var(--accent-purple)] hover:bg-purple-600 text-white font-bold rounded-lg text-sm transition-colors shadow-md cursor-pointer">
+                  🎲 GÉNÉRER LE PLANNING AUTO
+                </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* COLONNE DROITE : POULES ET PLANNING */}
+      <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 items-start pb-5 w-full">
+        {savedGroupIds.map(gNum => {
+            const standings = getGroupStandings(gNum);
+            const limit = getGroupLimit(tourney, gNum);
+            return (
+              <div key={gNum} className="tm-group-col min-w-0 bg-[#111] p-4 rounded-xl border border-[#222]">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="m-0 text-lg font-bold text-[var(--accent-purple)]">POULE {gNum}</h4>
+                  <div className="text-xs flex items-center gap-2 text-gray-400 font-bold">
+                    <span>Qualifiés :</span>
+                    <input type="number" disabled={!canEdit} value={tourney.qualifiedSettings?.[gNum] ?? 2} onChange={(e) => update({ qualifiedSettings: { ...(tourney.qualifiedSettings || {}), [gNum]: parseInt(e.target.value) || 0 } })} className="w-12 p-1 text-center bg-[#222] border border-[#444] text-white rounded disabled:opacity-50" />
+                  </div>
+                </div>
+                
+                <table className="w-full text-xs mb-4 border-collapse">
+                  <thead><tr className="text-[#666] border-b border-[#333]"><th className="text-left pb-1">NOM</th><th className="text-right pb-1">PTS</th><th className="text-right pb-1">+/-</th></tr></thead>
+                  <tbody>
+                    {standings.map((team, idx) => (
+                      <tr key={team.id} className={`border-b border-[#222] ${idx < limit ? 'text-white' : 'text-[#555]'}`}>
+                        <td className="py-2">{idx + 1}. {team.name} {idx < limit && "⭐"}</td>
+                        <td className="text-right font-bold">{team.points}</td>
+                        <td className={`text-right font-bold ${team.diff > 0 ? 'text-[var(--success)]' : (team.diff < 0 ? 'text-[var(--danger)]' : 'text-[#666]')}`}>{team.diff > 0 ? `+${team.diff}` : team.diff}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <div className="flex flex-col gap-2.5">
+                  {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
+                    const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
+                    const isFinished = m.status === 'finished';
+                    const isCanceled = m.status === 'canceled';
+                    const isForfeit = m.status === 'forfeit';
+                    
+                    let hasValidatedStarters = m.startersValidated === true;
+                    if (!hasValidatedStarters) {
+                        try {
+                            const localSave = localStorage.getItem(`basketMatchSave_${m.id}`);
+                            if (localSave) {
+                                hasValidatedStarters = JSON.parse(localSave).startersValidated === true;
+                            }
+                        } catch(e) {}
+                    }
+                    
+                    const isOngoing = !isFinished && !isCanceled && !isForfeit && hasValidatedStarters;
+                    const canClick = isReady || isFinished;
+                    const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
+                    const canLaunchThisMatch = canEdit || isAssignedOtm;
+
+                    // Classe des bordures pour chaque état de match
+                    let borderClass = 'border-l-[4px] border-l-[var(--danger)]'; // Défaut (pas prêt)
+                    if (isOngoing) borderClass = 'border-l-[4px] border-l-[var(--accent-blue)]';
+                    else if (isCanceled || isForfeit) borderClass = 'border-l-[4px] border-l-[#666]';
+                    else if (canClick) borderClass = 'border-l-[4px] border-l-[var(--success)]';
+
+                    return (
+                      <div 
+                        key={m.id} 
+                        className={`bg-[#222] p-3 rounded-lg relative transition-all ${borderClass} ${draggedMatchId === m.id ? 'opacity-50 scale-95 border-dashed border-[#555]' : 'opacity-100 scale-100'} ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                        
+                        // LOGIQUE DE GLISSER-DÉPOSER
+                        draggable={canEdit}
+                        onDragStart={() => setDraggedMatchId(m.id)}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (!draggedMatchId || draggedMatchId === m.id) return;
+                          
+                          const newSchedule = [...tourney.schedule];
+                          const draggedIdx = newSchedule.findIndex(x => x.id === draggedMatchId);
+                          const targetIdx = newSchedule.findIndex(x => x.id === m.id);
+                          
+                          const [draggedItem] = newSchedule.splice(draggedIdx, 1);
+                          newSchedule.splice(targetIdx, 0, draggedItem);
+                          
+                          update({ schedule: newSchedule });
+                          setDraggedMatchId(null);
+                        }}
+                      >
+                          {canEdit && <div className="absolute top-2 right-2 text-[#555] text-lg hover:text-white cursor-grab" title="Glisser pour déplacer le match">⠿</div>}
+                          
+                          {/* RUBANS VISUELS */}
+                          {isOngoing && <div className="absolute -top-1 -left-1 bg-[var(--accent-blue)] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">EN COURS</div>}
+                          {isFinished && <div className="absolute -top-1 -left-1 bg-[#444] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">TERMINÉ</div>}
+                          {isCanceled && <div className="absolute -top-1 -left-1 bg-[#555] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">ANNULÉ</div>}
+                          {isForfeit && <div className="absolute -top-1 -left-1 bg-[var(--danger)] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">FORFAIT</div>}
+                          
+                          {/* NOMS DES ÉQUIPES ET SCORES */}
+                          <div className="flex flex-col gap-1.5 pr-8 mt-1">
+                            <div className="flex justify-between items-center">
+                                <span className={`text-sm truncate ${isFinished ? (m.scoreA > m.scoreB ? 'text-[var(--success)] font-bold' : 'text-gray-400') : 'text-white'}`}>{m.teamA?.name || 'Équipe A'}</span>
+                                {(isFinished || isCanceled || isForfeit) && <b className="text-white text-sm ml-2">{m.scoreA}</b>}
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className={`text-sm truncate ${isFinished ? (m.scoreB > m.scoreA ? 'text-[var(--success)] font-bold' : 'text-gray-400') : 'text-white'}`}>{m.teamB?.name || 'Équipe B'}</span>
+                                {(isFinished || isCanceled || isForfeit) && <b className="text-white text-sm ml-2">{m.scoreB}</b>}
+                            </div>
+                            {m.otm && <div className="text-[0.65rem] text-[#888] mt-1 truncate">📋 OTM : <span className="text-[var(--accent-blue)] font-bold">{m.otm}</span></div>}
+                          </div>
+
+                          {/* SAISIE HORAIRE ET TERRAIN */}
+                          {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
+                            <div className="flex gap-2 mt-3 pt-2 border-t border-dashed border-[#333]">
+                              <input
+                                type="time"
+                                value={m.time || ''}
+                                onChange={(e) => {
+                                  const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
+                                  update({ schedule: newSchedule });
+                                }}
+                                className="flex-1 p-1.5 text-xs bg-[#1a1a1a] text-[#ccc] border border-[#444] rounded focus:border-[var(--accent-blue)] outline-none transition-colors"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Court 1..."
+                                value={m.court || ''}
+                                onChange={(e) => {
+                                  const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
+                                  update({ schedule: newSchedule });
+                                }}
+                                className="flex-1 p-1.5 text-xs bg-[#1a1a1a] text-[#ccc] border border-[#444] rounded focus:border-[var(--accent-blue)] outline-none transition-colors"
+                              />
+                            </div>
+                          )}
+                                          
+                          {/* BOUTONS D'ACTION */}
+                          <div className="flex gap-2 mt-3 h-8">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!canClick && !['canceled', 'forfeit'].includes(m.status)) { 
+                                 toast.error("Impossible de lancer : il manque des joueurs.");
+                                 return; 
+                               }
+                                if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
+                              }}
+                              className={`flex-1 rounded font-bold text-[0.7rem] transition-colors ${canClick ? 'text-white cursor-pointer' : 'text-[#888] bg-[#333] cursor-not-allowed border border-[#444]'} ${isOngoing ? 'bg-[var(--accent-blue)] hover:bg-blue-600' : ((isCanceled || isForfeit) ? 'bg-[#333] text-[#666]' : (canClick && !isFinished ? 'bg-[var(--success)] hover:bg-green-600' : ''))} ${isFinished ? 'bg-[#444] hover:bg-[#555]' : ''}`} 
+                              disabled={isCanceled || isForfeit}
+                            >
+                               {isCanceled ? "ANNULÉ" : isForfeit ? "FORFAIT" : (isFinished ? "STATS" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE" : "LANCER LE MATCH") : "DIRECT"))}
+                            </button>
+                            
+                            {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                              <div className="flex gap-1.5">
+                                <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} className="w-8 h-8 rounded bg-[#1a1a1a] border border-[#444] text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#333] transition-colors" title="Assigner OTM">👤</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} className="w-8 h-8 rounded bg-[#444] border-none text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#555] transition-colors" title="Annuler le match">❌</button>
+                                <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} className="w-8 h-8 rounded bg-[var(--danger)] border-none text-white flex items-center justify-center text-sm cursor-pointer hover:bg-red-700 transition-colors" title="Déclarer Forfait">🏳️</button>
+                              </div>
+                            )}
+                          </div>
+                      </div>
+                    );
+                  })}
+
+                </div>
+              </div>
+            );
+        })}
+      </div>
+    </div>
   );
 }

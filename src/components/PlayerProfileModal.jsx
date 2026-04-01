@@ -11,82 +11,87 @@ export default function PlayerProfileModal({
   managingTeam,
   removePlayer
 }) {
-  // NOUVEAU : On gère l'onglet actif pour les statistiques
   const [activeStatsTab, setActiveStatsTab] = useState('moyennes'); // 'moyennes', 'records', ou 'totaux'
   const { session } = useAuth();
 
   if (!selectedProfile) return null;
 
   const StatCard = ({ label, value, color }) => (
-    <div style={{ background: '#222', padding: '12px', borderRadius: '8px', borderBottom: `3px solid ${color}`, flex: '1', minWidth: '80px', textAlign: 'center' }}>
-      <div style={{ fontSize: '0.65rem', color: '#888', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold' }}>{label}</div>
-      <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'white' }}>{value}</div>
+    <div className="bg-[#222] p-3 rounded-lg border-b-[3px] flex-1 min-w-[80px] text-center" style={{ borderBottomColor: color }}>
+      <div className="text-[0.65rem] text-[#888] mb-1 uppercase tracking-widest font-bold">{label}</div>
+      <div className="text-2xl font-bold text-white">{value}</div>
     </div>
   );
 
   const isCaptainOfManagingTeam = managingTeam && managingTeam.captain_id === session.user.id;
   const isSelectedPlayerMe = selectedProfile.id === session.user.id;
-  // NOUVEAU : On vérifie si le joueur a déjà 3 équipes actives
   const hasReachedTeamLimit = selectedProfile.playerTeams && selectedProfile.playerTeams.length >= 3;
 
-  // Style pour les boutons d'onglets
-  const tabStyle = (tabName) => ({
-    flex: 1,
-    background: activeStatsTab === tabName ? '#333' : 'transparent',
-    color: activeStatsTab === tabName ? 'white' : '#888',
-    border: '1px solid #333',
-    padding: '8px 5px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '0.85rem',
-    borderRadius: '6px',
-    transition: '0.2s'
-  });
-
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
-      <div style={{ background: '#1a1a1a', padding: '30px', borderRadius: '12px', maxWidth: '650px', width: '100%', border: '2px solid var(--accent-orange)', position: 'relative', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
-        <button onClick={() => setSelectedProfile(null)} style={{ position: 'absolute', top: '15px', right: '15px', background: 'none', border: 'none', color: '#888', fontSize: '1.5rem', cursor: 'pointer', zIndex: 10 }}>✕</button>
+    <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[1000] p-4">
+      <div className="bg-[#1a1a1a] p-6 sm:p-8 rounded-xl border-2 border-[var(--accent-orange)] w-full max-w-[650px] relative flex flex-col max-h-[90vh] shadow-2xl">
+        <button 
+          onClick={() => setSelectedProfile(null)} 
+          className="absolute top-4 right-4 bg-transparent border-none text-[#888] text-2xl cursor-pointer z-10 hover:text-white transition-colors"
+        >
+          ✕
+        </button>
         
         {/* EN-TÊTE FIXE */}
-        <div style={{ flexShrink: 0 }}>
-          <h2 style={{ marginTop: 0, color: 'white', fontSize: '2rem', marginBottom: '5px' }}>{selectedProfile.full_name}</h2>
-          <span style={{ color: 'var(--accent-orange)', fontWeight: 'bold', textTransform: 'uppercase' }}>{selectedProfile.role}</span>
+        <div className="shrink-0 mb-4">
+          <h2 className="mt-0 mb-1 text-white text-3xl font-black">{selectedProfile.full_name}</h2>
+          <span className="text-[var(--accent-orange)] font-bold text-sm tracking-wider uppercase">{selectedProfile.role}</span>
 
           {/* AFFICHAGE DES ÉQUIPES DU JOUEUR */}
-          <div style={{ marginTop: '15px' }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <div className="mt-4">
+            <div className="flex gap-2 flex-wrap">
               {selectedProfile.playerTeams && selectedProfile.playerTeams.length > 0 ? (
                 selectedProfile.playerTeams.map((pt, i) => (
-                  <span key={i} style={{ background: '#333', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '0.8rem', border: '1px solid #555' }}>
+                  <span key={i} className="bg-[#333] text-white px-3 py-1 rounded-md text-[0.8rem] border border-[#555] font-bold shadow-sm">
                     🛡️ {pt.name}
                   </span>
                 ))
               ) : (
-                <span style={{ color: '#666', fontSize: '0.85rem', fontStyle: 'italic' }}>Agent libre (Aucune équipe)</span>
+                <span className="text-[#666] text-[0.85rem] italic">Agent libre (Aucune équipe)</span>
               )}
             </div>
           </div>
         </div>
         
         {/* ZONE AVEC DÉFILEMENT (STATS + ACTIONS) */}
-        <div style={{ overflowY: 'auto', paddingRight: '10px', marginTop: '15px', flexGrow: 1 }}>
-          <div style={{ marginTop: '10px' }}>
-            {selectedProfile.stats.gp === 0 ? (
-              <p style={{ color: '#888', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>Ce joueur n'a encore joué aucun match officiel.</p>
+        <div className="overflow-y-auto pr-2 flex-grow custom-scrollbar">
+          
+          <div className="mt-3">
+            {selectedProfile.stats?.gp === 0 || !selectedProfile.stats ? (
+              <p className="text-[#888] italic text-center py-8">Ce joueur n'a encore joué aucun match officiel.</p>
             ) : (
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '15px', borderRadius: '12px', border: '1px solid #333' }}>
+              <div className="bg-white/5 p-4 rounded-xl border border-[#333]">
                 
-                {/* NOUVEAU : LA BARRE D'ONGLETS */}
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-                  <button onClick={() => setActiveStatsTab('moyennes')} style={tabStyle('moyennes')}>🎯 Moyennes</button>
-                  <button onClick={() => setActiveStatsTab('records')} style={tabStyle('records')}>🚀 Records</button>
-                  <button onClick={() => setActiveStatsTab('totaux')} style={tabStyle('totaux')}>📈 Totaux</button>
+                {/* BARRE D'ONGLETS */}
+                <div className="flex gap-2 mb-5">
+                  <button 
+                    onClick={() => setActiveStatsTab('moyennes')} 
+                    className={`flex-1 py-2 px-1 rounded-md font-bold text-[0.85rem] border transition-colors cursor-pointer ${activeStatsTab === 'moyennes' ? 'bg-[#333] text-white border-[#444]' : 'bg-transparent text-[#888] border-[#333] hover:text-white hover:bg-[#222]'}`}
+                  >
+                    🎯 Moyennes
+                  </button>
+                  <button 
+                    onClick={() => setActiveStatsTab('records')} 
+                    className={`flex-1 py-2 px-1 rounded-md font-bold text-[0.85rem] border transition-colors cursor-pointer ${activeStatsTab === 'records' ? 'bg-[#333] text-white border-[#444]' : 'bg-transparent text-[#888] border-[#333] hover:text-white hover:bg-[#222]'}`}
+                  >
+                    🚀 Records
+                  </button>
+                  <button 
+                    onClick={() => setActiveStatsTab('totaux')} 
+                    className={`flex-1 py-2 px-1 rounded-md font-bold text-[0.85rem] border transition-colors cursor-pointer ${activeStatsTab === 'totaux' ? 'bg-[#333] text-white border-[#444]' : 'bg-transparent text-[#888] border-[#333] hover:text-white hover:bg-[#222]'}`}
+                  >
+                    📈 Totaux
+                  </button>
                 </div>
 
                 {/* CONTENU CONDITIONNEL SELON L'ONGLET */}
                 {activeStatsTab === 'moyennes' && (
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div className="flex gap-2.5 flex-wrap">
                     <StatCard label="PTS / m" value={selectedProfile.stats.ptsAvg} color="#ff4444" />
                     <StatCard label="REB / m" value={selectedProfile.stats.rebAvg} color="var(--accent-blue)" />
                     <StatCard label="AST / m" value={selectedProfile.stats.astAvg} color="var(--success)" />
@@ -97,7 +102,7 @@ export default function PlayerProfileModal({
                 )}
 
                 {activeStatsTab === 'records' && (
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div className="flex gap-2.5 flex-wrap">
                     <StatCard label="Max PTS" value={selectedProfile.stats.maxPts} color="#ff4444" />
                     <StatCard label="Max REB" value={selectedProfile.stats.maxReb} color="var(--accent-blue)" />
                     <StatCard label="Max AST" value={selectedProfile.stats.maxAst} color="var(--success)" />
@@ -108,7 +113,7 @@ export default function PlayerProfileModal({
                 )}
 
                 {activeStatsTab === 'totaux' && (
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <div className="flex gap-2.5 flex-wrap">
                     <StatCard label="Matchs" value={selectedProfile.stats.gp} color="#666" />
                     <StatCard label="Tot PTS" value={selectedProfile.stats.pts} color="#ff4444" />
                     <StatCard label="Tot REB" value={selectedProfile.stats.reb} color="var(--accent-blue)" />
@@ -122,21 +127,21 @@ export default function PlayerProfileModal({
             )}
           </div>
           
-          {/* --- GESTION DU RECRUTEMENT / STATUT DANS L'ÉQUIPE (INCHANGÉ) --- */}
+          {/* --- GESTION DU RECRUTEMENT / STATUT DANS L'ÉQUIPE --- */}
           {managingTeam ? (
-            <div style={{ marginTop: '30px', borderTop: '1px solid #333', paddingTop: '20px' }}>
-              <h4 style={{ color: 'white', margin: '0 0 15px 0' }}>Statut avec {managingTeam.name}</h4>
+            <div className="mt-8 pt-5 border-t border-[#333]">
+              <h4 className="text-white m-0 mb-4 text-lg">Statut avec {managingTeam.name}</h4>
               
               {selectedProfile.relationStatus === 'accepted' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(46, 204, 113, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--success)' }}>
-                  <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✅ Membre de l'équipe</span>
+                <div className="flex justify-between items-center bg-[rgba(46,204,113,0.1)] p-4 rounded-lg border border-[var(--success)]">
+                  <span className="text-[var(--success)] font-bold">✅ Membre de l'équipe</span>
                   {isCaptainOfManagingTeam && !isSelectedPlayerMe && (
                     <button 
                       onClick={() => {
                         removePlayer(selectedProfile.id);
                         setSelectedProfile(null);
                       }} 
-                      style={{ background: 'var(--danger)', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s' }}
+                      className="bg-[var(--danger)] text-white border-none px-4 py-2 rounded-md font-bold cursor-pointer hover:bg-red-700 transition-colors"
                     >
                       EXCLURE ❌
                     </button>
@@ -145,22 +150,25 @@ export default function PlayerProfileModal({
               )}
 
               {(selectedProfile.relationStatus === 'invited' || selectedProfile.relationStatus === 'pending') && (
-                <div style={{ background: 'rgba(255, 165, 0, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-orange)', textAlign: 'center', color: 'var(--accent-orange)', fontWeight: 'bold' }}>
+                <div className="bg-[rgba(255,165,0,0.1)] p-4 rounded-lg border border-[var(--accent-orange)] text-center text-[var(--accent-orange)] font-bold">
                   ⏳ {selectedProfile.relationStatus === 'invited' ? 'Invitation envoyée (en attente de réponse)' : 'A postulé (en attente de votre validation)'}
                 </div>
               )}
 
               {!selectedProfile.relationStatus && isCaptainOfManagingTeam && !isSelectedPlayerMe && (
                  hasReachedTeamLimit ? (
-                   <div style={{ background: 'rgba(255, 68, 68, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--danger)', textAlign: 'center', color: 'var(--danger)', fontWeight: 'bold' }}>
-                     🚫 Ce joueur a déjà atteint la limite de 3 équipes actives. Il ne peut plus être recruté.
+                   <div className="bg-[rgba(255,68,68,0.1)] p-4 rounded-lg border border-[var(--danger)] text-center text-[var(--danger)] font-bold text-sm">
+                      🚫 Ce joueur a déjà atteint la limite de 3 équipes actives. Il ne peut plus être recruté.
                    </div>
                  ) : (
-                   <div style={{ display: 'flex', gap: '10px' }}>
-                     <button onClick={() => {
+                   <div className="flex">
+                     <button 
+                      onClick={() => {
                         handleInvitePlayer(selectedProfile.id);
                         setSelectedProfile({...selectedProfile, relationStatus: 'invited'});
-                     }} style={{ flex: 1, background: 'var(--accent-blue)', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
+                      }} 
+                      className="flex-1 bg-[var(--accent-blue)] text-white border-none p-3 rounded-lg font-bold cursor-pointer text-base hover:bg-blue-600 transition-colors shadow-lg"
+                     >
                        INVITER CE JOUEUR ✉️
                      </button>
                    </div>
@@ -169,36 +177,26 @@ export default function PlayerProfileModal({
             </div>
           ) : (
             myCaptainTeams.length > 0 && !isSelectedPlayerMe && (
-              <div style={{ marginTop: '30px', borderTop: '1px solid #333', paddingTop: '20px' }}>
+              <div className="mt-8 pt-5 border-t border-[#333]">
                 {selectedProfile.relationStatus === 'invited' || selectedProfile.relationStatus === 'pending' || selectedProfile.relationStatus === 'accepted' ? (
-                  <div style={{ background: 'rgba(255, 165, 0, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--accent-orange)', textAlign: 'center', color: 'var(--accent-orange)', fontWeight: 'bold' }}>
+                  <div className="bg-[rgba(255,165,0,0.1)] p-4 rounded-lg border border-[var(--accent-orange)] text-center text-[var(--accent-orange)] font-bold text-sm">
                     {selectedProfile.relationStatus === 'accepted' ? '✅ Ce joueur fait déjà partie de votre équipe' : '✅ Invitation déjà envoyée (ou en attente)'}
                   </div>
                 ) : hasReachedTeamLimit ? (
-                  <div style={{ background: 'rgba(255, 68, 68, 0.1)', padding: '15px', borderRadius: '8px', border: '1px solid var(--danger)', textAlign: 'center', color: 'var(--danger)', fontWeight: 'bold' }}>
+                  <div className="bg-[rgba(255,68,68,0.1)] p-4 rounded-lg border border-[var(--danger)] text-center text-[var(--danger)] font-bold text-sm">
                     🚫 Ce joueur a déjà atteint la limite de 3 équipes actives. Vous ne pouvez pas lui envoyer d'offre.
                   </div>
                 ) : (
                   <>
-                    <h4 style={{ color: 'var(--accent-blue)', margin: '0 0 10px 0' }}>✉️ Recruter ce joueur</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h4 className="text-[var(--accent-blue)] m-0 mb-3 text-lg font-bold">✉️ Recruter ce joueur</h4>
+                    <div className="flex flex-col gap-3">
                       
                       {/* LA LISTE DES ÉQUIPES EN BOUTONS RADIO */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div className="flex flex-col gap-2">
                         {myCaptainTeams.map(t => (
                           <label 
                             key={t.id} 
-                            style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '12px', 
-                              background: inviteTeamId === t.id ? 'rgba(52, 152, 219, 0.15)' : '#222', 
-                              padding: '12px 15px', 
-                              borderRadius: '8px', 
-                              border: inviteTeamId === t.id ? '1px solid var(--accent-blue)' : '1px solid #444', 
-                              cursor: 'pointer',
-                              transition: 'all 0.2s ease'
-                            }}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${inviteTeamId === t.id ? 'bg-[rgba(52,152,219,0.15)] border-[var(--accent-blue)]' : 'bg-[#222] border-[#444] hover:bg-[#333]'}`}
                           >
                             <input 
                               type="radio" 
@@ -206,9 +204,9 @@ export default function PlayerProfileModal({
                               value={t.id} 
                               checked={inviteTeamId === t.id} 
                               onChange={(e) => setInviteTeamId(e.target.value)} 
-                              style={{ cursor: 'pointer', accentColor: 'var(--accent-blue)', transform: 'scale(1.2)' }}
+                              className="cursor-pointer scale-125 accent-[var(--accent-blue)]"
                             />
-                            <span style={{ color: inviteTeamId === t.id ? 'white' : '#ccc', fontWeight: inviteTeamId === t.id ? 'bold' : 'normal', fontSize: '1rem' }}>
+                            <span className={`text-base ${inviteTeamId === t.id ? 'text-white font-bold' : 'text-[#ccc]'}`}>
                               {t.name}
                             </span>
                           </label>
@@ -216,10 +214,13 @@ export default function PlayerProfileModal({
                       </div>
 
                       {/* LE BOUTON DE VALIDATION */}
-                      <button onClick={() => {
-                        if(!inviteTeamId) return alert("Sélectionnez une équipe en cochant la case !");
-                        handleInvitePlayer(selectedProfile.id);
-                      }} style={{ background: 'var(--accent-blue)', color: 'white', border: 'none', padding: '12px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '5px', fontSize: '1rem' }}>
+                      <button 
+                        onClick={() => {
+                          if(!inviteTeamId) return alert("Sélectionnez une équipe en cochant la case !");
+                          handleInvitePlayer(selectedProfile.id);
+                        }} 
+                        className="mt-1 bg-[var(--accent-blue)] text-white border-none p-3 rounded-lg font-bold cursor-pointer text-base hover:bg-blue-600 transition-colors shadow-lg"
+                      >
                         ENVOYER L'INVITATION
                       </button>
                     </div>
