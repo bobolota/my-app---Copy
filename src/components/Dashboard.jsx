@@ -6,6 +6,9 @@ import PromptModal from './PromptModal';
 import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 
+// 👇 On importe notre colonne Kanban !
+import KanbanColumn from './KanbanColumn';
+
 export default function Dashboard() {
   const [name, setName] = useState("");
   const [draggedId, setDraggedId] = useState(null);
@@ -41,9 +44,10 @@ export default function Dashboard() {
     if (!canCreate || !name.trim()) return;
     
     const generatedPin = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const validUuid = crypto.randomUUID(); // 👈 ON GÉNÈRE UN VRAI UUID VALIDE ICI !
 
     const newT = { 
-      id: "t_" + Date.now(), 
+      id: validUuid, // 👈 On l'envoie à Supabase
       name, 
       teams: [], 
       schedule: [], 
@@ -60,17 +64,22 @@ export default function Dashboard() {
       }
     };
     
+    // Mise à jour immédiate de l'interface pour que ce soit fluide
     setTournaments([...tournaments, newT]);
     setName("");
-
     setPeriodCount(4);
     setPeriodDuration(10);
     setTimeoutsHalf1(2); setTimeoutsHalf2(3);
 
+    // Envoi au cloud Supabase
     const { error } = await supabase.from('tournaments').insert([newT]);
+    
     if (error) {
-      console.error("Erreur de sauvegarde :", error);
-      toast.error("Erreur lors de la création du tournoi dans le cloud.");
+      console.error("Détail de l'erreur Supabase :", error);
+      // On affiche le vrai message d'erreur de Supabase pour comprendre si ça bloque encore
+      toast.error(`Erreur Cloud : ${error.message}`); 
+    } else {
+      toast.success("Tournoi créé avec succès ! 🚀");
     }
   };
 
@@ -104,7 +113,7 @@ export default function Dashboard() {
 
   const onDragOver = (e) => {
     e.preventDefault();
-    e.currentTarget.classList.add('bg-[rgba(255,255,255,0.05)]'); // Effet visuel au survol
+    e.currentTarget.classList.add('bg-[rgba(255,255,255,0.05)]');
   };
 
   const onDragLeave = (e) => {
@@ -160,69 +169,10 @@ export default function Dashboard() {
     });
   };
 
-  const renderColumn = (title, status, color, accentHex) => (
-    <div 
-      className="flex flex-col flex-1 min-w-[300px] bg-[#1a1a1a] rounded-xl border border-[#333] transition-colors p-4 pb-8"
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={(e) => onDrop(e, status)}
-    >
-      <div className="flex justify-between items-center mb-5 pb-3 border-b-4" style={{ borderBottomColor: accentHex }}>
-        <h3 className="m-0 text-white font-bold tracking-wider">{title}</h3>
-        <span className="text-[#888] font-bold text-xl">{visibleTournaments.filter(t => t.status === status || (!t.status && status === 'preparing')).length}</span>
-      </div>
-      
-      <div className="flex flex-col gap-4 overflow-y-auto max-h-[600px] custom-scrollbar pr-2">
-        {visibleTournaments
-          .filter(t => t.status === status || (!t.status && status === 'preparing'))
-          .map(t => {
-            const isOwnerOrAdmin = userRole === 'ADMIN' || t.organizer_id === session.user.id; 
-            
-            return (
-              <div 
-                key={t.id} 
-                draggable={isOwnerOrAdmin}
-                onDragStart={(e) => onDragStart(e, t)}
-                onDragEnd={(e) => onDragEnd(e, t)}
-                onClick={() => { setActiveTourneyId(t.id); setView('tournament'); }}
-                className={`bg-[#222] p-4 rounded-xl border-l-4 transition-all duration-200 relative group shadow-md ${draggedId === t.id ? 'opacity-50 scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'opacity-100 hover:-translate-y-1 hover:shadow-lg'} ${isOwnerOrAdmin ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
-                style={{ borderLeftColor: accentHex }}
-              >
-                <div className="flex justify-between items-start mb-2 pr-6">
-                  <strong className="text-lg font-heading text-white truncate">{t.name}</strong>
-                  {isOwnerOrAdmin && (
-                    <button 
-                      onClick={(e) => deleteTourney(e, t.id)} 
-                      className="absolute top-2 right-2 text-[#555] bg-transparent border-none text-xl cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-all"
-                      title="Supprimer"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-                
-                <div className="inline-block bg-[#111] text-[#ccc] text-[0.7rem] px-2 py-1 rounded border border-[#444] font-bold mb-3">
-                  ⚙️ {t.matchsettings?.periodCount || 4}x{t.matchsettings?.periodDuration || 10}min | TM: {t.matchsettings?.timeoutsHalf1 || 2} - {t.matchsettings?.timeoutsHalf2 || 3}
-                </div>
-
-                <div className="flex justify-between items-center text-xs font-bold text-[#888] border-t border-dashed border-[#333] pt-3">
-                  <span>👥 {t.teams?.length || 0} équipes | 📅 {t.schedule?.length || 0} matchs</span>
-                  {(!isOwnerOrAdmin && t.otm_ids?.includes(session.user.id)) && (
-                      <span className="text-[var(--accent-blue)] bg-[rgba(0,212,255,0.1)] px-2 py-1 rounded-md">OTM 📝</span>
-                  )}
-                </div>
-                {isOwnerOrAdmin && <div className="absolute bottom-2 right-2 text-[#444] text-[0.6rem] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">GLISSER ⠿</div>}
-              </div>
-            );
-          })}
-      </div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col w-full h-full max-w-[1400px] mx-auto p-2 sm:p-5">
+    <div className="flex flex-col w-full h-full max-w-[1920px] mx-auto p-2 sm:p-5">
       <div className="mb-8">
-        <h1 className="text-3xl text-white border-b-2 border-[#333] pb-3 mb-6 font-bold">
+        <h1 className="text-2xl text-white border-b-2 border-[#333] pb-3 mb-6 font-bold"> 
           🛰️ Centre de Contrôle
         </h1>
         
@@ -269,36 +219,38 @@ export default function Dashboard() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 overflow-x-auto pb-5 custom-scrollbar">
-        {renderColumn("PRÉPARATION", "preparing", "var(--accent-purple)", "#9d4edd")}
-        {renderColumn("EN COURS", "ongoing", "var(--accent-orange)", "#ff6b00")}
-        {renderColumn("TERMINÉ", "finished", "var(--success)", "#2ecc71")}
+        {/* 👇 Les 3 colonnes sont générées via notre nouveau composant ! 👇 */}
+        <KanbanColumn 
+          title="PRÉPARATION" status="preparing" accentHex="#9d4edd"
+          visibleTournaments={visibleTournaments} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+          userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
+          setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
+        />
+        <KanbanColumn 
+          title="EN COURS" status="ongoing" accentHex="#ff6b00"
+          visibleTournaments={visibleTournaments} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+          userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
+          setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
+        />
+        <KanbanColumn 
+          title="TERMINÉ" status="finished" accentHex="#2ecc71"
+          visibleTournaments={visibleTournaments} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+          userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
+          setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
+        />
       </div>
 
-      {/* --- MODALES DU SCOREBOARD --- */}
       <ConfirmModal 
-        isOpen={confirmData.isOpen}
-        title={confirmData.title}
-        message={confirmData.message}
-        onConfirm={() => {
-          if (confirmData.onConfirm) confirmData.onConfirm();
-          closeConfirm();
-        }}
-        onCancel={closeConfirm}
-        isDanger={confirmData.isDanger}
+        isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message}
+        onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }}
+        onCancel={closeConfirm} isDanger={confirmData.isDanger}
       />
 
       <PromptModal 
-        isOpen={promptData.isOpen}
-        title={promptData.title}
-        message={promptData.message}
-        placeholder={promptData.placeholder}
-        onConfirm={(value) => {
-          if (promptData.onConfirm) promptData.onConfirm(value);
-          closePrompt();
-        }}
+        isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder}
+        onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }}
         onCancel={closePrompt}
       />
-
     </div>
   );
 }

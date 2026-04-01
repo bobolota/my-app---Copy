@@ -21,6 +21,7 @@ export default function MaCarriere({ careerStats }) {
 
   return (
     <>
+      <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1920px] mx-auto"></div>
       <h1 className="text-white border-b-2 border-[#333] pb-2 text-2xl font-bold">
         📊 Ma Carrière
       </h1>

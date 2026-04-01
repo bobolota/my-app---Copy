@@ -1,4 +1,3 @@
-// DEBUT DE LA MODIFICATION - src/components/TeamEditor.jsx
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
@@ -135,13 +134,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
   const onDragEndPlayer = () => {
     if (!canEdit) return;
     setDraggedPlayerId(null);
-    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+    document.querySelectorAll('.drag-over-column').forEach(el => el.classList.remove('bg-white/5'));
   };
 
   const onDropPlayer = (e, newStatus) => {
     if (!canEdit) return;
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-over'); 
+    e.currentTarget.classList.remove('bg-white/5'); 
     
     const pid = e.dataTransfer.getData("playerId");
     if (!pid) return;
@@ -150,20 +149,21 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: updatedPlayers } : t) });
   };
 
-  const renderPlayerColumn = (title, status, color) => {
+  const renderPlayerColumn = (title, status, colorHex, colorVar) => {
     const filteredPlayers = team.players.filter(p => p.licenseStatus === status || (!p.licenseStatus && status === 'to_check'));
+    
     return (
       <div 
-        className="dashboard-column"
-        onDragOver={(e) => { if(canEdit) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); } }}
-        onDragLeave={(e) => { if(canEdit) e.currentTarget.classList.remove('drag-over'); }}
+        className="flex flex-col flex-1 min-w-[280px] bg-[#1a1a1a] rounded-xl border border-[#333] transition-colors p-4 drag-over-column"
+        onDragOver={(e) => { if(canEdit) { e.preventDefault(); e.currentTarget.classList.add('bg-white/5'); } }}
+        onDragLeave={(e) => { if(canEdit) e.currentTarget.classList.remove('bg-white/5'); }}
         onDrop={(e) => onDropPlayer(e, status)}
       >
-        <h3 className="dashboard-col-title" style={{ borderBottom: `3px solid ${color}` }}>
-          {title} <span style={{ opacity: 0.4 }}>({filteredPlayers.length})</span>
+        <h3 className="flex justify-between items-center m-0 text-white font-bold tracking-wider mb-5 pb-3 border-b-4" style={{ borderBottomColor: colorHex }}>
+          {title} <span className="text-[#888] text-xl font-bold">{filteredPlayers.length}</span>
         </h3>
         
-        <div className="dashboard-scroll-area">
+        <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] custom-scrollbar pr-2">
           {filteredPlayers.map(p => {
             const remaining = (p.totalDue || 0) - (p.paid || 0);
             return (
@@ -172,31 +172,40 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                 draggable={canEdit} 
                 onDragStart={(e) => onDragStartPlayer(e, p.id)}
                 onDragEnd={onDragEndPlayer}
-                className={`dashboard-card ${draggedPlayerId === p.id ? 'grabbing' : ''}`}
-                style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}
+                className={`bg-[#222] p-4 rounded-xl border-l-4 transition-all duration-200 relative group shadow-md flex flex-col gap-3 ${draggedPlayerId === p.id ? 'opacity-50 scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]' : 'opacity-100 hover:-translate-y-1 hover:shadow-lg'} ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+                style={{ borderLeftColor: colorHex }}
               >
-                <div className="dashboard-card-header">
-                  <strong className="dashboard-card-title" style={{ color: color }}>#{p.number} {p.name}</strong>
-                  {canEdit && <button onClick={() => deletePlayer(p.id)} className="dashboard-btn-delete">✕</button>}
+                <div className="flex justify-between items-start">
+                  <strong className="text-lg font-heading truncate pr-6" style={{ color: colorVar }}>#{p.number} {p.name}</strong>
+                  {canEdit && (
+                    <button 
+                      onClick={() => deletePlayer(p.id)} 
+                      className="absolute top-2 right-2 text-[#555] bg-transparent border-none text-xl cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[var(--danger)] transition-all"
+                      title="Supprimer"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
                 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#888' }}>
+                <div className="flex justify-between items-center text-xs font-bold text-[#888]">
                   <span>Cotisation :</span>
-                  <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                    <input type="number" disabled={!canEdit} value={p.paid} onChange={(e) => updatePlayerFinance(p.id, 'paid', e.target.value)} className="tm-mini-input" style={{ width: '45px', textAlign: 'center' }} />
-                    <span style={{color: '#444'}}>/</span>
-                    <input type="number" disabled={!canEdit} value={p.totalDue} onChange={(e) => updatePlayerFinance(p.id, 'totalDue', e.target.value)} className="tm-mini-input" style={{ width: '45px', textAlign: 'center' }} />
+                  <div className="flex gap-1.5 items-center">
+                    <input type="number" disabled={!canEdit} value={p.paid} onChange={(e) => updatePlayerFinance(p.id, 'paid', e.target.value)} className="w-[50px] text-center p-1 rounded bg-[#111] border border-[#444] text-white focus:outline-none focus:border-[var(--accent-blue)]" />
+                    <span className="text-[#444]">/</span>
+                    <input type="number" disabled={!canEdit} value={p.totalDue} onChange={(e) => updatePlayerFinance(p.id, 'totalDue', e.target.value)} className="w-[50px] text-center p-1 rounded bg-[#111] border border-[#444] text-white focus:outline-none focus:border-[var(--accent-blue)]" />
                   </div>
                 </div>
 
-                <div style={{ textAlign: 'right', fontSize: '0.75rem', marginTop: '-2px' }}>
+                <div className="text-right text-xs mt-[-2px]">
                   {remaining <= 0 ? (
-                    <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✅ Réglé</span>
+                    <span className="text-[var(--success)] font-bold">✅ Réglé</span>
                   ) : (
-                    <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>⚠️ Reste : {remaining} €</span>
+                    <span className="text-[var(--danger)] font-bold">⚠️ Reste : {remaining} €</span>
                   )}
                 </div>
-                {canEdit && <div className="dashboard-drag-handle" style={{ marginTop: '4px' }}>⠿ GLISSER POUR CHANGER DE STATUT</div>}
+                
+                {canEdit && <div className="absolute bottom-2 right-2 text-[#444] text-[0.6rem] tracking-widest font-bold opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">GLISSER ⠿</div>}
               </div>
             );
           })}
@@ -206,57 +215,65 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <button onClick={() => setEditId(null)} className="btn-tab">⬅ RETOUR</button>
-      <div className="tm-flex-between" style={{ margin: '20px 0', borderBottom: '1px solid #333', paddingBottom: '20px' }}>
-          <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-              <h2 style={{ margin: 0 }}>Équipe : {team.name}</h2>
-              {canEdit && <button onClick={validateAllPlayers} className="tm-btn-success" style={{ padding: '8px 15px', fontSize: '0.8rem' }}>✅ TOUT VALIDER</button>}
-          </div>
-          {canEdit && (
-            <div style={{ background: '#222', padding: '15px', borderRadius: '8px', border: '1px dashed #555', width: '100%', maxWidth: '500px' }}>
-              <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#ccc', fontSize: '0.9rem' }}>➕ Ajout rapide (Multiple)</h4>
-              
-              {playersDraft.map((draft, index) => (
-                <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <input 
-                    className="tm-input" 
-                    placeholder="Nom du joueur" 
-                    value={draft.name} 
-                    onChange={e => handleDraftChange(index, 'name', e.target.value)} 
-                    style={{ flex: 1 }} 
-                  />
-                  <input 
-                    className="tm-input" 
-                    style={{ width: '60px' }} 
-                    type="number" 
-                    placeholder="N°" 
-                    value={draft.number} 
-                    onChange={e => handleDraftChange(index, 'number', e.target.value)} 
-                  />
-                  {playersDraft.length > 1 && (
-                    <button onClick={() => removeDraftRow(index)} style={{ background: 'transparent', color: 'var(--danger)', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>×</button>
-                  )}
-                </div>
-              ))}
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                <button onClick={addDraftRow} style={{ background: 'transparent', color: 'var(--accent-blue)', border: '1px dashed var(--accent-blue)', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                  + Ligne
-                </button>
-                <button onClick={saveMultiplePlayers} className="tm-btn-success">
-                  💾 SAUVEGARDER
-                </button>
-              </div>
+    <div className="p-2 sm:p-5 w-full h-full flex flex-col max-w-[1920px] mx-auto">
+      <div className="mb-6">
+        <button onClick={() => setEditId(null)} className="bg-transparent text-[#888] font-bold border border-[#444] px-4 py-2 rounded-md hover:bg-[#333] hover:text-white transition-colors cursor-pointer mb-6">⬅ RETOUR</button>
+        
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border-b border-[#333] pb-6">
+            <div className="flex flex-wrap gap-4 items-center">
+                <h2 className="m-0 text-2xl font-bold text-white flex items-center gap-3">
+                  🛡️ {team.name}
+                </h2>
+                {canEdit && (
+                  <button onClick={validateAllPlayers} className="bg-[var(--success)] text-white border-none rounded-lg px-4 py-2 font-bold cursor-pointer hover:bg-green-600 transition-colors shadow-md text-sm">
+                    ✅ TOUT VALIDER
+                  </button>
+                )}
             </div>
-          )}
+            
+            {canEdit && (
+              <div className="bg-[#1a1a1a] p-4 rounded-xl border border-dashed border-[#555] w-full lg:max-w-[500px] shadow-lg">
+                <h4 className="mt-0 mb-4 text-[#ccc] text-sm font-bold uppercase tracking-wider">➕ Ajout rapide (Multiple)</h4>
+                
+                {playersDraft.map((draft, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input 
+                      className="flex-1 p-2 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-blue)] transition-colors text-sm" 
+                      placeholder="Nom du joueur" 
+                      value={draft.name} 
+                      onChange={e => handleDraftChange(index, 'name', e.target.value)} 
+                    />
+                    <input 
+                      className="w-[70px] p-2 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-blue)] transition-colors text-center text-sm" 
+                      type="number" 
+                      placeholder="N°" 
+                      value={draft.number} 
+                      onChange={e => handleDraftChange(index, 'number', e.target.value)} 
+                    />
+                    {playersDraft.length > 1 && (
+                      <button onClick={() => removeDraftRow(index)} className="bg-transparent text-[var(--danger)] border-none cursor-pointer text-xl hover:text-red-400">×</button>
+                    )}
+                  </div>
+                ))}
+                
+                <div className="flex justify-between items-center mt-4">
+                  <button onClick={addDraftRow} className="bg-transparent text-[var(--accent-blue)] border border-dashed border-[var(--accent-blue)] px-3 py-1.5 rounded cursor-pointer text-xs font-bold hover:bg-[rgba(0,212,255,0.1)] transition-colors">
+                    + LIGNE
+                  </button>
+                  <button onClick={saveMultiplePlayers} className="bg-[var(--accent-blue)] text-white border-none rounded px-4 py-2 font-bold cursor-pointer hover:bg-blue-600 transition-colors shadow-md text-xs">
+                    💾 SAUVEGARDER
+                  </button>
+                </div>
+              </div>
+            )}
+        </div>
       </div>
-      <div className="dashboard-pipeline" style={{ height: '65vh' }}>
-        {renderPlayerColumn("À VÉRIFIER", "to_check", "#ff4444")}
-        {renderPlayerColumn("EN ATTENTE", "pending", "var(--accent-orange)")}
-        {renderPlayerColumn("VALIDÉ", "validated", "var(--success)")}
+
+      <div className="flex flex-col lg:flex-row gap-6 overflow-x-auto pb-5 flex-1 custom-scrollbar">
+        {renderPlayerColumn("À VÉRIFIER", "to_check", "#ff4444", "var(--danger)")}
+        {renderPlayerColumn("EN ATTENTE", "pending", "#ff6b00", "var(--accent-orange)")}
+        {renderPlayerColumn("VALIDÉ", "validated", "#2ecc71", "var(--success)")}
       </div>
     </div>
   );
 }
-// FIN DE LA MODIFICATION

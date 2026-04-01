@@ -121,7 +121,7 @@ export default function PlayoffsTab({
       return (
           <div 
             key={m.id} 
-            className={`p-4 rounded-lg relative transition-all duration-200 border-l-4 w-full ${isFinished ? 'bg-[#1a1a1a]' : 'bg-[#111]'} ${borderColor} ${draggedMatchId === m.id ? 'opacity-40 scale-[1.02] shadow-[0_0_15px_rgba(255,165,0,0.4)]' : (isCanceled ? 'opacity-60' : 'opacity-100')} ${canEdit ? (draggedMatchId === m.id ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
+            className={`p-4 rounded-xl relative transition-all duration-200 border-l-4 w-full shadow-lg ${isFinished ? 'bg-[#1a1a1a]' : 'bg-[#111] border border-[#333]'} ${borderColor} ${draggedMatchId === m.id ? 'opacity-40 scale-[1.02] shadow-[0_0_20px_rgba(255,165,0,0.3)]' : (isCanceled ? 'opacity-60' : 'opacity-100 hover:border-r hover:border-r-[#555] hover:-translate-y-1')} ${canEdit ? (draggedMatchId === m.id ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'}`}
             draggable={canEdit}
             onDragStart={(e) => {
                 if(!canEdit) return;
@@ -133,7 +133,6 @@ export default function PlayoffsTab({
             onDragOver={(e) => {
                 if(!canEdit) return;
                 e.preventDefault();
-                // Effet visuel géré dans le drag, mais Tailwind ne gère pas bien le survol de drag, on garde l'effet direct
             }}
             onDrop={(e) => {
                 if(!canEdit) return;
@@ -154,36 +153,36 @@ export default function PlayoffsTab({
                 }
             }}
           >
-              {canEdit && <div className="absolute top-2 right-3 text-[#666] text-lg cursor-grab hover:text-white" title="Glisser pour intervertir">⠿</div>}
+              {canEdit && <div className="absolute top-2 right-2 text-[#555] text-lg cursor-grab hover:text-white transition-colors" title="Glisser pour intervertir">⠿</div>}
 
-              {isOngoing && <div className="absolute -top-1 -left-1 bg-[var(--accent-blue)] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">EN COURS</div>}
-              {isFinished && <div className="absolute -top-1 -left-1 bg-[#444] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">TERMINÉ</div>}
-              {isCanceled && <div className="absolute -top-1 -left-1 bg-[#555] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">ANNULÉ</div>}
-              {isForfeit && <div className="absolute -top-1 -left-1 bg-[var(--danger)] text-white text-[0.55rem] font-black tracking-widest px-2 py-0.5 rounded shadow-sm z-10">FORFAIT</div>}
+              {isOngoing && <div className="absolute -top-2 -left-2 bg-[var(--accent-blue)] text-white text-[0.6rem] font-black tracking-widest px-2 py-0.5 rounded shadow-md z-10 border border-[#111]">EN COURS</div>}
+              {isFinished && <div className="absolute -top-2 -left-2 bg-[#444] text-white text-[0.6rem] font-black tracking-widest px-2 py-0.5 rounded shadow-md z-10 border border-[#111]">TERMINÉ</div>}
+              {isCanceled && <div className="absolute -top-2 -left-2 bg-[#555] text-white text-[0.6rem] font-black tracking-widest px-2 py-0.5 rounded shadow-md z-10 border border-[#111]">ANNULÉ</div>}
+              {isForfeit && <div className="absolute -top-2 -left-2 bg-[var(--danger)] text-white text-[0.6rem] font-black tracking-widest px-2 py-0.5 rounded shadow-md z-10 border border-[#111]">FORFAIT</div>}
               
-              <div className="text-[0.7rem] text-[var(--accent-orange)] font-bold mb-2.5">{m.label}</div>
+              <div className="text-[0.7rem] text-[var(--accent-orange)] font-bold mb-3 uppercase tracking-wider">{m.label}</div>
               
               {/* ÉQUIPE A */}
-              <div className="flex justify-between items-center gap-2 mb-2 pr-6">
-                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-[var(--success)] font-bold' : 'text-gray-400') : 'text-white'} ${isCanceled ? 'line-through' : ''}`}>
-                      {m.teamA?.name || <span className="text-[#555] italic">À déterminer...</span>}
+              <div className="flex justify-between items-center gap-2 mb-2 pr-6 bg-white/5 p-1.5 rounded">
+                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-[var(--success)] font-bold' : 'text-[#888]') : 'text-white font-bold'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                      {m.teamA?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
                   </span>
-                  {(isFinished || isCanceled || isForfeit) && <b className="text-white ml-2">{m.scoreA}</b>}
+                  {(isFinished || isCanceled || isForfeit) && <b className={`ml-2 px-2 py-0.5 rounded ${isFinished ? 'bg-[#222] text-white' : 'text-[#888]'}`}>{m.scoreA}</b>}
               </div>
 
               {/* ÉQUIPE B */}
-              <div className="flex justify-between items-center gap-2 mb-2.5 pr-6">
-                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-[var(--success)] font-bold' : 'text-gray-400') : 'text-white'} ${isCanceled ? 'line-through' : ''}`}>
-                      {m.teamB?.name || <span className="text-[#555] italic">À déterminer...</span>}
+              <div className="flex justify-between items-center gap-2 mb-3 pr-6 bg-white/5 p-1.5 rounded">
+                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-[var(--success)] font-bold' : 'text-[#888]') : 'text-white font-bold'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                      {m.teamB?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
                   </span>
-                  {(isFinished || isCanceled || isForfeit) && <b className="text-white ml-2">{m.scoreB}</b>}
+                  {(isFinished || isCanceled || isForfeit) && <b className={`ml-2 px-2 py-0.5 rounded ${isFinished ? 'bg-[#222] text-white' : 'text-[#888]'}`}>{m.scoreB}</b>}
               </div>
               
-              {m.otm && <div className="text-[0.7rem] text-[#aaa] mb-2.5 truncate">📋 OTM : <span className="text-[var(--accent-orange)] font-bold">{m.otm}</span></div>}
+              {m.otm && <div className="text-[0.65rem] text-[#888] mb-3 truncate bg-white/5 inline-block px-2 py-1 rounded">📋 OTM : <span className="text-[var(--accent-orange)] font-bold">{m.otm}</span></div>}
               
               {/* SAISIE HORAIRE */}
               {(canEdit && !isFinished && !isCanceled && !isForfeit && !m.teamA?.isBye && !m.teamB?.isBye) && (
-                <div className="flex gap-2 mb-2.5 border-t border-dashed border-[#333] pt-2.5">
+                <div className="flex gap-2 mb-3 border-t border-dashed border-[#333] pt-3">
                   <input
                     type="time"
                     value={m.time || ''}
@@ -191,7 +190,7 @@ export default function PlayoffsTab({
                       const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
                       update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
                     }}
-                    className="flex-1 w-full p-1.5 text-xs bg-[#222] text-[#ccc] border border-[#444] rounded focus:outline-none focus:border-[var(--accent-orange)]"
+                    className="flex-1 w-full p-1.5 text-xs bg-[#222] text-[#ccc] border border-[#444] rounded focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                   />
                   <input
                     type="text"
@@ -201,18 +200,18 @@ export default function PlayoffsTab({
                       const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
                       update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
                     }}
-                    className="flex-[1.5] w-full p-1.5 text-xs bg-[#222] text-[#ccc] border border-[#444] rounded focus:outline-none focus:border-[var(--accent-orange)]"
+                    className="flex-[1.5] w-full p-1.5 text-xs bg-[#222] text-[#ccc] border border-[#444] rounded focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
                   />
                 </div>
               )}
 
               {/* BOUTONS ACTIONS OU BYE */}
               {(m.teamA?.isBye || m.teamB?.isBye) ? (
-                  <div className="text-center text-[0.7rem] text-[#888] mt-2.5 p-1.5 bg-[#222] rounded border border-dashed border-[#444]">
+                  <div className="text-center text-[0.7rem] font-bold tracking-widest text-[#888] mt-3 p-2 bg-[#1a1a1a] rounded-lg border border-dashed border-[#444]">
                       ⏩ QUALIFICATION DIRECTE
                   </div>
               ) : (
-                  <div className="flex gap-2 mt-2.5 h-8">
+                  <div className="flex gap-2 mt-3 h-9">
                     <button 
                       onClick={(e) => {
                           e.stopPropagation();
@@ -222,17 +221,17 @@ export default function PlayoffsTab({
                         }
                           if (!['canceled', 'forfeit'].includes(m.status)) handleLaunchMatch(m.id, canLaunchThisMatch);
                       }}
-                      className={`flex-1 m-0 px-1 py-0 rounded font-bold text-[0.7rem] transition-colors ${canClick ? 'text-white cursor-pointer' : 'text-[#888] bg-[#333] cursor-not-allowed border border-[#444]'} ${isOngoing ? 'bg-[var(--accent-blue)] hover:bg-blue-600' : ((isCanceled || isForfeit) ? 'bg-[#333] text-[#666]' : (canClick && !isFinished ? 'bg-[var(--success)] hover:bg-green-600' : ''))} ${isFinished ? 'bg-[#444] hover:bg-[#555]' : ''}`} 
+                      className={`flex-1 m-0 px-2 py-0 rounded font-bold text-[0.7rem] transition-colors shadow-sm ${canClick ? 'text-white cursor-pointer' : 'text-[#888] bg-[#333] cursor-not-allowed border border-[#444]'} ${isOngoing ? 'bg-[var(--accent-blue)] hover:bg-blue-600' : ((isCanceled || isForfeit) ? 'bg-[#333] text-[#666]' : (canClick && !isFinished ? 'bg-[var(--success)] hover:bg-green-600' : ''))} ${isFinished ? 'bg-[#444] hover:bg-[#555]' : ''}`} 
                       disabled={isCanceled || isForfeit}
                     >
-                        {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE FORFAIT" : (isFinished ? "VOIR LES STATS 📊" : (canLaunchThisMatch ? (isOngoing ? "REPRENDRE 🏀" : "LANCER MATCH 🏀") : "SUIVRE EN DIRECT 🔴"))}
+                        {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE FORFAIT" : (isFinished ? "📊 VOIR LES STATS" : (canLaunchThisMatch ? (isOngoing ? "▶️ REPRENDRE" : "🚀 LANCER LE MATCH") : "🔴 SUIVRE EN DIRECT"))}
                     </button>
                     
                     {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
-                      <div className="flex gap-1">
-                        <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} className="w-8 h-8 rounded bg-[#222] border border-[#444] text-white flex justify-center items-center text-sm cursor-pointer hover:bg-[#333] transition-colors" title="Assigner un OTM">👤</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} className="w-8 h-8 rounded bg-[#444] border-none text-white flex justify-center items-center text-sm cursor-pointer hover:bg-[#555] transition-colors" title="Annuler le match">❌</button>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-8 h-8 rounded bg-[var(--danger)] border-none text-white flex justify-center items-center text-sm cursor-pointer hover:bg-red-700 transition-colors" title="Forfait">🏳️</button>
+                      <div className="flex gap-1.5">
+                        <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} className="w-9 h-9 rounded bg-[#222] border border-[#444] text-white flex justify-center items-center text-sm cursor-pointer hover:bg-[var(--accent-blue)] hover:border-[var(--accent-blue)] transition-colors shadow-sm" title="Assigner un OTM">👤</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} className="w-9 h-9 rounded bg-[#333] border-none text-white flex justify-center items-center text-sm cursor-pointer hover:bg-[#555] transition-colors shadow-sm" title="Annuler le match">❌</button>
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-9 h-9 rounded bg-[var(--danger)] border-none text-white flex justify-center items-center text-sm cursor-pointer hover:bg-red-700 transition-colors shadow-sm" title="Forfait">🏳️</button>
                       </div>
                     )}
                   </div>
@@ -245,13 +244,13 @@ export default function PlayoffsTab({
   // 💻 RENDU PRINCIPAL
   // ==========================================
   return (
-    <div className="tm-panel glass-effect border border-[#333] rounded-xl p-5 bg-[#1a1a1a]">
-      <div className="flex justify-between items-center mb-5">
-        <h3 className="m-0 text-xl font-bold text-white">🏆 Phase Finale</h3>
+    <div className="bg-[#111] border border-[#333] rounded-xl p-5 shadow-2xl mt-4">
+      <div className="flex justify-between items-center mb-6 border-b border-[#222] pb-4">
+        <h3 className="m-0 text-2xl font-black text-white tracking-wide">🏆 Phase Finale</h3>
         {(tourney.playoffs && canEdit) && (
           <button 
             onClick={() => update({playoffs: null})} 
-            className="bg-transparent border border-[var(--danger)] text-[var(--danger)] px-2 py-1 rounded text-xs font-bold cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors"
+            className="bg-transparent border border-[var(--danger)] text-[var(--danger)] px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors"
           >
             RESET TABLEAU
           </button>
@@ -259,39 +258,39 @@ export default function PlayoffsTab({
       </div>
       
       {!tourney.playoffs ? (
-        <div className="text-center py-16 px-5 border border-dashed border-[#333] rounded-xl bg-white/5">
-            <div className="text-5xl mb-5">⏳</div>
+        <div className="flex flex-col justify-center items-center py-20 px-5 border-2 border-dashed border-[#333] rounded-xl bg-white/5">
+            <div className="text-6xl mb-6 drop-shadow-md">⏳</div>
             
             {canEdit ? (
                 /* --- VUE ORGANISATEUR --- */
                 <>
-                    <p className="mb-5 text-lg text-white">
-                        <b className="text-[var(--accent-orange)]">{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages.
+                    <p className="mb-6 text-lg text-[#ccc] text-center max-w-xl">
+                        <b className="text-[var(--accent-orange)] text-xl">{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages de poules.
                     </p>
                     {totalQualified >= 2 ? (
-                        <div className="flex flex-col items-center gap-4">
-                            <span className="text-[var(--accent-orange)] text-sm">
-                                L'arbre sera de <b>{bracketSize} places</b>. <br/>Les 1ers de poule sauteront le premier tour !
+                        <div className="flex flex-col items-center gap-6">
+                            <span className="text-[var(--accent-orange)] text-sm text-center bg-[rgba(255,165,0,0.1)] px-4 py-2 rounded-lg border border-[rgba(255,165,0,0.2)]">
+                                L'arbre sera généré pour <b>{bracketSize} places</b>. <br/>Les premiers de poules seront potentiellement exemptés (Bye) au 1er tour !
                             </span>
                             <button 
                               onClick={generatePlayoffs} 
-                              className="bg-[var(--success)] text-white px-8 py-3 rounded-lg text-lg font-black cursor-pointer hover:bg-green-600 transition-colors shadow-lg mt-2"
+                              className="bg-[var(--success)] text-white px-8 py-4 rounded-xl text-lg font-black cursor-pointer hover:bg-green-600 hover:-translate-y-1 transition-all shadow-[0_10px_20px_rgba(46,204,113,0.3)] mt-2"
                             >
                                 🚀 GÉNÉRER {getStartRoundName(bracketSize)}
                             </button>
                         </div>
                     ) : (
-                        <div className="text-[var(--danger)] font-bold">Il faut au moins 2 équipes qualifiées pour générer l'arbre.</div>
+                        <div className="text-[var(--danger)] font-bold bg-[rgba(255,59,48,0.1)] px-4 py-2 rounded-lg">⚠️ Il faut au moins 2 équipes qualifiées pour générer l'arbre.</div>
                     )}
                 </>
             ) : (
                 /* --- VUE JOUEUR / SPECTATEUR --- */
                 <>
-                    <h3 className="text-white text-2xl mb-3">En attente des qualifications</h3>
-                    <p className="text-[#888] max-w-lg mx-auto leading-relaxed">
+                    <h3 className="text-white text-2xl mb-4 font-bold">En attente des qualifications</h3>
+                    <p className="text-[#888] max-w-lg mx-auto leading-relaxed text-center text-sm md:text-base">
                         Le tableau de la phase finale sera généré dès que les matchs de poules seront terminés et que les positions seront figées. 
                         <br/><br/>
-                        <span className="text-[var(--accent-orange)] font-bold text-lg">
+                        <span className="text-[var(--accent-orange)] font-bold text-lg inline-block mt-2">
                             Seuls les meilleurs décrocheront leur ticket pour {getStartRoundName(bracketSize)} !
                         </span>
                     </p>
@@ -300,13 +299,13 @@ export default function PlayoffsTab({
         </div>
       ) : (
         /* --- L'ARBRE SYMÉTRIQUE (BRACKET) --- */
-        <div className={`flex gap-5 overflow-x-auto py-5 px-2 min-h-[600px] scrollbar-thin scrollbar-thumb-[#444] scrollbar-track-[#1a1a1a] ${columns.length <= 3 ? 'justify-center' : 'justify-start'}`}>
+        <div className={`flex gap-8 overflow-x-auto py-8 px-4 min-h-[600px] custom-scrollbar ${columns.length <= 3 ? 'justify-center' : 'justify-start'}`}>
             {columns.map((col) => (
                 <div 
                   key={col.id} 
-                  className={`flex flex-col p-4 rounded-xl shrink-0 ${col.isCenter ? 'min-w-[320px] bg-[rgba(255,165,0,0.05)] border border-[rgba(255,165,0,0.3)] shadow-[0_0_20px_rgba(255,165,0,0.1)]' : 'min-w-[280px] bg-white/5 flex-1'}`}
+                  className={`flex flex-col p-5 rounded-2xl shrink-0 ${col.isCenter ? 'min-w-[340px] bg-[rgba(255,165,0,0.03)] border-2 border-[rgba(255,165,0,0.2)] shadow-[0_0_30px_rgba(255,165,0,0.05)]' : 'min-w-[300px] bg-[#1a1a1a] border border-[#222] flex-1'}`}
                 >
-                    <h3 className={`text-center m-0 mb-6 pb-4 border-b-2 ${col.isCenter ? 'text-[var(--accent-orange)] border-[var(--accent-orange)] text-xl font-black' : 'text-[#ccc] border-[#333] text-lg font-bold'}`}>
+                    <h3 className={`text-center m-0 mb-8 pb-4 border-b-2 ${col.isCenter ? 'text-[var(--accent-orange)] border-[var(--accent-orange)] text-2xl font-black uppercase tracking-widest drop-shadow-md' : 'text-[#ccc] border-[#333] text-lg font-bold tracking-wider'}`}>
                         {col.title}
                     </h3>
                     

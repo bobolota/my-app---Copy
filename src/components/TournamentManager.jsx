@@ -12,6 +12,10 @@ import { useAppContext } from '../context/AppContext';
 import TeamEditor from './TeamEditor';
 import PlanningTab from './PlanningTab';
 
+// 👇 Nouveaux composants importés 👇
+import TournamentHeader from './TournamentHeader';
+import OtmAssignModal from './OtmAssignModal';
+
 
 export default function TournamentManager() {
   const { session } = useAuth();
@@ -65,8 +69,6 @@ export default function TournamentManager() {
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
   const [promptData, setPromptData] = useState({ isOpen: false, title: '', message: '', placeholder: '', onConfirm: null });
   const closePrompt = () => setPromptData(prev => ({ ...prev, isOpen: false }));
-  const [selectedOtms, setSelectedOtms] = useState([]); 
-  const [customOtm, setCustomOtm] = useState("");       
 
   const [currentUserName, setCurrentUserName] = useState("");
 
@@ -88,7 +90,6 @@ export default function TournamentManager() {
         return;
       }
       
-      // 👇 ON FILTRE LES NULL ICI (Sécurité anti-crash) 👇
       const validOtmIds = tourney.otm_ids.filter(Boolean);
       if (validOtmIds.length === 0) return;
 
@@ -258,8 +259,6 @@ export default function TournamentManager() {
     }
   }, [tourney.playoffs]);
 
-  
-
   const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
     let match = (tourney.schedule || []).find(m => m.id === matchId);
     if (!match && tourney.playoffs) {
@@ -336,14 +335,8 @@ export default function TournamentManager() {
   const handleAssignOtm = (matchId, isPlayoff) => {
     if (!canEdit) return;
     const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
-    setOtmModal({ matchId, isPlayoff });
-    
-    const currentOtmStr = match.otm || "";
-    const currentOtmsArray = currentOtmStr.split(' - ').map(s => s.trim()).filter(Boolean);
-    const knownProfiles = otmProfiles.map(p => p.full_name);
-    
-    setSelectedOtms(currentOtmsArray.filter(name => knownProfiles.includes(name)));
-    setCustomOtm(currentOtmsArray.filter(name => !knownProfiles.includes(name)).join(' - '));
+    // On passe currentOtm à la modale
+    setOtmModal({ matchId, isPlayoff, currentOtm: match.otm || "" });
   };
 
 
@@ -517,52 +510,34 @@ export default function TournamentManager() {
       return;
     }
     try {
-      // 👇 On récupère manual_name pour les joueurs fantômes
       const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', gTeam.id).eq('status', 'accepted');
       
       let newPlayers = [];
       if (members && members.length > 0) {
-        
-        // 👇 LA CORRECTION EST ICI : on filtre les `null` avec .filter(Boolean)
         const validPlayerIds = members.map(m => m.player_id).filter(Boolean);
-        
-        // On ne fait la requête que s'il y a de vrais joueurs
-        const { data: profiles } = validPlayerIds.length > 0 
-          ? await supabase.from('profiles').select('id, full_name').in('id', validPlayerIds)
-          : { data: [] };
+        const { data: profiles } = validPlayerIds.length > 0 ? await supabase.from('profiles').select('id, full_name').in('id', validPlayerIds) : { data: [] };
 
         newPlayers = members.map((m, i) => {
           const prof = profiles?.find(p => p.id === m.player_id);
           return { 
-            // Si c'est un fantôme, on lui donne un faux ID unique pour le match
             id: m.player_id || `ghost_${Math.random()}`, 
             name: prof?.full_name || m.manual_name || "Joueur Manuel", 
             number: String(i + 4), 
             licenseStatus: 'to_check', 
-            paid: 0, 
-            totalDue: 20 
+            paid: 0, totalDue: 20 
           };
         });
       }
 
-      let conflictingPlayer = null;
-      let conflictingTeam = null;
-      
+      let conflictingPlayer = null; let conflictingTeam = null;
       for (const newPlayer of newPlayers) {
         for (const team of tourney.teams) {
-          if (team.players.some(p => p.id === newPlayer.id && !newPlayer.id.startsWith('ghost_'))) {
-            conflictingPlayer = newPlayer;
-            conflictingTeam = team;
-            break;
-          }
+          if (team.players.some(p => p.id === newPlayer.id && !newPlayer.id.startsWith('ghost_'))) { conflictingPlayer = newPlayer; conflictingTeam = team; break; }
         }
         if (conflictingPlayer) break;
       }
 
-      if (conflictingPlayer) {
-        toast.error(`"${conflictingPlayer.name}" joue déjà pour l'équipe "${conflictingTeam.name}".`);
-        return; 
-      }
+      if (conflictingPlayer) return toast.error(`"${conflictingPlayer.name}" joue déjà pour l'équipe "${conflictingTeam.name}".`);
 
       update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), global_id: gTeam.id, name: gTeam.name, players: newPlayers, groupId: null }] });
       setTeamSearchQuery("");
@@ -583,11 +558,7 @@ export default function TournamentManager() {
       isDanger: true,
       onConfirm: () => {
         const newTeams = tourney.teams.filter(t => t.id !== teamId);
-        const newSchedule = (tourney.schedule || []).filter(match => {
-          const aId = match.teamA?.id || null;
-          const bId = match.teamB?.id || null;
-          return aId !== teamId && bId !== teamId;
-        });
+        const newSchedule = (tourney.schedule || []).filter(match => match.teamA?.id !== teamId && match.teamB?.id !== teamId);
 
         let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
         if (newPlayoffs && newPlayoffs.matches) {
@@ -608,146 +579,59 @@ export default function TournamentManager() {
     setPromptData({
       isOpen: true,
       title: "Accès Table de Marque",
-      message: "Entrez le code PIN fourni par l'organisateur pour débloquer la gestion du match :",
+      message: "Entrez le code PIN fourni par l'organisateur :",
       placeholder: "Code PIN (ex: 1234)",
       onConfirm: async (pin) => {
-        if (!pin) return;
-        try {
-          const { error } = await supabase.rpc('join_as_otm', { pin: pin.trim().toUpperCase() });
-          if (error) throw error;
-          
-          toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
-          setTournaments(prev => prev.map(t => {
-            if (t.id === tourney.id) {
-              return { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] };
-            }
-            return t;
-          }));
-        } catch (err) {
-          toast.error("Code PIN invalide ou erreur réseau.");
-        }
-      }
+  if (!pin) return;
+  try {
+    const cleanedPin = pin.trim().toUpperCase();
+    console.log("Tentative d'envoi du PIN :", cleanedPin); // 👈 Vérifie que le code est bon
+
+    const { error } = await supabase.rpc('join_as_otm', { pin: cleanedPin });
+    if (error) throw error;
+    
+    toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
+    setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] } : t));
+  } catch (err) { 
+    console.error("Erreur complète Supabase :", err); // 👈 Regarde ta console (F12) !
+    toast.error(`Erreur : ${err.message}`); // 👈 Affichera la vraie raison à l'écran
+  }
+}
     });
   };
-
       
   if (editId) {
-    return (
-      <TeamEditor 
-        teamId={editId} 
-        setEditId={setEditId} 
-        tourney={tourney} 
-        canEdit={canEdit} 
-        update={update} 
-      />
-    );
+    return <TeamEditor teamId={editId} setEditId={setEditId} tourney={tourney} canEdit={canEdit} update={update} />;
   }
 
   const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
 
-  // 👇 L'INTERFACE EST MAINTENANT 100% TAILWIND CSS 👇
   return (
-    <div className="flex flex-col w-full h-full">
-      <div className="flex flex-col items-start gap-3 mb-5">
-        
-        <div className="flex items-center gap-4 flex-wrap w-full">
-            <h1 className="text-2xl md:text-3xl font-bold text-white m-0 flex-1">{tourney.name}</h1>
-            
-            {canEdit && tourney.pin_code && (
-              <span className="bg-[rgba(0,102,204,0.1)] border border-[var(--accent-blue)] text-[var(--accent-blue)] px-3 py-1.5 rounded-md text-sm md:text-base font-bold tracking-wide">
-                🔑 CODE OTM : {tourney.pin_code}
-              </span>
-            )}
-
-            {!canManageMatch && session && (
-              <button 
-                onClick={handleUnlockOtm} 
-                className="bg-[#1a1a1a] border border-dashed border-[var(--accent-blue)] text-[var(--accent-blue)] px-3 py-1.5 rounded-md cursor-pointer font-bold transition-colors hover:bg-[rgba(0,102,204,0.2)] text-sm md:text-base"
-              >
-                🔓 Débloquer la Table de Marque
-              </button>
-            )}
-        </div>
-
-        {/* ONGLETS SCROLLABLES SUR MOBILE */}
-        <div className="flex gap-2 mt-3 overflow-x-auto w-full pb-2 scrollbar-hide">
-            <button 
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'planning' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} 
-              onClick={() => setActiveTab('planning')}
-            >
-              PLANNING
-            </button>
-            <button 
-              onClick={() => setActiveTab("poules")} 
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'poules' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
-            >
-              POULES
-            </button>
-            <button 
-              onClick={() => setActiveTab("finale")} 
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'finale' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
-            >
-              PHASE FINALE
-            </button>
-            <button 
-              onClick={() => setActiveTab("stats")} 
-              className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'stats' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
-            >
-              STATISTIQUES 📈
-            </button>
-        </div>
-      </div>
+    <div className="flex flex-col w-full h-full max-w-[1920px] mx-auto p-4 sm:p-6">
+      
+      <TournamentHeader 
+        tourney={tourney}
+        canEdit={canEdit}
+        canManageMatch={canManageMatch}
+        session={session}
+        handleUnlockOtm={handleUnlockOtm}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+      />
 
       {activeTab === 'planning' && (
-        <PlanningTab 
-          tourney={tourney} 
-          handleLaunchMatch={handleLaunchMatch} 
-          canEdit={canEdit} 
-          currentUserName={currentUserName} 
-        />
+        <PlanningTab tourney={tourney} handleLaunchMatch={handleLaunchMatch} canEdit={canEdit} currentUserName={currentUserName} />
       )}
 
       {activeTab === "poules" && (
         <GroupStageTab 
-          tourney={tourney}
-          canEdit={canEdit}
-          savedGroupIds={savedGroupIds}
-          generateMatches={generateDrawAndSchedule}
-          currentUserName={currentUserName}
-          handleLaunchMatch={handleLaunchMatch}
-          handleAssignOtm={handleAssignOtm}
-          handleMatchException={handleMatchException}
-          teamName={teamName}
-          setTeamName={setTeamName}
-          addTeam={addTeam}
-          teamSearchQuery={teamSearchQuery}
-          setTeamSearchQuery={setTeamSearchQuery}
-          globalTeams={globalTeams}
-          handleDirectImport={handleDirectImport}
-          teamPage={teamPage}
-          setTeamPage={setTeamPage}
-          teamsPerPage={teamsPerPage}
-          setEditId={setEditId}
-          deleteTeam={deleteTeam}
-          groupCount={groupCount}
-          setGroupCount={setGroupCount}
-          update={update}
-          getGroupStandings={getGroupStandings}
-          getGroupLimit={getGroupLimit}
+          tourney={tourney} canEdit={canEdit} savedGroupIds={savedGroupIds} generateMatches={generateDrawAndSchedule} currentUserName={currentUserName} handleLaunchMatch={handleLaunchMatch} handleAssignOtm={handleAssignOtm} handleMatchException={handleMatchException} teamName={teamName} setTeamName={setTeamName} addTeam={addTeam} teamSearchQuery={teamSearchQuery} setTeamSearchQuery={setTeamSearchQuery} globalTeams={globalTeams} handleDirectImport={handleDirectImport} teamPage={teamPage} setTeamPage={setTeamPage} teamsPerPage={teamsPerPage} setEditId={setEditId} deleteTeam={deleteTeam} groupCount={groupCount} setGroupCount={setGroupCount} update={update} getGroupStandings={getGroupStandings} getGroupLimit={getGroupLimit}
         />
       )}
           
       {activeTab === "finale" && (
         <PlayoffsTab 
-          tourney={tourney}
-          canEdit={canEdit}
-          update={update}
-          generatePlayoffs={generatePlayoffs}
-          currentUserName={currentUserName}
-          handleLaunchMatch={handleLaunchMatch}
-          handleAssignOtm={handleAssignOtm}
-          handleMatchException={handleMatchException}
-          getGroupLimit={getGroupLimit}
+          tourney={tourney} canEdit={canEdit} update={update} generatePlayoffs={generatePlayoffs} currentUserName={currentUserName} handleLaunchMatch={handleLaunchMatch} handleAssignOtm={handleAssignOtm} handleMatchException={handleMatchException} getGroupLimit={getGroupLimit}
         />
       )}
 
@@ -755,112 +639,17 @@ export default function TournamentManager() {
         <TournamentStats tourney={tourney} />
       )}
 
-
-      {/* --- MODALE D'ASSIGNATION D'OTM 100% TAILWIND --- */}      
-      {otmModal && (
-        <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[9999] p-4">
-          <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-blue)] w-full max-w-lg shadow-2xl">
-            <h3 className="mt-0 text-[var(--accent-blue)] border-b border-[#333] pb-3 mb-4 text-xl font-bold">👤 Assigner des OTM</h3>
-            
-            <label className="block mb-2 text-[#ccc] text-sm">Cocher les OTM connectés :</label>
-            <div className="flex flex-col gap-2 mb-5 bg-[#222] p-3 rounded-md max-h-[150px] overflow-y-auto">
-              {otmProfiles.length === 0 ? (
-                <span className="text-sm text-[#888] italic">Aucun OTM n'a rejoint le tournoi.</span>
-              ) : (
-                otmProfiles.map(prof => (
-                  <label key={prof.id} className="flex items-center gap-3 cursor-pointer text-sm text-white hover:bg-[#333] p-2 rounded transition-colors">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedOtms.includes(prof.full_name)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedOtms([...selectedOtms, prof.full_name]);
-                        } else {
-                          setSelectedOtms(selectedOtms.filter(name => name !== prof.full_name));
-                        }
-                      }}
-                      className="scale-125 cursor-pointer accent-[var(--accent-blue)]"
-                    />
-                    {prof.full_name}
-                  </label>
-                ))
-              )}
-            </div>
-
-            <label className="block mb-2 text-[#ccc] text-sm">Autre (ex: Terrain 1, Bénévoles...) :</label>
-            <input 
-              type="text" 
-              value={customOtm}
-              onChange={(e) => setCustomOtm(e.target.value)}
-              className="w-full mb-6 p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
-              placeholder="Saisir un texte libre..."
-            />
-
-            <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => setOtmModal(null)} 
-                className="bg-[#333] text-white px-4 py-2 rounded-md font-bold hover:bg-[#444] transition-colors cursor-pointer"
-              >
-                Annuler
-              </button>
-              <button 
-                onClick={() => {
-                  const finalVal = [...selectedOtms, customOtm.trim()].filter(Boolean).join(' - ');
-                  
-                  if (otmModal.isPlayoff) {
-                    const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                  } else {
-                    const newSchedule = tourney.schedule.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-                    update({ schedule: newSchedule });
-                  }
-                  setOtmModal(null);
-                }} 
-                className="bg-[var(--success)] text-white px-5 py-2 rounded-md text-base font-bold hover:bg-green-600 transition-colors cursor-pointer"
-              >
-                Valider
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ConfirmModal 
-        isOpen={confirmData.isOpen}
-        title={confirmData.title}
-        message={confirmData.message}
-        onConfirm={() => {
-          if (confirmData.onConfirm) confirmData.onConfirm();
-          closeConfirm();
-        }}
-        onCancel={closeConfirm}
-        isDanger={confirmData.isDanger}
-      />
-      
-      <PromptModal 
-        isOpen={promptData.isOpen}
-        title={promptData.title}
-        message={promptData.message}
-        placeholder={promptData.placeholder}
-        onConfirm={(value) => {
-          if (promptData.onConfirm) promptData.onConfirm(value);
-          closePrompt();
-        }}
-        onCancel={closePrompt}
+      <OtmAssignModal 
+        otmModal={otmModal}
+        setOtmModal={setOtmModal}
+        otmProfiles={otmProfiles}
+        tourney={tourney}
+        update={update}
       />
 
-      <ChoiceModal 
-          isOpen={choiceData.isOpen}
-          title={choiceData.title}
-          message={choiceData.message}
-          optionA={choiceData.optionA}
-          optionB={choiceData.optionB}
-          onChoose={(choice) => {
-            if (choiceData.onChoose) choiceData.onChoose(choice);
-            closeChoice();
-          }}
-          onCancel={closeChoice}
-        />
+      <ConfirmModal isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message} onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }} onCancel={closeConfirm} isDanger={confirmData.isDanger} />
+      <PromptModal isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder} onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }} onCancel={closePrompt} />
+      <ChoiceModal isOpen={choiceData.isOpen} title={choiceData.title} message={choiceData.message} optionA={choiceData.optionA} optionB={choiceData.optionB} onChoose={(choice) => { if (choiceData.onChoose) choiceData.onChoose(choice); closeChoice(); }} onCancel={closeChoice} />
 
     </div>
   );
