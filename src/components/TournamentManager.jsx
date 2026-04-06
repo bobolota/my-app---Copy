@@ -617,6 +617,7 @@ export default function TournamentManager() {
         handleUnlockOtm={handleUnlockOtm}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        update={update} // 👈 LA SEULE LIGNE À AJOUTER EST ICI
       />
 
       {activeTab === 'planning' && (

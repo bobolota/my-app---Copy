@@ -33,27 +33,60 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   const handleOpenTourney = (tId) => { setActiveTourneyId(tId); setView('tournament'); };
 
   return (
-    <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1920px] mx-auto">
-      <h1 className="text-white border-b-2 border-[#333] pb-2 text-2xl font-bold">🌍 Explorer les tournois</h1>
+    <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1920px] mx-auto relative">
       
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-8">
+      {/* EN-TÊTE PREMIUM */}
+      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+        <h1 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
+          <span className="text-4xl drop-shadow-lg">🌍</span> 
+          Explorer les tournois
+        </h1>
+        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+          Découvre les compétitions, inscris ton équipe ou suis les résultats en direct.
+        </p>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         
-        {/* COLONNE 1 : TOURNOIS PUBLICS */}
-        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
-          <h2 className="m-0 mb-5 text-[var(--accent-purple)] text-base text-center uppercase tracking-wider font-bold">🟢 Inscription ouverte</h2>
+        {/* =========================================
+            COLONNE 1 : INSCRIPTION OUVERTE (VIOLET)
+            ========================================= */}
+        <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-5 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group/col">
+          {/* Ligne LED décorative */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-600 to-pink-500 shadow-[0_0_15px_rgba(168,85,247,0.6)]"></div>
+          
+          <h2 className="m-0 mb-6 text-purple-400 text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black">
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,1)]"></span>
+            Inscription ouverte
+          </h2>
+          
           <div className="flex flex-col gap-4 flex-1">
-            {publicTourneys.length === 0 ? <p className="text-[#666] italic text-center text-sm">Aucun tournoi disponible.</p> : (
+            {publicTourneys.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-50">
+                <span className="text-4xl mb-2">🏜️</span>
+                <p className="text-[#666] italic text-center text-sm m-0">Aucun tournoi disponible.</p>
+              </div>
+            ) : (
               publicTourneys.map(t => (
-                <div key={t.id} className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] shadow-md">
-                  <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
-                  <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
+                <div key={t.id} className="bg-[#1e1e2a] p-5 rounded-xl border border-white/5 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/30 hover:shadow-[0_8px_25px_rgba(168,85,247,0.15)] group">
+                  <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-purple-300 transition-colors">{t.name}</strong>
+                  <span className="text-xs text-[#888] flex items-center gap-1.5 mb-4 font-bold bg-black/30 w-fit px-2.5 py-1 rounded-md">
+                    📅 {t.date || 'Date non définie'}
+                  </span>
                   
-                  <TeamTagList teams={t.teams} /> {/* 👈 On l'utilise ici */}
+                  <TeamTagList teams={t.teams} />
                   
                   {myCaptainTeams.length === 0 ? (
-                    <span className="text-sm text-[var(--danger)] italic font-bold block mt-2">Fonde une équipe pour t'inscrire.</span>
+                    <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+                      <span className="text-xs text-red-400 font-bold">⚠️ Fonde une équipe pour t'inscrire.</span>
+                    </div>
                   ) : (
-                    <button onClick={() => setRegisterModalTourney(t)} className="w-full bg-transparent text-[var(--accent-purple)] border-2 border-[var(--accent-purple)] p-2.5 rounded-lg cursor-pointer font-bold transition-colors hover:bg-[var(--accent-purple)] hover:text-white mt-2">S'INSCRIRE</button>
+                    <button 
+                      onClick={() => setRegisterModalTourney(t)} 
+                      className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] transition-all hover:-translate-y-0.5"
+                    >
+                      S'INSCRIRE 🚀
+                    </button>
                   )}
                 </div>
               ))
@@ -61,47 +94,91 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
           </div>
         </div>
 
-        {/* COLONNE 2 : TOURNOIS EN COURS */}
-        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
-          <h2 className="m-0 mb-5 text-[var(--accent-blue)] text-base text-center uppercase tracking-wider font-bold">🔥 Suivre un tournoi</h2>
+        {/* =========================================
+            COLONNE 2 : TOURNOIS EN COURS (BLEU)
+            ========================================= */}
+        <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-5 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group/col">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.6)]"></div>
+          
+          <h2 className="m-0 mb-6 text-blue-400 text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black">
+            🔥 Suivre un tournoi
+          </h2>
+          
           <div className="flex flex-col gap-4 flex-1">
-            {ongoingOtherTourneys.length === 0 ? <p className="text-[#666] italic text-center text-sm">Aucun autre tournoi en cours.</p> : (
+            {ongoingOtherTourneys.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-50">
+                <span className="text-4xl mb-2">📭</span>
+                <p className="text-[#666] italic text-center text-sm m-0">Aucun autre tournoi en cours.</p>
+              </div>
+            ) : (
               ongoingOtherTourneys.map(t => (
-                <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] cursor-pointer shadow-md transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-[var(--accent-blue)]">
-                  <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
-                  <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
+                <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[#1e1e2a] p-5 rounded-xl border border-white/5 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.15)] group cursor-pointer">
+                  <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-blue-300 transition-colors">{t.name}</strong>
+                  <span className="text-xs text-[#888] flex items-center gap-1.5 mb-4 font-bold bg-black/30 w-fit px-2.5 py-1 rounded-md">
+                    📅 {t.date || 'Date non définie'}
+                  </span>
                   
-                  <TeamTagList teams={t.teams} /> {/* 👈 On l'utilise ici */}
+                  <TeamTagList teams={t.teams} />
 
-                  <span className="text-sm text-[var(--accent-blue)] font-bold block text-center bg-[rgba(0,212,255,0.1)] p-2 rounded-lg mt-2">👀 Suivre les matchs & Stats</span>
+                  <div className="mt-4 flex items-center justify-center gap-2 text-xs text-blue-400 font-bold bg-blue-500/10 border border-blue-500/20 p-2.5 rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                    <span>👀</span> Suivre les matchs & Stats
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* COLONNE 3 : MES TOURNOIS */}
-        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
-          <h2 className="m-0 mb-5 text-[var(--success)] text-base text-center uppercase tracking-wider font-bold">✅ Inscrit</h2>
+        {/* =========================================
+            COLONNE 3 : MES TOURNOIS (VERT)
+            ========================================= */}
+        <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-5 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group/col">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-400 shadow-[0_0_15px_rgba(16,185,129,0.6)]"></div>
+          
+          <h2 className="m-0 mb-6 text-emerald-400 text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black">
+            ✅ Mes Engagements
+          </h2>
+          
           <div className="flex flex-col gap-4 flex-1">
-            {myActiveTourneys.length === 0 ? <p className="text-[#666] italic text-center text-sm">Tu n'es inscrit à aucun tournoi actif.</p> : (
+            {myActiveTourneys.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-50">
+                <span className="text-4xl mb-2">🛌</span>
+                <p className="text-[#666] italic text-center text-sm m-0">Aucune participation active.</p>
+              </div>
+            ) : (
               myActiveTourneys.map(t => {
                 const myRegisteredTeam = t.teams && t.teams.find(team => myAcceptedTeamIds.includes(team.global_id));
                 const isCaptainOfThisTeam = myRegisteredTeam && myCaptainTeams.some(capTeam => capTeam.id === myRegisteredTeam.global_id);
 
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] border-l-4 border-l-[var(--success)] cursor-pointer shadow-md transition-transform duration-200 hover:-translate-y-1">
-                    <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
-                    <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[#1e1e2a] p-5 rounded-xl border border-white/5 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/40 hover:shadow-[0_8px_25px_rgba(16,185,129,0.15)] group cursor-pointer relative overflow-hidden">
+                    {/* Petit ruban vertical pour marquer "Mes tournois" */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500/50 group-hover:bg-emerald-400 transition-colors"></div>
                     
-                    <TeamTagList teams={t.teams} /> {/* 👈 On l'utilise ici */}
+                    <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-emerald-300 transition-colors pl-2">{t.name}</strong>
+                    <span className="text-xs text-[#888] flex items-center gap-1.5 mb-4 font-bold bg-black/30 w-fit px-2.5 py-1 rounded-md ml-2">
+                      📅 {t.date || 'Date non définie'}
+                    </span>
+                    
+                    <div className="pl-2">
+                      <TeamTagList teams={t.teams} />
+                    </div>
 
-                    <div className={`text-center p-2 rounded-lg mt-2 ${t.status === 'ongoing' ? 'bg-[rgba(255,107,0,0.1)]' : 'bg-[rgba(52,199,89,0.1)]'}`}>
-                      {t.status === 'ongoing' ? <span className="text-sm text-[var(--accent-orange)] font-bold">🔥 EN JEU (Suivre l'avancée)</span> : <span className="text-sm text-[var(--success)] font-bold">🗓️ Voir les engagés</span>}
+                    <div className={`mt-4 mx-2 text-center p-2.5 rounded-lg border transition-colors ${t.status === 'ongoing' ? 'bg-orange-500/10 border-orange-500/20 group-hover:bg-orange-500 group-hover:text-white' : 'bg-emerald-500/10 border-emerald-500/20 group-hover:bg-emerald-500 group-hover:text-white'}`}>
+                      {t.status === 'ongoing' ? (
+                        <span className="text-xs font-bold text-orange-400 group-hover:text-white">🔥 EN JEU (Suivre l'avancée)</span>
+                      ) : (
+                        <span className="text-xs font-bold text-emerald-400 group-hover:text-white">🗓️ Voir les engagés</span>
+                      )}
                     </div>
 
                     {t.status === 'preparing' && isCaptainOfThisTeam && (
-                      <button onClick={(e) => { e.stopPropagation(); handleLeaveTournament(t, myRegisteredTeam.global_id); }} className="w-full mt-3 bg-transparent text-[var(--danger)] border border-[var(--danger)] p-2 rounded-lg cursor-pointer font-bold text-sm transition-colors hover:bg-[var(--danger)] hover:text-white">DÉSINCRIRE L'ÉQUIPE 🚪</button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleLeaveTournament(t, myRegisteredTeam.global_id); }} 
+                        className="w-[calc(100%-1rem)] mx-2 mt-3 bg-transparent border border-red-500/30 text-red-400 p-2 rounded-lg cursor-pointer font-bold text-xs tracking-wider transition-all hover:bg-red-500 hover:text-white hover:border-red-500"
+                      >
+                        DÉSINCRIRE L'ÉQUIPE 🚪
+                      </button>
                     )}
                   </div>
                 );
@@ -110,29 +187,59 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
           </div>
         </div>
 
-        {/* COLONNE 4 : TOURNOIS TERMINÉS */}
-        <div className="bg-[#111] rounded-xl p-5 border border-[#222] flex flex-col shadow-lg">
-          <h2 className="m-0 mb-3 text-[#888] text-base text-center uppercase tracking-wider font-bold">🏁 Terminés</h2>
-          <div className="flex justify-center gap-2 mb-5">
-            <button onClick={() => setFilterFinished('all')} className={`px-3 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${filterFinished === 'all' ? 'bg-[#555] text-white border border-[#777] font-bold' : 'bg-[#222] text-white border border-[#444] font-normal hover:bg-[#333]'}`}>Tous</button>
-            <button onClick={() => setFilterFinished('mine')} className={`px-3 py-1.5 rounded-md text-xs cursor-pointer transition-colors ${filterFinished === 'mine' ? 'bg-[var(--success)] text-white border border-[var(--success)] font-bold' : 'bg-[#222] text-white border border-[#444] font-normal hover:bg-[#333]'}`}>Mes participations</button>
+        {/* =========================================
+            COLONNE 4 : TOURNOIS TERMINÉS (GRIS)
+            ========================================= */}
+        <div className="bg-[#15151e]/60 backdrop-blur-md rounded-2xl p-5 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group/col">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#444] to-[#222]"></div>
+          
+          <h2 className="m-0 mb-4 text-[#888] text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black">
+            🏁 Historique
+          </h2>
+          
+          {/* Toggle Pro */}
+          <div className="flex bg-black/40 rounded-lg p-1 mb-6 border border-white/5">
+            <button 
+              onClick={() => setFilterFinished('all')} 
+              className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${filterFinished === 'all' ? 'bg-[#333] text-white shadow-md' : 'text-[#666] hover:text-[#aaa]'}`}
+            >
+              Tous
+            </button>
+            <button 
+              onClick={() => setFilterFinished('mine')} 
+              className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${filterFinished === 'mine' ? 'bg-emerald-600/30 text-emerald-400 shadow-md' : 'text-[#666] hover:text-[#aaa]'}`}
+            >
+              Mes matchs
+            </button>
           </div>
+
           <div className="flex flex-col gap-4 flex-1">
-            {finishedTourneys.length === 0 ? <p className="text-[#666] italic text-center text-sm">Aucun historique.</p> : (
+            {finishedTourneys.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-10 opacity-50">
+                <span className="text-4xl mb-2">🗄️</span>
+                <p className="text-[#666] italic text-center text-sm m-0">Aucun historique.</p>
+              </div>
+            ) : (
               finishedTourneys.map(t => {
                 const iParticipated = isRegisteredIn(t);
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[var(--bg-card)] p-5 rounded-xl border border-[#333] opacity-80 cursor-pointer shadow-md transition-all duration-200 hover:opacity-100 hover:-translate-y-1 hover:border-[#555]">
-                    <strong className="text-lg block text-white mb-1 font-heading">{t.name}</strong>
-                    <span className="text-sm text-[#888] block mb-4 font-bold">📅 {t.date || 'Date non définie'}</span>
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-[#1e1e2a]/50 p-5 rounded-xl border border-white/5 cursor-pointer transition-all duration-300 hover:bg-[#1e1e2a] hover:-translate-y-1 hover:border-[#444] group">
+                    <strong className="text-xl block text-[#aaa] mb-1 font-black tracking-wide group-hover:text-white transition-colors">{t.name}</strong>
+                    <span className="text-xs text-[#666] flex items-center gap-1.5 mb-4 font-bold bg-black/20 w-fit px-2.5 py-1 rounded-md">
+                      📅 {t.date || 'Date non définie'}
+                    </span>
                     
-                    <div className="opacity-70">
-                      <TeamTagList teams={t.teams} /> {/* 👈 On l'utilise ici, baissé en opacité */}
+                    <div className="opacity-60 group-hover:opacity-100 transition-opacity grayscale group-hover:grayscale-0">
+                      <TeamTagList teams={t.teams} />
                     </div>
 
-                    <div className="flex justify-between items-center bg-black/20 p-2.5 rounded-lg mt-2">
-                      <span className="text-sm text-[#aaa] font-bold">📊 Voir les archives</span>
-                      {iParticipated && <span className="text-[10px] bg-[var(--success)] text-white px-2 py-1 rounded font-bold uppercase tracking-wider">J'y étais !</span>}
+                    <div className="flex justify-between items-center bg-black/30 p-3 rounded-lg mt-4 border border-white/5">
+                      <span className="text-xs text-[#888] font-bold group-hover:text-[#aaa] transition-colors">📊 Voir les archives</span>
+                      {iParticipated && (
+                        <span className="text-[9px] bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 px-2 py-1.5 rounded font-black uppercase tracking-widest shadow-sm">
+                          J'y étais !
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

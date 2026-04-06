@@ -67,7 +67,7 @@ export default function App() {
           <div className="app-container">
             
             {/* NOUVEAU : On passe l'onglet actif (currentTab) au PlayerDashboard ! */}
-            {view === 'dashboard' && ['vestiaire', 'mercato', 'carriere', 'explorer'].includes(activeMenu) && (
+            {view === 'dashboard' && ['vestiaire', 'mercato', 'carriere', 'explorer', 'arbitrage'].includes(activeMenu) && (
               <PlayerDashboard />
             )}
             

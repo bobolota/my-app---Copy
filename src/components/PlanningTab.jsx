@@ -34,55 +34,114 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
     .sort(sortFunction);
 
   return (
-    <div className="py-2">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b-2 border-[#333] pb-3 mb-6 gap-4">
-        <h2 className="text-white text-xl sm:text-2xl font-bold m-0">📅 Planning Général</h2>
+    <div className="py-4 w-full flex-1 flex flex-col box-border">
+      
+      {/* EN-TÊTE PREMIUM */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/10 pb-5 mb-8 gap-5 w-full">
+        <div className="text-left">
+          <h2 className="m-0 text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-start gap-3">
+            <span className="text-3xl drop-shadow-lg">📅</span> 
+            Planning Général
+          </h2>
+          <p className="mt-2 text-[#888] font-medium text-sm text-left">
+            Consulte le calendrier des rencontres et suis l'évolution du tournoi.
+          </p>
+        </div>
         
+        {/* Toggle Filtre Pro */}
         {myMatches.length > 0 && (
-          <div className="flex gap-2 bg-[#1a1a1a] p-1 rounded-lg border border-[#333]">
-            <button onClick={() => setFilter('all')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors cursor-pointer ${filter === 'all' ? 'bg-[#444] text-white' : 'bg-transparent text-gray-400 hover:text-white'}`}>Tous les matchs</button>
-            <button onClick={() => setFilter('mine')} className={`px-3 py-1.5 rounded-md text-sm font-bold transition-colors cursor-pointer ${filter === 'mine' ? 'bg-[var(--accent-purple)] text-white shadow-md' : 'bg-transparent text-gray-400 hover:text-white'}`}>Mes matchs</button>
+          <div className="flex bg-black/40 rounded-lg p-1 border border-white/5 shadow-inner shrink-0">
+            <button 
+              onClick={() => setFilter('all')} 
+              className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'all' ? 'bg-[#333] text-white shadow-md' : 'text-[#666] hover:text-[#aaa]'}`}
+            >
+              Tous les matchs
+            </button>
+            <button 
+              onClick={() => setFilter('mine')} 
+              className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'mine' ? 'bg-purple-600/20 text-purple-400 border border-purple-500/30 shadow-md' : 'text-[#666] hover:text-[#aaa]'}`}
+            >
+              Mes matchs
+            </button>
           </div>
         )}
       </div>
       
       {allMatches.length === 0 ? (
-        <div className="text-center text-[#666] mt-10 p-10 border border-dashed border-[#333] rounded-xl bg-white/5">
-            <span className="text-4xl block mb-4">📭</span>
-            Le planning est vide pour le moment.
+        <div className="bg-[#15151e]/60 backdrop-blur-md border border-white/5 rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
+          <span className="text-5xl mb-4 drop-shadow-2xl">📭</span>
+          <h3 className="text-xl text-white font-black mb-2 tracking-wide">Le planning est vide</h3>
+          <p className="text-[#888] text-sm font-medium m-0 max-w-sm leading-relaxed">
+            Aucun match n'a encore été programmé pour ce tournoi. Reviens un peu plus tard !
+          </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
           
+          {/* ACCORDÉON : MATCHS TERMINÉS PREMIUM */}
           {finishedGroupMatches.length > 0 && (
-            <div className="bg-[rgba(255,255,255,0.02)] rounded-xl border border-[#222] overflow-hidden">
-              <button onClick={() => setShowFinishedGroups(!showFinishedGroups)} className="w-full bg-transparent border-none px-5 py-4 flex justify-between items-center cursor-pointer text-[#777] font-bold hover:bg-[#1a1a1a] transition-colors">
-                <div className="flex items-center gap-3"><span className="text-[10px] w-4 text-center">{showFinishedGroups ? '▼' : '▶'}</span><span>MATCHS DE POULES TERMINÉS ({finishedGroupMatches.length})</span></div>
-                <span className="text-xs underline">{showFinishedGroups ? 'Rétracter' : 'Afficher'}</span>
+            <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl border border-white/5 overflow-hidden shadow-lg transition-all">
+              <button 
+                onClick={() => setShowFinishedGroups(!showFinishedGroups)} 
+                className="w-full bg-transparent border-none px-6 py-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] w-6 h-6 flex items-center justify-center bg-black/40 rounded-full text-[#888] group-hover:text-white transition-colors border border-white/5">
+                    {showFinishedGroups ? '▼' : '▶'}
+                  </span>
+                  <span className="text-xs font-black tracking-widest text-[#888] group-hover:text-[#ccc] transition-colors uppercase">
+                    Matchs de poules terminés ({finishedGroupMatches.length})
+                  </span>
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-[#666] group-hover:text-[#aaa] bg-black/30 px-2.5 py-1 rounded border border-white/5 transition-colors">
+                  {showFinishedGroups ? 'Rétracter' : 'Afficher'}
+                </span>
               </button>
+              
               {showFinishedGroups && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 p-5 border-t border-[#222] bg-[#0a0a0a]">
-                  {/* 👇 Utilisation du nouveau composant ! 👇 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6 border-t border-white/5 bg-black/20">
+                  {/* 👇 Utilisation du composant MatchCard 👇 */}
                   {finishedGroupMatches.map(match => (
-                    <MatchCard key={match.id} match={match} currentUserName={currentUserName} canEdit={canEdit} handleLaunchMatch={handleLaunchMatch} />
+                    <MatchCard 
+                      key={match.id} 
+                      match={match} 
+                      currentUserName={currentUserName} 
+                      canEdit={canEdit} 
+                      handleLaunchMatch={handleLaunchMatch} 
+                      isPublicScoreboard={tourney.isPublicScoreboard} 
+                    />
                   ))}
                 </div>
               )}
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {/* 👇 Utilisation du nouveau composant ! 👇 */}
+          {/* GRILLE DES MATCHS ACTIFS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* 👇 Utilisation du composant MatchCard 👇 */}
             {activeMatches.map(match => (
-              <MatchCard key={match.id} match={match} currentUserName={currentUserName} canEdit={canEdit} handleLaunchMatch={handleLaunchMatch} />
+              <MatchCard 
+                key={match.id} 
+                match={match} 
+                currentUserName={currentUserName} 
+                canEdit={canEdit} 
+                handleLaunchMatch={handleLaunchMatch} 
+                isPublicScoreboard={tourney.isPublicScoreboard} 
+              />
             ))}
             
+            {/* MESSAGE : TOUS LES MATCHS SONT FINIS */}
             {activeMatches.length === 0 && !showFinishedGroups && (
-              <div className="text-center text-[#666] col-span-full py-10 px-5 border border-dashed border-[#333] rounded-xl bg-white/5 italic">
-                Tous les matchs de poules sont terminés. <br/>Déroulez le tiroir ci-dessus pour les consulter, ou allez voir la Phase Finale !
+              <div className="col-span-full py-12 px-6 border border-dashed border-white/10 rounded-2xl bg-white/5 flex flex-col items-center justify-center text-center shadow-inner">
+                <span className="text-4xl mb-3 opacity-80">🏁</span>
+                <p className="text-[#aaa] font-medium text-sm m-0 leading-relaxed max-w-md">
+                  Tous les matchs de poules sont terminés. <br/>
+                  <span className="text-[#888] text-xs">Déroulez le tiroir ci-dessus pour les consulter, ou allez voir l'onglet Phase Finale !</span>
+                </p>
               </div>
             )}
           </div>
+          
         </div>
       )}
     </div>

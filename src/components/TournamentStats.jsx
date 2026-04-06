@@ -73,37 +73,45 @@ export default function TournamentStats({ tourney }) {
     });
   }, [tourney]); // Le calcul ne se refait que si l'objet 'tourney' change.
 
-  // Fonction d'affichage des classements (Top 5)
+  // Fonction d'affichage des classements (Top 5) PREMIUM
   const renderTop5 = (title, players, sortKey, displayKey, color, suffix = "") => {
     const top5 = [...players].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 5);
+    
     return (
-      <div className="bg-[#1a1a1a] rounded-xl p-5 border border-[#333] shadow-md flex-1 min-w-[280px] transition-transform hover:-translate-y-1">
-        <h3 className="text-center pb-3 mb-4 text-lg font-bold" style={{ color: color, borderBottom: `2px solid ${color}` }}>
+      <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-6 border border-white/5 shadow-xl relative overflow-hidden flex flex-col group hover:-translate-y-1 hover:border-white/10 transition-all duration-300">
+        {/* Ligne lumineuse décorative utilisant la couleur passée en paramètre */}
+        <div className="absolute top-0 left-0 right-0 h-1 opacity-90 shadow-sm" style={{ backgroundColor: color }}></div>
+        
+        <h3 className="m-0 mb-6 text-center text-sm font-black uppercase tracking-widest" style={{ color: color }}>
           {title}
         </h3>
         
         {top5.length === 0 ? (
-          <p className="text-center text-[#666] italic py-4">Aucune donnée disponible</p>
+          <div className="flex flex-col items-center justify-center py-8 opacity-50 flex-1">
+            <span className="text-3xl mb-3">📭</span>
+            <p className="text-center text-[#666] font-bold text-xs uppercase tracking-wider m-0">Aucune donnée</p>
+          </div>
         ) : (
-          <div className="flex flex-col">
+          <div className="flex flex-col flex-1">
             {top5.map((p, i) => (
-              <div key={p.id} className={`flex justify-between items-center py-2.5 ${i < 4 ? 'border-b border-[#222]' : ''}`}>
-                <div className="flex items-center gap-3">
-                  <span className="font-bold text-lg w-5 text-right" style={{ color: i === 0 ? color : '#666' }}>
+              <div key={p.id} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors -mx-2 px-2 rounded-lg">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <span className="font-black text-lg w-5 text-right shrink-0" style={{ color: i === 0 ? color : '#666' }}>
                     {i + 1}.
                   </span>
-                  <div className="flex flex-col">
-                    <span className={`font-bold ${i === 0 ? 'text-white' : 'text-[#ccc]'}`}>
+                  <div className="flex flex-col truncate">
+                    <span className={`font-bold text-sm truncate ${i === 0 ? 'text-white' : 'text-[#ccc]'}`}>
                       {p.name}
                     </span>
-                    <span className="text-[0.7rem] text-[#888]">
+                    <span className="text-[10px] text-[#888] font-bold tracking-wider uppercase truncate">
                       {p.teamName} • {p.gamesPlayed} match{p.gamesPlayed > 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
-                <div className="flex items-end">
-                  <strong className="text-white text-xl leading-none">{p[displayKey]}</strong>
-                  {suffix && <span className="text-xs text-[#888] ml-1 mb-0.5">{suffix}</span>}
+                
+                <div className="flex items-end bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 shadow-inner shrink-0 ml-3">
+                  <strong className="text-white text-xl leading-none font-black">{p[displayKey]}</strong>
+                  {suffix && <span className="text-[10px] text-[#888] ml-1 mb-0.5 font-bold uppercase tracking-wider">{suffix}</span>}
                 </div>
               </div>
             ))}
@@ -114,26 +122,35 @@ export default function TournamentStats({ tourney }) {
   };
 
   return (
-    <div className="tm-panel glass-effect p-5 sm:p-8 bg-[#111] rounded-xl border border-[#222]">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-2">
-        <h3 className="text-2xl text-white font-bold m-0">📈 Leaderboards du Tournoi</h3>
-        <span className="text-sm text-[#888] font-bold tracking-wider uppercase">Statistiques basées sur les matchs terminés</span>
+    <div className="py-4 w-full flex-1 flex flex-col box-border">
+      
+      {/* EN-TÊTE PREMIUM */}
+      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+        <h2 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
+          <span className="text-4xl drop-shadow-lg">📈</span> 
+          Leaderboards
+        </h2>
+        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+          Classement général des meilleurs joueurs basé sur les statistiques des matchs terminés.
+        </p>
       </div>
 
+      {/* GRILLE DES STATS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {renderTop5("🌟 MVP (Meilleure Évaluation)", playerStats, "eff", "eff", "var(--accent-orange)")}
-        {renderTop5("🎯 Top Marqueurs (PTS)", playerStats, "points", "points", "#ff4444", "pts")}
+        {renderTop5("🌟 MVP (Meilleure Éval)", playerStats, "eff", "eff", "var(--accent-orange)")}
+        {renderTop5("🎯 Top Marqueurs", playerStats, "points", "points", "#ef4444", "pts")}
         {renderTop5("🛡️ Top Rebondeurs", playerStats, "reb", "reb", "var(--accent-blue)", "reb")}
         {renderTop5("🤝 Top Passeurs", playerStats, "ast", "ast", "var(--success)", "ast")}
-        {renderTop5("🥷 Top Intercepteurs", playerStats, "stl", "stl", "#f1c40f", "stl")}
+        {renderTop5("🥷 Top Intercepteurs", playerStats, "stl", "stl", "#f59e0b", "stl")}
         {renderTop5("🧱 Top Contreurs", playerStats, "blk", "blk", "var(--accent-purple)", "blk")}
         
         {/* Les pourcentages (Seulement si un certain volume de tirs a été pris) */}
-        {renderTop5("🔥 Plus Adroit (Général)", playerStats.filter(p => p.fga >= 5), "fgPct", "fgPctDisplay", "#e74c3c")}
-        {renderTop5("🎯 Sniper 2 Pts", playerStats.filter(p => p.fg2a >= 3), "fg2Pct", "fg2PctDisplay", "#2ecc71")}
-        {renderTop5("🏹 Sniper 3 Pts", playerStats.filter(p => p.fg3a >= 3), "fg3Pct", "fg3PctDisplay", "#3498db")}
-        {renderTop5("⚖️ Métronome Lancers Francs", playerStats.filter(p => p.fta >= 3), "ftPct", "ftPctDisplay", "#95a5a6")}
+        {renderTop5("🔥 Plus Adroit (Général)", playerStats.filter(p => p.fga >= 5), "fgPct", "fgPctDisplay", "#f43f5e")}
+        {renderTop5("🎯 Sniper 2 Pts", playerStats.filter(p => p.fg2a >= 3), "fg2Pct", "fg2PctDisplay", "#10b981")}
+        {renderTop5("🏹 Sniper 3 Pts", playerStats.filter(p => p.fg3a >= 3), "fg3Pct", "fg3PctDisplay", "#0ea5e9")}
+        {renderTop5("⚖️ Métronome LF", playerStats.filter(p => p.fta >= 3), "ftPct", "ftPctDisplay", "#94a3b8")}
       </div>
+      
     </div>
   );
 }

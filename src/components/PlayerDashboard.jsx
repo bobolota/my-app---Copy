@@ -15,6 +15,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 
 // 👇 On importe notre nouveau composant !
 import TeamManagerView from './TeamManagerView'; 
+import MesArbitrages from './MesArbitrages';
 
 export default function PlayerDashboard() {
   const { session } = useAuth(); 
@@ -48,9 +49,34 @@ export default function PlayerDashboard() {
   const activeTeamCount = myTeams.filter(t => t.status === 'accepted' || t.status === 'pending').length;
   const hasTeam = activeTeamCount >= 3;
 
+  // 1. On nettoie proprement la vue SEULEMENT si on change d'onglet
   useEffect(() => {
-    setManagingTeam(null);
+    if (currentTab !== 'vestiaire') {
+      setManagingTeam(null);
+      localStorage.removeItem('managingTeamId');
+    }
   }, [currentTab]);
+
+  // 2. MAGIE DU F5 : On restaure l'équipe gérée quand la page a fini de charger
+  useEffect(() => {
+    // On attend que les données soient chargées depuis Supabase
+    if (!loading && currentTab === 'vestiaire' && !managingTeam) {
+      const savedTeamId = localStorage.getItem('managingTeamId');
+      
+      if (savedTeamId) {
+        // On vérifie que cette équipe fait bien partie de NOS équipes
+        const foundTeam = myTeams.find(mt => mt.global_teams.id === savedTeamId)?.global_teams;
+        
+        if (foundTeam) {
+          setManagingTeam(foundTeam);
+          loadRoster(savedTeamId); // On recharge les joueurs !
+        } else {
+          // Si l'équipe n'existe plus ou qu'on n'est plus dedans, on nettoie
+          localStorage.removeItem('managingTeamId');
+        }
+      }
+    }
+  }, [loading, myTeams, currentTab]);
 
   const handleSearchPlayer = async () => {
     if (!searchQuery.trim()) { setSearchResults([]); return; }
@@ -250,7 +276,7 @@ export default function PlayerDashboard() {
     setConfirmData({
       isOpen: true,
       title: "Dissoudre l'équipe ? 🚨",
-      message: "ATTENTION : Es-tu sûr de vouloir DISSOUDRE définitivement cette équipe ?",
+      message: "ATTENTION : Cette action est irréversible. La dissolution de l'équipe supprimera immédiatement et définitivement toutes les données, l'effectif et l'historique liés à cette franchise.",
       isDanger: true,
       onConfirm: async () => {
         try {
@@ -347,15 +373,16 @@ export default function PlayerDashboard() {
 
   if (loading) {
     return (
-      <div className="w-full max-w-[1200px] mx-auto p-5">
-        <div className="h-8 bg-[#333] rounded w-1/3 animate-pulse mb-8"></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-6">
+        <div className="h-10 bg-white/5 border border-white/10 rounded-2xl w-1/3 animate-pulse mb-10"></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(n => (
-            <div key={n} className="bg-[#111] p-5 rounded-xl border border-[#222]">
-              <div className="h-6 bg-[#333] rounded w-3/5 animate-pulse mb-4"></div>
-              <div className="h-4 bg-[#333] rounded w-full animate-pulse mb-2"></div>
-              <div className="h-4 bg-[#333] rounded w-2/5 animate-pulse mb-5"></div>
-              <div className="h-10 bg-[#333] rounded w-full animate-pulse"></div>
+            <div key={n} className="bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-white/10"></div>
+              <div className="h-8 bg-white/10 rounded-lg w-3/5 animate-pulse mb-6"></div>
+              <div className="h-4 bg-white/5 rounded w-full animate-pulse mb-3"></div>
+              <div className="h-4 bg-white/5 rounded w-4/5 animate-pulse mb-6"></div>
+              <div className="h-12 bg-white/10 rounded-xl w-full animate-pulse mt-4"></div>
             </div>
           ))}
         </div>
@@ -390,27 +417,44 @@ export default function PlayerDashboard() {
           setNewGhostName={setNewGhostName}
         />
 
-        {/* La modale de transfert du capitanat reste ici car elle dépend de l'état du Dashboard */}
+        {/* MODALE DE TRANSFERT DE CAPITANAT PREMIUM */}
         {transferModalOpen && (
-          <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-[9999] p-4">
-            <div className="bg-[#1a1a1a] p-6 rounded-xl border border-[var(--accent-orange)] w-full max-w-[400px]">
-              <h3 className="mt-0 mb-4 text-[var(--accent-orange)] border-b border-[#333] pb-3 text-lg font-bold">👑 Nommer un nouveau Capitaine</h3>
+          <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] backdrop-blur-sm p-4">
+            <div className="bg-[#15151e]/95 backdrop-blur-xl p-8 rounded-3xl border border-white/10 w-full max-w-[420px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
               
-              <label className="block mb-2 text-[#ccc] text-sm">Sélectionner le joueur :</label>
-              <select
-                value={selectedNewCaptainId}
-                onChange={(e) => setSelectedNewCaptainId(e.target.value)}
-                className="w-full mb-6 p-3 rounded-md bg-[#222] text-white border border-[#555] focus:outline-none focus:border-[var(--accent-orange)]"
-              >
-                <option value="">-- Choisir dans l'effectif --</option>
-                {roster.filter(p => p.status === 'accepted' && p.player_id !== session.user.id && !p.isGhost).map(p => (
-                  <option key={p.player_id} value={p.player_id}>{p.full_name}</option>
-                ))}
-              </select>
+              {/* Ligne LED et lueur orange */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full pointer-events-none opacity-20 bg-orange-500"></div>
+              
+              <h3 className="mt-2 mb-6 text-orange-400 text-2xl font-black tracking-wide drop-shadow-md">👑 Léguer le Brassard</h3>
+              
+              <div className="text-left mb-8 relative z-10">
+                <label className="block mb-2 text-[#aaa] text-[10px] font-black uppercase tracking-widest ml-1">Sélectionner le joueur :</label>
+                <select
+                  value={selectedNewCaptainId}
+                  onChange={(e) => setSelectedNewCaptainId(e.target.value)}
+                  className="w-full p-4 rounded-xl bg-black/40 text-white font-bold border border-white/10 focus:outline-none focus:border-orange-500 focus:bg-black/60 transition-all shadow-inner appearance-none cursor-pointer text-sm"
+                >
+                  <option value="">-- Choisir dans l'effectif --</option>
+                  {roster.filter(p => p.status === 'accepted' && p.player_id !== session.user.id && !p.isGhost).map(p => (
+                    <option key={p.player_id} value={p.player_id}>{p.full_name}</option>
+                  ))}
+                </select>
+              </div>
 
-              <div className="flex gap-3 justify-end">
-                <button onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} className="bg-[#333] text-white px-4 py-2 rounded-md font-bold cursor-pointer hover:bg-[#444] transition-colors">Annuler</button>
-                <button onClick={handleTransferCaptaincy} className="bg-[var(--accent-orange)] text-white px-5 py-2 rounded-md font-bold cursor-pointer hover:bg-orange-600 transition-colors">Valider</button>
+              <div className="flex gap-4 justify-center relative z-10">
+                <button 
+                  onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} 
+                  className="px-5 py-3.5 bg-black/40 text-[#888] border border-white/5 rounded-xl cursor-pointer font-black text-xs tracking-widest uppercase flex-1 hover:bg-white/10 hover:text-white transition-all shadow-inner"
+                >
+                  Annuler
+                </button>
+                <button 
+                  onClick={handleTransferCaptaincy} 
+                  className="px-5 py-3.5 border-none rounded-xl cursor-pointer font-black tracking-widest uppercase text-xs flex-1 text-white shadow-lg transition-all hover:-translate-y-0.5 bg-gradient-to-r from-orange-500 to-red-500 hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)]"
+                >
+                  Valider
+                </button>
               </div>
             </div>
           </div>
@@ -418,8 +462,17 @@ export default function PlayerDashboard() {
 
         {/* Les modales habituelles */}
         <PlayerProfileModal 
-          selectedProfile={selectedProfile} setSelectedProfile={setSelectedProfile} myCaptainTeams={myCaptainTeams} inviteTeamId={inviteTeamId} setInviteTeamId={setInviteTeamId} handleInvitePlayer={handleInvitePlayer} managingTeam={managingTeam} removePlayer={removePlayer}
+          selectedProfile={selectedProfile} 
+          setSelectedProfile={setSelectedProfile} 
+          myCaptainTeams={myCaptainTeams} 
+          inviteTeamId={inviteTeamId} 
+          setInviteTeamId={setInviteTeamId} 
+          handleInvitePlayer={handleInvitePlayer} 
+          managingTeam={managingTeam} 
+          removePlayer={removePlayer}
+          allTournaments={allTournaments}
         />
+
         <ConfirmModal isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message} onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }} onCancel={closeConfirm} isDanger={confirmData.isDanger} />
         <PromptModal isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder} onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }} onCancel={closePrompt} />
       </>
@@ -427,10 +480,19 @@ export default function PlayerDashboard() {
   }
 
   return (
-    <div className={`mx-auto text-white w-full ${currentTab === 'explorer' ? 'max-w-full' : 'max-w-[1200px]'}`}>
+    <div className="mx-auto text-white w-full max-w-[1400px]">
       {currentTab === 'vestiaire' && (
         <MonVestiaire          
           myTeams={myTeams} hasTeam={hasTeam} respondToInvite={respondToInvite} openTeamManager={openTeamManager} handleCreateTeam={handleCreateTeam} newTeamName={newTeamName} setNewTeamName={setNewTeamName} newTeamCity={newTeamCity} setNewTeamCity={setNewTeamCity} cancelPendingRequest={cancelPendingRequest}
+        />
+      )}
+
+      {currentTab === 'arbitrage' && (
+        <MesArbitrages 
+          allTournaments={allTournaments} 
+          currentUserName={userProfile?.full_name} 
+          setActiveTourneyId={setActiveTourneyId} 
+          setView={setView} 
         />
       )}
 
@@ -440,7 +502,7 @@ export default function PlayerDashboard() {
         />
       )}
 
-      {currentTab === 'carriere' && <MaCarriere careerStats={careerStats} />}
+      {currentTab === 'carriere' && <MaCarriere userProfile={userProfile} tournaments={allTournaments} />}
 
       {currentTab === 'explorer' && (
         <ExplorerTournois          
@@ -448,7 +510,18 @@ export default function PlayerDashboard() {
         />
       )}
 
-      <PlayerProfileModal selectedProfile={selectedProfile} setSelectedProfile={setSelectedProfile} myCaptainTeams={myCaptainTeams} inviteTeamId={inviteTeamId} setInviteTeamId={setInviteTeamId} handleInvitePlayer={handleInvitePlayer} managingTeam={managingTeam} removePlayer={removePlayer} />
+      <PlayerProfileModal 
+          selectedProfile={selectedProfile} 
+          setSelectedProfile={setSelectedProfile} 
+          myCaptainTeams={myCaptainTeams} 
+          inviteTeamId={inviteTeamId} 
+          setInviteTeamId={setInviteTeamId} 
+          handleInvitePlayer={handleInvitePlayer} 
+          managingTeam={managingTeam} 
+          removePlayer={removePlayer}
+          allTournaments={allTournaments}
+        />
+
       <TournamentRegistrationModal registerModalTourney={registerModalTourney} setRegisterModalTourney={setRegisterModalTourney} selectedTeamToRegister={selectedTeamToRegister} setSelectedTeamToRegister={setSelectedTeamToRegister} myCaptainTeams={myCaptainTeams} submitRegistration={submitRegistration} />
       <ConfirmModal isOpen={confirmData.isOpen} title={confirmData.title} message={confirmData.message} onConfirm={() => { if (confirmData.onConfirm) confirmData.onConfirm(); closeConfirm(); }} onCancel={closeConfirm} isDanger={confirmData.isDanger} />
       <PromptModal isOpen={promptData.isOpen} title={promptData.title} message={promptData.message} placeholder={promptData.placeholder} onConfirm={(value) => { if (promptData.onConfirm) promptData.onConfirm(value); closePrompt(); }} onCancel={closePrompt} />

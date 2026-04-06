@@ -11,6 +11,7 @@ import PlayByPlayHistory from './PlayByPlayHistory';
 import PdfScoreSheet from './PdfScoreSheet';
 import ScoreBanner from './ScoreBanner';
 import ActionPanel from './ActionPanel';
+
 // --- COMPOSANT PRINCIPAL ---
 
 export default function Scoreboard() {
@@ -252,8 +253,8 @@ export default function Scoreboard() {
 
   const { isOnline } = useMatchSync(
     matchId, canEdit,
-    { playersA, playersB, time, period, history, isRunning, startersValidated },
-    { setPlayersA, setPlayersB, setTime, setPeriod, setHistory, setIsRunning, setStartersValidated, setActiveAction },
+    { playersA, playersB, time, period, history, isRunning, startersValidated, possession }, 
+    { setPlayersA, setPlayersB, setTime, setPeriod, setHistory, setIsRunning, setStartersValidated, setActiveAction, setPossession }, 
     stateRef
   );
 
@@ -607,30 +608,69 @@ export default function Scoreboard() {
 
   // 👇 DÉBUT DU RENDU RESPONSIVE TAILWIND 👇
   return (
-    <div className="w-full h-full flex flex-col max-w-[1920px] mx-auto p-2 sm:p-4 md:p-6">
-      {/* TOP BAR */}
-      <div className="flex justify-between items-center mb-5 flex-wrap gap-4">
+    <div className="w-full h-full flex flex-col max-w-[1920px] mx-auto p-2 sm:p-4 md:p-6 relative">
+      
+      {/* TOP BAR PREMIUM */}
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4 bg-[#15151e]/80 backdrop-blur-md p-4 rounded-2xl border border-white/5 shadow-lg relative z-10">
         
         <div className="flex items-center gap-4">
-          <button className="bg-transparent text-[#888] font-bold border border-[#444] px-4 py-2 rounded-md hover:bg-[#333] hover:text-white transition-colors cursor-pointer" onClick={handleExit}>⬅ RETOUR</button>
-          {canEdit && (
-            <span className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full border ${isOnline ? 'bg-[rgba(46,204,113,0.1)] text-[#2ecc71] border-[#2ecc71]' : 'bg-[rgba(231,76,60,0.1)] text-[#e74c3c] border-[#e74c3c]'}`}>
-              <div className={`w-2 h-2 rounded-full shadow-[0_0_5px] ${isOnline ? 'bg-[#2ecc71] shadow-[#2ecc71]' : 'bg-[#e74c3c] shadow-[#e74c3c]'}`}></div>
+          <button 
+            className="bg-black/40 text-[#aaa] font-black tracking-widest uppercase border border-white/10 px-5 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition-all cursor-pointer shadow-inner text-xs" 
+            onClick={handleExit}
+          >
+            ⬅ RETOUR
+          </button>
+          
+          {canEdit ? (
+            <span className={`flex items-center gap-2 text-[10px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg border shadow-sm ${isOnline ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]'}`}></div>
               {isOnline ? 'EN LIGNE' : 'HORS-LIGNE'}
+            </span>
+          ) : (
+            <span className="bg-blue-500/10 border border-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-black flex items-center gap-2 shadow-sm animate-pulse">
+              <span className="text-sm">👁️</span> MODE SPECTATEUR (DIRECT)
             </span>
           )}
         </div>
 
-        <div className="flex gap-2">
-            <button className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${currentView === 'court' ? 'bg-[var(--accent-orange)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} onClick={() => !isFinished && setCurrentView('court')}>TERRAIN</button>
-            <button className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors ${currentView === 'boxscore' ? 'bg-[var(--accent-orange)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} onClick={() => setCurrentView('boxscore')}>STATS</button>
-            {isMatchOver && <button onClick={handleGeneratePDF} className="bg-white text-black px-4 py-2 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors cursor-pointer">GÉNÉRER PDF 📄</button>}
-            {(!isMatchOver && canEdit) && <button onClick={handleFinishMatch} className="bg-[var(--success)] text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-green-600 transition-colors cursor-pointer">TERMINER LE MATCH 🏁</button>}
+        <div className="flex gap-3 items-center">
+            <div className="flex bg-black/40 rounded-xl p-1 border border-white/5 shadow-inner">
+              <button 
+                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'court' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`} 
+                onClick={() => !isFinished && setCurrentView('court')}
+              >
+                TERRAIN
+              </button>
+              <button 
+                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'boxscore' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`} 
+                onClick={() => setCurrentView('boxscore')}
+              >
+                STATS
+              </button>
+            </div>
+            
+            {isMatchOver && (
+              <button 
+                onClick={handleGeneratePDF} 
+                className="bg-white/10 border border-white/20 text-white px-5 py-2.5 rounded-xl font-black tracking-widest text-xs hover:bg-white/20 transition-all shadow-md cursor-pointer"
+              >
+                GÉNÉRER PDF 📄
+              </button>
+            )}
+            
+            {(!isMatchOver && canEdit) && (
+              <button 
+                onClick={handleFinishMatch} 
+                className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-xl font-black tracking-widest text-xs hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                TERMINER LE MATCH 🏁
+              </button>
+            )}
         </div>
       </div>
       
       {/* BANDEAU DES SCORES ET CHRONO */}
-      <ScoreBanner 
+      <ScoreBanner
         teamA={teamA} teamB={teamB} scoreA={scoreA} scoreB={scoreB}
         teamFoulsA={teamFoulsA} teamFoulsB={teamFoulsB} timeoutsA={timeoutsA} timeoutsB={timeoutsB}
         canEdit={canEdit} isMatchOver={isMatchOver} handleTeamAction={handleTeamAction}
@@ -640,18 +680,26 @@ export default function Scoreboard() {
       />
 
       {currentView === 'court' ? (
-        <div className="flex flex-col xl:flex-row gap-4 items-start w-full relative">
+        <div className="flex flex-col xl:flex-row gap-6 items-start w-full relative z-10">
             
-            {/* TERRAIN ÉQUIPE A */}
-            <div className="flex-1 w-full bg-[#111] border border-[#222] rounded-xl p-4 shadow-lg">
-                <h3 className="text-center font-black tracking-widest text-[var(--accent-orange)] mb-4">{teamA?.name}</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-4">
+            {/* TERRAIN ÉQUIPE A PREMIUM */}
+            <div className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 shadow-[0_0_15px_rgba(249,115,22,0.4)] opacity-80"></div>
+                <h3 className="text-center font-black tracking-widest text-orange-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamA?.name}</h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pb-6">
                   {playersA.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="text-center border-t border-[#333] pt-2 text-[#888] mb-2 text-sm tracking-widest font-bold">BANC</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                
+                <div className="flex items-center gap-3 mb-4 mt-2">
+                  <div className="h-px bg-white/10 flex-1"></div>
+                  <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                  <div className="h-px bg-white/10 flex-1"></div>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {playersA.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="A" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
@@ -669,16 +717,24 @@ export default function Scoreboard() {
               />
             )}
 
-            {/* TERRAIN ÉQUIPE B */}
-            <div className="flex-1 w-full bg-[#111] border border-[#222] rounded-xl p-4 shadow-lg">
-                <h3 className="text-center font-black tracking-widest text-[var(--accent-blue)] mb-4">{teamB?.name}</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-4">
+            {/* TERRAIN ÉQUIPE B PREMIUM */}
+            <div className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.4)] opacity-80"></div>
+                <h3 className="text-center font-black tracking-widest text-blue-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamB?.name}</h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pb-6">
                   {playersB.filter(p => p.status === 'court').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
                 </div>
-                <p className="text-center border-t border-[#333] pt-2 text-[#888] mb-2 text-sm tracking-widest font-bold">BANC</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                
+                <div className="flex items-center gap-3 mb-4 mt-2">
+                  <div className="h-px bg-white/10 flex-1"></div>
+                  <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                  <div className="h-px bg-white/10 flex-1"></div>
+                </div>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {playersB.filter(p => p.status === 'bench').map(p => (
                       <PlayerCard key={p.id} team="B" player={p} onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} pendingSubs={pendingSubs} pendingAction={pendingAction} onConfirm={confirmScore} hasGlobalAction={!!activeAction || !!pendingAssist} pendingAssist={pendingAssist} activeActionType={activeAction?.type} canEdit={canEdit} />
                   ))}
@@ -687,7 +743,7 @@ export default function Scoreboard() {
 
         </div>
       ) : (
-        <div className="flex flex-col gap-8 bg-[#1a1a1a] p-5 rounded-xl border border-[#333]">
+        <div className="flex flex-col gap-8 bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl relative z-10">
           <BoxscoreTable title={teamA?.name} players={playersA} color="var(--accent-orange)" />
           <BoxscoreTable title={teamB?.name} players={playersB} color="var(--accent-blue)" />
         </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import PlayerListItem from './PlayerListItem'; // 👈 On importe
+import PlayerListItem from './PlayerListItem'; 
 
 export default function Mercato({
   availableTeams, hasTeam, handleJoinTeam, allPlayers, searchQuery, setSearchQuery, viewPlayerProfile
@@ -21,69 +21,133 @@ export default function Mercato({
 
   const playersToDisplay = searchQuery.length >= 2 ? filteredPlayers : [];
 
+  // Le générateur d'écusson mis à jour avec le style Premium
+  const TeamBadge = ({ name, colorClass = "from-emerald-500 to-green-400" }) => (
+    <div className={`w-12 h-12 shrink-0 rounded-full bg-gradient-to-tr ${colorClass} flex items-center justify-center text-xl font-black text-white shadow-md border border-white/10`}>
+      {name ? name.charAt(0).toUpperCase() : '?'}
+    </div>
+  );
+
   return (
-    <>
-    <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1920px] mx-auto"></div>
-      <h1 className="text-white border-b-2 border-[#333] pb-2 text-2xl font-bold">🤝 Le Mercato</h1>
+    <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1400px] mx-auto relative">
       
-      <div className="flex flex-col lg:flex-row gap-8 mt-8">
+      {/* EN-TÊTE PREMIUM */}
+      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+        <h1 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
+          <span className="text-4xl drop-shadow-lg">🤝</span> 
+          Le Mercato
+        </h1>
+        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+          Cherche une équipe à rejoindre ou scoute les meilleurs joueurs disponibles sur le réseau.
+        </p>
+      </div>
+      
+      <div className="flex flex-col lg:flex-row gap-8 items-start w-full">
         
-        {/* COLONNE GAUCHE (Recherche Équipe - inchangée) */}
-        <div className="flex-1 min-w-[300px] bg-[#1a1a1a] p-5 rounded-xl border border-[#333]">
-          <h2 className="m-0 mb-5 text-[var(--success)] text-lg font-bold">Chercher une équipe</h2>
-          <div className="flex gap-3 mb-5">
+        {/* ========================================== */}
+        {/* COLONNE GAUCHE : CHERCHER UNE ÉQUIPE (VERT) */}
+        {/* ========================================== */}
+        <section className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-6 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group">
+          {/* Ligne LED décorative verte */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-green-400 shadow-[0_0_15px_rgba(16,185,129,0.4)] opacity-80"></div>
+          
+          <h2 className="m-0 mb-6 text-emerald-400 text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black relative z-10">
+            <span className="text-lg">🛡️</span> Chercher une franchise
+          </h2>
+          
+          <div className="relative z-10 mb-6">
             <input 
-              type="text" placeholder="Nom de l'équipe ou ville..." value={teamSearchQuery} onChange={e => setTeamSearchQuery(e.target.value)} 
-              className="flex-1 p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--success)] transition-colors"
+              type="text" 
+              placeholder="Nom de l'équipe ou ville..." 
+              value={teamSearchQuery} 
+              onChange={e => setTeamSearchQuery(e.target.value)} 
+              className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-[#666] focus:outline-none focus:border-emerald-500 focus:bg-black/60 transition-all shadow-inner text-sm font-medium"
             />
           </div>
-          <div className="flex flex-col gap-4">
+
+          <div className="flex flex-col gap-4 relative z-10 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
             {teamSearchQuery.length < 2 ? (
-              <div className="text-center py-8 px-3 text-[#555] italic bg-white/5 rounded-lg border border-dashed border-[#333]"><span className="text-3xl block mb-2">🕵️‍♂️</span>Recherche le nom exact de l'équipe <br/>que tu souhaites rejoindre !</div>
+              <div className="flex flex-col items-center justify-center py-12 opacity-50 text-center">
+                <span className="text-4xl mb-3 drop-shadow-md">🕵️‍♂️</span>
+                <p className="text-[#888] font-bold text-xs uppercase tracking-wider m-0 leading-relaxed">
+                  Saisis au moins 2 lettres pour trouver <br/>l'équipe que tu souhaites rejoindre
+                </p>
+              </div>
             ) : filteredTeams.length === 0 ? (
-              <p className="text-[var(--danger)] italic text-center">Aucune équipe ne correspond à "{teamSearchQuery}".</p>
+              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-center">
+                <p className="text-red-400 font-bold text-sm m-0">Aucune équipe ne correspond à "{teamSearchQuery}".</p>
+              </div>
             ) : (
               filteredTeams.map(team => (
-                <div key={team.id} className="flex justify-between items-center bg-[#222] p-4 rounded-lg">
-                  <div>
-                    <strong className="block text-lg text-white">{team.name}</strong>
-                    <span className="text-xs text-gray-400">{team.city}</span>
+                <div key={team.id} className="bg-[#1e1e2a] border border-white/5 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-500/30 transition-all hover:-translate-y-0.5 shadow-lg group/item">
+                  <div className="flex items-center gap-4">
+                    <TeamBadge name={team.name} />
+                    <div className="flex flex-col">
+                      <strong className="block text-lg text-white font-black tracking-wide group-hover/item:text-emerald-300 transition-colors">{team.name}</strong>
+                      <span className="text-[10px] text-[#888] font-bold tracking-widest uppercase bg-black/30 px-2 py-0.5 rounded w-fit mt-1 border border-white/5">
+                        📍 {team.city || 'Ville inconnue'}
+                      </span>
+                    </div>
                   </div>
                   <button 
-                    onClick={() => { handleJoinTeam(team.id); setTeamSearchQuery(""); }} disabled={hasTeam}
-                    className={`px-3 py-1.5 rounded text-sm font-bold transition-colors ${hasTeam ? 'bg-[#333] border border-[#444] text-[#666] cursor-not-allowed' : 'bg-transparent border border-[var(--success)] text-[var(--success)] hover:bg-[var(--success)] hover:text-white cursor-pointer'}`}
+                    onClick={() => { handleJoinTeam(team.id); setTeamSearchQuery(""); }} 
+                    disabled={hasTeam}
+                    className={`w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-black tracking-widest transition-all ${
+                      hasTeam 
+                        ? 'bg-black/40 border border-white/5 text-[#555] cursor-not-allowed shadow-none' 
+                        : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:shadow-[0_4px_15px_rgba(16,185,129,0.4)] cursor-pointer hover:-translate-y-0.5'
+                    }`}
                   >
-                    {hasTeam ? 'CONTRAT ACTIF' : 'POSTULER'}
+                    {hasTeam ? 'LIMITE ATTEINTE' : 'POSTULER 🚀'}
                   </button>
                 </div>
               ))
             )}
           </div>
-        </div>
+        </section>
 
-        {/* COLONNE DROITE (Joueurs) 👇 ALLÉGÉE AVEC LE COMPOSANT 👇 */}
-        <div className="flex-1 min-w-[300px] bg-[#1a1a1a] p-5 rounded-xl border border-[#333]">
-          <h2 className="m-0 mb-5 text-[var(--accent-purple)] text-lg font-bold">🔎 Scouter un joueur</h2>
-          <div className="flex gap-3 mb-5">
+        {/* ========================================== */}
+        {/* COLONNE DROITE : SCOUTER UN JOUEUR (VIOLET) */}
+        {/* ========================================== */}
+        <section className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-6 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group">
+          {/* Ligne LED décorative violette */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-600 to-pink-500 shadow-[0_0_15px_rgba(168,85,247,0.4)] opacity-80"></div>
+
+          <h2 className="m-0 mb-6 text-purple-400 text-sm flex items-center justify-center gap-2 uppercase tracking-widest font-black relative z-10">
+            <span className="text-lg">🔎</span> Scouter un joueur
+          </h2>
+          
+          <div className="relative z-10 mb-6">
             <input 
-              type="text" placeholder="Nom, Ville ou Poste..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} 
-              className="flex-1 p-3 rounded-md border border-[#444] bg-[#222] text-white focus:outline-none focus:border-[var(--accent-purple)] transition-colors"
+              type="text" 
+              placeholder="Nom, Ville ou Poste..." 
+              value={searchQuery} 
+              onChange={e => setSearchQuery(e.target.value)} 
+              className="w-full p-4 rounded-xl bg-black/40 border border-white/10 text-white placeholder-[#666] focus:outline-none focus:border-purple-500 focus:bg-black/60 transition-all shadow-inner text-sm font-medium"
             />
           </div>
-          <div className="flex flex-col gap-3">
+
+          <div className="flex flex-col gap-4 relative z-10 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
             {searchQuery.length < 2 ? (
-              <div className="text-center py-8 px-3 text-[#555] italic bg-white/5 rounded-lg border border-dashed border-[#333]"><span className="text-3xl block mb-2">🏀</span>Saisis au moins 2 lettres <br/>pour trouver ta future star !</div>
+              <div className="flex flex-col items-center justify-center py-12 opacity-50 text-center">
+                <span className="text-4xl mb-3 drop-shadow-md">🏀</span>
+                <p className="text-[#888] font-bold text-xs uppercase tracking-wider m-0 leading-relaxed">
+                  Saisis au moins 2 lettres <br/>pour trouver ta future star
+                </p>
+              </div>
             ) : playersToDisplay.length === 0 ? (
-              <p className="text-[var(--danger)] italic text-center">Aucun joueur trouvé pour "{searchQuery}".</p>
+              <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-center">
+                <p className="text-red-400 font-bold text-sm m-0">Aucun joueur trouvé pour "{searchQuery}".</p>
+              </div>
             ) : (
               playersToDisplay.map(player => (
                 <PlayerListItem key={player.id} player={player} viewPlayerProfile={viewPlayerProfile} />
               ))
             )}
           </div>
-        </div>
+        </section>
 
       </div>
-    </>
+    </div>
   );
 }

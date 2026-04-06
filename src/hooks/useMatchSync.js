@@ -1,7 +1,5 @@
-// DEBUT DE LA MODIFICATION - src/hooks/useMatchSync.js
-
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../supabaseClient'; // Assure-toi que le chemin vers supabaseClient est bon !
+import { supabase } from '../supabaseClient';
 
 export default function useMatchSync(
   matchId,
@@ -42,6 +40,9 @@ export default function useMatchSync(
       setters.setPeriod(payload.period);
       setters.setHistory(payload.history);
       setters.setIsRunning(payload.isRunning);
+      
+      // 👇 AJOUT : On met à jour la possession chez le spectateur
+      if (payload.possession !== undefined) setters.setPossession(payload.possession);
 
       // Si la tablette principale a déjà validé, on ferme le panneau ici aussi !
       if (payload.startersValidated || payload.history?.length > 0 || payload.playersA?.some(p => p.status === 'court')) {
@@ -88,17 +89,17 @@ export default function useMatchSync(
           period: state.period, 
           history: state.history, 
           isRunning: state.isRunning, 
-          startersValidated: state.startersValidated 
+          startersValidated: state.startersValidated,
+          possession: state.possession // 👇 AJOUT : On envoie la possession dans le payload
         }
       });
     }
   }, [
     canEdit, isOnline, matchId, 
     state.playersA, state.playersB, state.time, 
-    state.period, state.history, state.isRunning, state.startersValidated
+    state.period, state.history, state.isRunning, state.startersValidated,
+    state.possession // 👇 AJOUT : On déclenche l'envoi quand la possession change
   ]);
 
   return { isOnline };
 }
-
-// FIN DE LA MODIFICATION
