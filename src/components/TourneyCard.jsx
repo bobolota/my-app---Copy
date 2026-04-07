@@ -11,6 +11,9 @@ export default function TourneyCard({
   deleteTourney, 
   session 
 }) {
+  // 👇 Détection automatique du format du tournoi (5 par défaut)
+  const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
+
   return (
     <div 
       draggable={isOwnerOrAdmin}
@@ -33,8 +36,14 @@ export default function TourneyCard({
         )}
       </div>
       
-      <div className="inline-block bg-[#111] text-[#ccc] text-[0.7rem] px-2 py-1 rounded border border-[#444] font-bold mb-3">
-        ⚙️ {tourney.matchsettings?.periodCount || 4}x{tourney.matchsettings?.periodDuration || 10}min | TM: {tourney.matchsettings?.timeoutsHalf1 || 2} - {tourney.matchsettings?.timeoutsHalf2 || 3}
+      {/* 👇 NOUVELLE DISPOSITION DES BADGES (Format + Réglages) 👇 */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        <div className="inline-flex items-center bg-orange-500/10 text-orange-400 text-[0.7rem] px-2 py-1 rounded border border-orange-500/20 font-black tracking-widest">
+          🏀 {courtSize}x{courtSize}
+        </div>
+        <div className="inline-flex items-center bg-[#111] text-[#ccc] text-[0.7rem] px-2 py-1 rounded border border-[#444] font-bold">
+          ⚙️ {tourney.matchsettings?.periodCount || 4}x{tourney.matchsettings?.periodDuration || 10}min | TM: {tourney.matchsettings?.timeoutsHalf1 || 2} - {tourney.matchsettings?.timeoutsHalf2 || 3}
+        </div>
       </div>
 
       <div className="flex justify-between items-center text-xs font-bold text-[#888] border-t border-dashed border-[#333] pt-3">

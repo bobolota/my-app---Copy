@@ -12,6 +12,31 @@ export default function GroupStageTab({
   // État pour mémoriser quel match tu es en train de glisser
   const [draggedMatchId, setDraggedMatchId] = useState(null);
 
+  // NOUVEAU : États pour la saisie manuelle du score
+  const [editingScoreId, setEditingScoreId] = useState(null);
+  const [tempScoreA, setTempScoreA] = useState(0);
+  const [tempScoreB, setTempScoreB] = useState(0);
+
+  // NOUVEAU : Fonction de sauvegarde manuelle
+  const saveManualScore = (matchId) => {
+    const newSchedule = tourney.schedule.map(x => {
+      if (x.id === matchId) {
+        return {
+          ...x,
+          scoreA: parseInt(tempScoreA) || 0,
+          scoreB: parseInt(tempScoreB) || 0,
+          status: 'finished', // On force le statut à "terminé"
+          startersValidated: true // On force la validation pour éviter les blocages
+        };
+      }
+      return x;
+    });
+    
+    update({ schedule: newSchedule });
+    setEditingScoreId(null);
+    toast.success("Score validé manuellement ! ✅");
+  };
+
   // ==========================================
   // 👥 VUE JOUEUR / SPECTATEUR
   // ==========================================
@@ -300,7 +325,8 @@ export default function GroupStageTab({
 
                 <div className="flex flex-col gap-3 mt-auto">
                   {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
-                    const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
+                    const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
+                    const isReady = m.teamA?.players?.length >= courtSize && m.teamB?.players?.length >= courtSize;
                     const isFinished = m.status === 'finished';
                     const isCanceled = m.status === 'canceled';
                     const isForfeit = m.status === 'forfeit';
@@ -359,17 +385,36 @@ export default function GroupStageTab({
                           {isForfeit && <div className="absolute -top-2 -left-2 bg-red-600 text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-[#111]">FORFAIT</div>}
                           
                           {/* NOMS DES ÉQUIPES ET SCORES */}
-                          <div className="flex flex-col gap-2 pr-6 mt-3">
-                            <div className="flex justify-between items-center">
-                                <span className={`text-sm truncate ${isFinished ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'}`}>{m.teamA?.name || 'Équipe A'}</span>
-                                {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreA}</b>}
+                          {editingScoreId === m.id ? (
+                            // MODE ÉDITION MANUELLE
+                            <div className="flex flex-col gap-2 mt-3 bg-black/40 p-3 rounded-xl border border-white/10 shadow-inner">
+                              <div className="flex justify-between items-center gap-4">
+                                <span className="text-xs text-white font-bold truncate flex-1">{m.teamA?.name || 'Équipe A'}</span>
+                                <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                              </div>
+                              <div className="flex justify-between items-center gap-4">
+                                <span className="text-xs text-white font-bold truncate flex-1">{m.teamB?.name || 'Équipe B'}</span>
+                                <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                              </div>
+                              <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                                <button onClick={(e) => { e.stopPropagation(); setEditingScoreId(null); }} className="flex-1 text-[0.65rem] font-bold text-[#888] hover:text-white py-1.5 transition-colors uppercase tracking-widest cursor-pointer">Annuler</button>
+                                <button onClick={(e) => { e.stopPropagation(); saveManualScore(m.id); }} className="flex-1 text-[0.65rem] font-black bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white rounded py-1.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-orange-500/30">Valider</button>
+                              </div>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className={`text-sm truncate ${isFinished ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'}`}>{m.teamB?.name || 'Équipe B'}</span>
-                                {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreB}</b>}
+                          ) : (
+                            // AFFICHAGE NORMAL
+                            <div className="flex flex-col gap-2 pr-6 mt-3">
+                              <div className="flex justify-between items-center">
+                                  <span className={`text-sm truncate ${isFinished ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'}`}>{m.teamA?.name || 'Équipe A'}</span>
+                                  {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreA}</b>}
+                              </div>
+                              <div className="flex justify-between items-center">
+                                  <span className={`text-sm truncate ${isFinished ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'}`}>{m.teamB?.name || 'Équipe B'}</span>
+                                  {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreB}</b>}
+                              </div>
+                              {m.otm && <div className="text-[0.65rem] font-bold text-[#888] mt-2 truncate bg-black/30 border border-white/5 inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-blue-400">{m.otm}</span></div>}
                             </div>
-                            {m.otm && <div className="text-[0.65rem] font-bold text-[#888] mt-2 truncate bg-black/30 border border-white/5 inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-blue-400">{m.otm}</span></div>}
-                          </div>
+                          )}
 
                           {/* SAISIE HORAIRE ET TERRAIN */}
                           {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
@@ -413,11 +458,31 @@ export default function GroupStageTab({
                                {isCanceled ? "ANNULÉ" : isForfeit ? "FORFAIT" : (isFinished ? "📊 STATS" : (canLaunchThisMatch ? (isOngoing ? "▶️ REPRENDRE" : "🚀 LANCER MATCH") : "🔴 DIRECT"))}
                             </button>
                             
-                            {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                            {(canEdit && !isCanceled && !isForfeit) && (
                               <div className="flex gap-1.5 shrink-0">
-                                <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-blue-600 hover:border-blue-500 transition-colors shadow-sm" title="Assigner OTM">👤</button>
-                                <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
-                                <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
+                                
+                                {/* LE BOUTON CRAYON : Visible même quand le match est terminé ! */}
+                                <button 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setEditingScoreId(m.id); 
+                                    setTempScoreA(m.scoreA || 0); 
+                                    setTempScoreB(m.scoreB || 0); 
+                                  }} 
+                                  className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:text-white transition-colors shadow-sm" 
+                                  title="Saisie / Modification manuelle du score"
+                                >
+                                  ✏️
+                                </button>
+                                
+                                {/* LES AUTRES BOUTONS : Cachés si le match est terminé */}
+                                {!isFinished && (
+                                  <>
+                                    <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, false); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-blue-600 hover:border-blue-500 transition-colors shadow-sm" title="Assigner OTM">👤</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', false); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'forfeit', false); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>

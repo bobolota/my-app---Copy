@@ -52,6 +52,12 @@ export default function TournamentHeader({
       {/* ONGLETS SCROLLABLES SUR MOBILE */}
       <div className="flex gap-2 overflow-x-auto w-full pb-2 custom-scrollbar">
           <button 
+            className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'infos' ? 'bg-[var(--accent-orange)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} 
+            onClick={() => setActiveTab('infos')}
+          >
+          ℹ️ INFOS
+          </button>
+          <button 
             className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'planning' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`} 
             onClick={() => setActiveTab('planning')}
           >
@@ -73,7 +79,7 @@ export default function TournamentHeader({
             onClick={() => setActiveTab("stats")} 
             className={`px-4 py-2 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${activeTab === 'stats' ? 'bg-[var(--accent-blue)] text-white' : 'bg-[#222] text-gray-400 hover:text-white hover:bg-[#333]'}`}
           >
-            STATISTIQUES 📈
+            📈 STATISTIQUES
           </button>
       </div>
     </div>

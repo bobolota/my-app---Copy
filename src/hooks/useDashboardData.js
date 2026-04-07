@@ -67,7 +67,7 @@ export function useDashboardData(session) {
       if (!playersError) setAllPlayers(playersData || []);
 
       const { data: tourneysData, error: tourneysError } = await supabase.from('tournaments')
-        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code')
+        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code, matchsettings')
         .in('status', ['preparing', 'ongoing', 'finished']);
       
       if (tourneysError) throw tourneysError;

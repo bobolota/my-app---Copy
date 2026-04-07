@@ -11,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppContext } from '../context/AppContext';
 import TeamEditor from './TeamEditor';
 import PlanningTab from './PlanningTab';
+import InfoTab from './InfoTab';
 
 // 👇 Nouveaux composants importés 👇
 import TournamentHeader from './TournamentHeader';
@@ -620,6 +621,9 @@ export default function TournamentManager() {
         update={update} // 👈 LA SEULE LIGNE À AJOUTER EST ICI
       />
 
+      {activeTab === 'infos' && (
+        <InfoTab tourney={tourney} />
+      )}
       {activeTab === 'planning' && (
         <PlanningTab tourney={tourney} handleLaunchMatch={handleLaunchMatch} canEdit={canEdit} currentUserName={currentUserName} />
       )}

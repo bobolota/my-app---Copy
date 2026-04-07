@@ -104,8 +104,14 @@ export default function Scoreboard() {
   const [editMin, setEditMin] = useState(0);
   const [editSec, setEditSec] = useState(0);
 
-  const scoreA = playersA.reduce((sum, p) => sum + p.points, 0);
-  const scoreB = playersB.reduce((sum, p) => sum + p.points, 0);
+  // 1. On calcule les points marqués via la table de marque
+  const statScoreA = playersA.reduce((sum, p) => sum + p.points, 0);
+  const statScoreB = playersB.reduce((sum, p) => sum + p.points, 0);
+
+  // 2. Si le match est terminé, on priorise le score officiel (saisie manuelle ✏️). 
+  // Sinon (match en cours), on affiche le calcul en direct.
+  const scoreA = isFinished ? (matchData?.scoreA ?? statScoreA) : statScoreA;
+  const scoreB = isFinished ? (matchData?.scoreB ?? statScoreB) : statScoreB;
 
   const getTeamFouls = (team) => {
     return history.filter(act => {
@@ -434,13 +440,14 @@ export default function Scoreboard() {
       const teamPlayers = team === 'A' ? playersA : playersB;
       const clickedPlayer = teamPlayers.find(x => x.id === pid);
       if (pendingSubs.includes(pid)) {
-        if (clickedPlayer && clickedPlayer.fouls >= 5 && clickedPlayer.status === 'court') {
-           toast.error("Ce joueur a 5 fautes, il doit obligatoirement sortir."); return;
+        // On ne bloque que si ce n'est PAS un 1v1
+        if (courtSize !== 1 && clickedPlayer && clickedPlayer.fouls >= maxFouls && clickedPlayer.status === 'court') {
+           toast.error(`Ce joueur a ${maxFouls} fautes, il doit obligatoirement sortir.`); return;
         }
         setPendingSubs(prev => prev.filter(id => id !== pid));
       } else {
-        if (clickedPlayer && clickedPlayer.fouls >= 5 && clickedPlayer.status === 'bench') {
-           toast.error("Ce joueur est exclu (5 fautes) et ne peut plus jouer."); return;
+        if (courtSize !== 1 && clickedPlayer && clickedPlayer.fouls >= maxFouls && clickedPlayer.status === 'bench') {
+           toast.error(`Ce joueur est exclu (${maxFouls} fautes) et ne peut plus jouer.`); return;
         }
         setPendingSubs(prev => [...prev, pid]);
       }
@@ -675,7 +682,11 @@ export default function Scoreboard() {
 
   // --- DÉTECTION AUTOMATIQUE DES EXCLUSIONS ---
   // 2. La détection automatique devient dynamique
-  const isPlayerExcluded = (p) => p.fouls >= maxFouls || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+  const isPlayerExcluded = (p) => 
+    (courtSize !== 1 && p.fouls >= maxFouls) || 
+    (p.techFouls || 0) >= 2 || 
+    (p.antiFouls || 0) >= 2 || 
+    p.isDisqualified;
   const isForcedSub = [...playersA, ...playersB].some(p => p.status === 'court' && isPlayerExcluded(p));
 
   // 👇 DÉBUT DU RENDU RESPONSIVE TAILWIND 👇

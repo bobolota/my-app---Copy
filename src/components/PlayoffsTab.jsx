@@ -16,6 +16,31 @@ export default function PlayoffsTab({
   const [draggedMatchId, setDraggedMatchId] = useState(null);
   const { setConfirmData } = useAppContext();
 
+  // NOUVEAU : États pour la saisie manuelle du score
+  const [editingScoreId, setEditingScoreId] = useState(null);
+  const [tempScoreA, setTempScoreA] = useState(0);
+  const [tempScoreB, setTempScoreB] = useState(0);
+
+  // NOUVEAU : Fonction de sauvegarde manuelle pour les Playoffs
+  const saveManualScore = (matchId) => {
+    const newMatches = tourney.playoffs.matches.map(x => {
+      if (x.id === matchId) {
+        return {
+          ...x,
+          scoreA: parseInt(tempScoreA) || 0,
+          scoreB: parseInt(tempScoreB) || 0,
+          status: 'finished',
+          startersValidated: true 
+        };
+      }
+      return x;
+    });
+    
+    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+    setEditingScoreId(null);
+    toast.success("Score validé manuellement ! ✅");
+  };
+
   // --- CALCULS DE L'ARBRE ---
   const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
   const totalQualified = savedGroupIds.reduce((sum, gNum) => sum + getGroupLimit(tourney, gNum), 0);
@@ -92,7 +117,8 @@ export default function PlayoffsTab({
 
   // --- LE COMPOSANT D'UN MATCH (Pour ne pas répéter le code) ---
   const renderMatch = (m) => {
-      const isReady = m.teamA?.players?.length >= 5 && m.teamB?.players?.length >= 5;
+      const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
+      const isReady = m.teamA?.players?.length >= courtSize && m.teamB?.players?.length >= courtSize;
       const isFinished = m.status === 'finished';
       const isCanceled = m.status === 'canceled';
       const isForfeit = m.status === 'forfeit';
@@ -168,21 +194,41 @@ export default function PlayoffsTab({
               
               <div className="text-[0.65rem] text-orange-400 font-black mb-3 uppercase tracking-widest">{m.label}</div>
               
-              {/* ÉQUIPE A */}
-              <div className="flex justify-between items-center gap-2 mb-2 pr-6">
-                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
-                      {m.teamA?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
-                  </span>
-                  {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreA}</b>}
-              </div>
+              {/* NOMS DES ÉQUIPES ET SCORES */}
+              {editingScoreId === m.id ? (
+                <div className="flex flex-col gap-2 mt-3 mb-2 bg-black/40 p-3 rounded-xl border border-white/10 shadow-inner">
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-xs text-white font-bold truncate flex-1">{m.teamA?.name || 'Équipe A'}</span>
+                    <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                  </div>
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-xs text-white font-bold truncate flex-1">{m.teamB?.name || 'Équipe B'}</span>
+                    <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                  </div>
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
+                    <button onClick={(e) => { e.stopPropagation(); setEditingScoreId(null); }} className="flex-1 text-[0.65rem] font-bold text-[#888] hover:text-white py-1.5 transition-colors uppercase tracking-widest cursor-pointer">Annuler</button>
+                    <button onClick={(e) => { e.stopPropagation(); saveManualScore(m.id); }} className="flex-1 text-[0.65rem] font-black bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white rounded py-1.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-orange-500/30">Valider</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* ÉQUIPE A */}
+                  <div className="flex justify-between items-center gap-2 mb-2 pr-6">
+                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                          {m.teamA?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
+                      </span>
+                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreA}</b>}
+                  </div>
 
-              {/* ÉQUIPE B */}
-              <div className="flex justify-between items-center gap-2 mb-2 pr-6">
-                  <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
-                      {m.teamB?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
-                  </span>
-                  {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreB}</b>}
-              </div>
+                  {/* ÉQUIPE B */}
+                  <div className="flex justify-between items-center gap-2 mb-2 pr-6">
+                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                          {m.teamB?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
+                      </span>
+                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreB}</b>}
+                  </div>
+                </>
+              )}
               
               {m.otm && <div className="text-[0.65rem] font-bold text-[#888] mt-2 mb-1 truncate bg-black/30 border border-white/5 inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-orange-400">{m.otm}</span></div>}
               
@@ -235,7 +281,7 @@ export default function PlayoffsTab({
                               ? 'text-[#666] bg-black/40 cursor-not-allowed border border-white/5 shadow-none' 
                               : 'text-white cursor-pointer hover:-translate-y-0.5 ' + (
                                   isFinished ? 'bg-[#333] hover:bg-[#444] border border-white/5 shadow-none text-[#ccc]' : 
-                                  canLaunchThisMatch ? (isOngoing ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:shadow-[0_4px_10px_rgba(59,130,246,0.4)]' : 'bg-gradient-to-r from-orange-500 to-red-500 hover:shadow-[0_4px_10px_rgba(249,115,22,0.4)]') : 
+                                  canLaunchThisMatch ? (isOngoing ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:shadow-[0_4px_10px_rgba(59,130,246,0.4)]' : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:shadow-[0_4px_10px_rgba(16,185,129,0.4)]') : 
                                   'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse hover:bg-red-500 hover:text-white'
                               )
                       }`}
@@ -244,12 +290,31 @@ export default function PlayoffsTab({
                         {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE FORFAIT" : (isFinished ? "📊 VOIR LES STATS" : (canLaunchThisMatch ? (isOngoing ? "▶️ REPRENDRE" : "🚀 LANCER MATCH") : (canSpectateLive ? "🔴 SUIVRE LE DIRECT" : "SCORE DIRECT")))}
                     </button>
                     
-                    {(!isFinished && !isCanceled && !isForfeit && canEdit) && (
+                    {(canEdit && !isCanceled && !isForfeit) && (
                       <div className="flex gap-1.5 shrink-0">
-                        {/* 👇 ON PASSE 'true' POUR INDIQUER QUE C'EST UN MATCH DE PLAYOFFS 👇 */}
-                        <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:border-orange-400 transition-colors shadow-sm" title="Assigner un OTM">👤</button>
-                        <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
+                        {/* BOUTON CRAYON : Toujours visible ! */}
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setEditingScoreId(m.id); 
+                            setTempScoreA(m.scoreA || 0); 
+                            setTempScoreB(m.scoreB || 0); 
+                          }} 
+                          className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:text-white transition-colors shadow-sm" 
+                          title="Saisie / Modification manuelle du score"
+                        >
+                          ✏️
+                        </button>
+                        
+                        {/* AUTRES BOUTONS : Cachés si le match est terminé */}
+                        {!isFinished && (
+                          <>
+                            {/* 👇 ON PASSE 'true' POUR INDIQUER QUE C'EST UN MATCH DE PLAYOFFS 👇 */}
+                            <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:border-orange-400 transition-colors shadow-sm" title="Assigner un OTM">👤</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
