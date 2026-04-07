@@ -69,6 +69,7 @@ export default function App() {
             {/* NOUVEAU : On passe l'onglet actif (currentTab) au PlayerDashboard ! */}
             {view === 'dashboard' && ['vestiaire', 'mercato', 'carriere', 'explorer', 'arbitrage'].includes(activeMenu) && (
               <PlayerDashboard />
+              
             )}
             
             {view === 'dashboard' && activeMenu === 'dashboard_orga' && (

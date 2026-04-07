@@ -134,7 +134,7 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
         {isOtm && (
           <>
             <MenuCategory title="TABLE" />
-            <MenuItem id="arbitrage" icon="哨" label="Mes Arbitrages" isActive={activeMenu === 'arbitrage' && view === 'dashboard'} colorClass="from-red-600 to-orange-600" />
+            <MenuItem id="arbitrage" icon="🖥️" label="Mes Arbitrages" isActive={activeMenu === 'arbitrage' && view === 'dashboard'} colorClass="from-green-600 to-blue-600" />
           </>
         )}
         

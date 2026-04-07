@@ -5,78 +5,167 @@ export default function ActionPanel({
   activeAction, setActiveAction,
   pendingFoul, setPendingFoul, handleConfirmFoul,
   pendingAssist, setPendingAssist,
-  isForcedSub, handleConfirmSubs, setPendingSubs,
+  isForcedSub, 
+  handleConfirmSubs, 
+  pendingSubs,
+  
+  // 👇 RÉCEPTIONNE-LES ICI 👇
+  pendingAction, setPendingAction,
+  setPendingSubs,
+
   playersA, playersB, setStartersValidated
 }) {
+  
+  const resetAll = () => {
+    if (isForcedSub) return;
+    setActiveAction(null);
+    setPendingFoul(null);
+    setPendingAssist(null);
+    if (setPendingAction) setPendingAction(null); // <--- NETTOIE LE TIR EN COURS
+    if (setPendingSubs) setPendingSubs([]);
+  };
+
+  // AJOUTE 'pendingAction' dans la condition ici 👇
+  const hasActiveProcess = activeAction || pendingFoul || pendingAssist || pendingAction || pendingSubs?.length > 0 || isForcedSub;
+
+  // Calcul pour savoir s'il reste des joueurs sur le banc
+  const isPlayerExcluded = (p) => p.fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+  let availableBenchCount = 0;
+  if (isForcedSub) {
+    const forcedA = playersA?.find(p => p.status === 'court' && isPlayerExcluded(p));
+    if (forcedA) availableBenchCount = playersA.filter(p => p.status === 'bench' && !isPlayerExcluded(p)).length;
+    else {
+      const forcedB = playersB?.find(p => p.status === 'court' && isPlayerExcluded(p));
+      if (forcedB) availableBenchCount = playersB.filter(p => p.status === 'bench' && !isPlayerExcluded(p)).length;
+    }
+  }
+  
+  const isMissingRequiredSub = isForcedSub && pendingSubs?.length === 0 && availableBenchCount > 0;
+  const canPlayShorthanded = isForcedSub && pendingSubs?.length === 0 && availableBenchCount === 0;
+
   return (
-    <div className={`w-full xl:w-[180px] shrink-0 sticky top-5 p-4 rounded-xl border-2 transition-colors ${activeAction?.type === 'STARTERS' ? 'border-[var(--success)] bg-[rgba(52,199,89,0.1)]' : (pendingAssist ? 'border-[var(--success)] bg-[rgba(52,199,89,0.1)]' : (activeAction?.type === 'SUB' ? 'border-[var(--accent-purple)] bg-[rgba(157,78,221,0.1)]' : (pendingFoul ? 'border-[var(--danger)] bg-[rgba(255,59,48,0.1)]' : 'border-[#444] bg-[#1a1a1a]')))}`}>
-      {activeAction?.type === 'STARTERS' ? (
-          <div className="flex flex-col gap-3">
-              <span className="text-center text-xs font-bold text-[var(--success)] tracking-widest">🏀 SÉLECTION TITULAIRES</span>
-              <button className="bg-[var(--success)] text-white border-none py-3 px-2 rounded-lg text-sm font-black cursor-pointer hover:bg-green-600 transition-colors shadow-lg" onClick={() => {
-                  const courtA = playersA.filter(p=>p.status==='court').length;
-                  const courtB = playersB.filter(p=>p.status==='court').length;
-                  if (courtA !== 5 || courtB !== 5) {
-                      toast.error(`Il n'y a pas 5 joueurs par équipe ! (A: ${courtA}/5, B: ${courtB}/5)`);
-                      return;
-                  }
-                  setActiveAction(null);
-                  setStartersValidated(true); 
-              }}>
-                  VALIDER LE 5 MAJEUR
+    <div className="w-full flex items-center justify-center bg-[#0d0d12] border border-white/5 p-2 rounded-2xl shadow-xl min-h-[85px]">
+      
+      <div className="flex items-center gap-8 px-4">
+        
+        {/* --- CONSOLE DE SAISIE / VERROUILLAGE --- */}
+        {isForcedSub ? (
+          /* 1. ÉCRAN DE VERROUILLAGE (Si remplacement obligatoire) */
+          <div className="flex flex-1 items-center justify-center min-w-[600px]">
+             <div className="bg-red-600/10 border border-red-500/50 rounded-xl px-8 py-3 flex flex-col items-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+               <span className="text-red-500 font-black text-lg uppercase tracking-widest animate-pulse">
+                 🚨 Joueur exclu : Remplacement Obligatoire
+               </span>
+               <span className="text-white/70 font-bold text-xs mt-1">
+                 Sélectionnez un joueur sur le banc puis validez à droite
+               </span>
+             </div>
+          </div>
+        ) : !pendingFoul && !pendingAssist && activeAction?.type !== 'STARTERS' ? (
+          /* 2. CONSOLE CLASSIQUE (+1, +2, Rebonds...) */
+          <div className="flex items-center gap-6">
+            
+            {/* POINTS */}
+            <div className="flex gap-2 bg-orange-500/10 p-1.5 rounded-xl border border-orange-500/20">
+              {['PLUS1', 'PLUS2', 'PLUS3'].map(type => (
+                <button 
+                  key={type} 
+                  className={`w-14 h-12 rounded-lg font-black text-sm transition-all ${activeAction?.type === type ? 'bg-orange-500 text-white shadow-lg' : 'text-orange-500 hover:bg-orange-500/10'}`}
+                  onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}
+                >
+                  +{type.replace('PLUS', '')}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-10 w-px bg-white/10"></div>
+
+            {/* STATS TECHNIQUES */}
+            <div className="flex gap-2">
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'OREB' ? 'bg-emerald-500 text-white' : 'border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5'}`} onClick={() => setActiveAction({type: 'OREB', value: null})}>REB OFF</button>
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'DREB' ? 'bg-emerald-500 text-white' : 'border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5'}`} onClick={() => setActiveAction({type: 'DREB', value: null})}>REB DEF</button>
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'STL' ? 'bg-blue-500 text-white' : 'border-blue-500/20 text-blue-500 hover:bg-blue-500/5'}`} onClick={() => setActiveAction({type: 'STL', value: null})}>INT</button>
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'BLK' ? 'bg-blue-500 text-white' : 'border-blue-500/20 text-blue-500 hover:bg-blue-500/5'}`} onClick={() => setActiveAction({type: 'BLK', value: null})}>CTR</button>
+            </div>
+
+            <div className="h-10 w-px bg-white/10"></div>
+
+            {/* FAUTES ET SUBS */}
+            <div className="flex gap-2">
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'TOV' ? 'bg-gray-600 text-white' : 'border-gray-500/30 text-gray-400 hover:bg-white/5'}`} onClick={() => setActiveAction({type: 'TOV', value: null})}>B. PERDUE</button>
+              <button className={`px-6 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'FOUL' ? 'bg-red-600 text-white' : 'border-red-600/30 text-red-500 hover:bg-red-600/5'}`} onClick={() => setActiveAction({type: 'FOUL', value: null})}>FAUTE</button>
+              <button className={`px-5 h-12 rounded-lg font-black text-[11px] border ${activeAction?.type === 'SUB' ? 'bg-purple-600 text-white' : 'border-purple-600/30 text-purple-500 hover:bg-purple-600/5'}`} onClick={() => setActiveAction({type: 'SUB', value: null})}>SUB</button>
+            </div>
+          </div>
+        ) : (
+          /* 3. ÉTATS SPÉCIAUX (Fautes / Assist / Starters) */
+          <div className="flex items-center justify-center min-w-[500px]">
+             {/* ... (le reste de ton code reste identique ici) ... */}
+             {activeAction?.type === 'STARTERS' && (
+               <button className="bg-emerald-500 text-black px-12 py-3 rounded-xl font-black text-sm" onClick={() => setActiveAction(null)}>VALIDER LES JOUEURS</button>
+             )}
+             {pendingFoul && (
+               <div className="flex items-center gap-4 animate-fadeIn">
+                 
+                 <div className="flex gap-2">
+                   {['P', 'PO', 'T', 'U', 'D'].map(f => (
+                     <button 
+                       key={f} 
+                       className="w-14 h-12 rounded-lg font-black text-lg border-2 border-red-500/30 text-red-500 bg-transparent hover:bg-red-600 hover:text-white hover:border-red-600 hover:scale-105 transition-all shadow-sm" 
+                       onClick={() => handleConfirmFoul(f)}
+                     >
+                       {f}
+                     </button>
+                   ))}
+                 </div>
+               </div>
+             )}
+             {pendingAssist && (
+               <span className="text-emerald-400 font-black text-sm animate-pulse uppercase">Sélectionnez le passeur...</span>
+             )}
+          </div>
+        )}
+
+        {/* --- ZONE D'ACTION FINALE (DROITE) --- */}
+        {(hasActiveProcess) && (
+          <div className="flex items-center gap-3 border-l border-white/10 pl-8 h-12">
+            
+            {/* VALIDER CHANGEMENT OU SORTIE DÉFINITIVE */}
+            {((activeAction?.type === 'SUB' && pendingSubs?.length > 0) || isForcedSub) && (
+              <button 
+                onClick={handleConfirmSubs}
+                className={`h-full px-8 text-black rounded-xl font-black text-xs shadow-lg transition-all ${
+                  isMissingRequiredSub ? 'bg-gray-500 opacity-50 cursor-not-allowed' :
+                  canPlayShorthanded ? 'bg-orange-500 animate-pulse' : 
+                  'bg-emerald-500 animate-pulse'
+                }`}
+              >
+                {canPlayShorthanded ? 'SORTIR SANS REMPLAÇANT' : 'CONFIRMER'}
               </button>
-          </div>
-      ) : pendingFoul ? (
-        <div className="flex flex-col gap-2">
-          <span className="text-center text-xs font-bold text-[var(--danger)] tracking-widest mb-2">TYPE DE FAUTE ?</span>
-          <button className="bg-[#333] text-white border border-[#555] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[#444]" onClick={() => handleConfirmFoul('P')}>SIMPLE (P)</button>
-          <button className="bg-[#333] text-white border border-[#555] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[#444]" onClick={() => handleConfirmFoul('PO')}>OFFENSIVE (PO)</button>
-          <button className="bg-transparent text-[var(--danger)] border-2 border-[var(--danger)] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors" onClick={() => handleConfirmFoul('T')}>TECHNIQUE (T)</button>
-          <button className="bg-transparent text-[var(--danger)] border-2 border-[var(--danger)] py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-[var(--danger)] hover:text-white transition-colors" onClick={() => handleConfirmFoul('U')}>ANTISPORTIVE (U)</button>
-          <button className="bg-[var(--danger)] text-white border-none py-2.5 rounded font-bold text-sm cursor-pointer hover:bg-red-700" onClick={() => handleConfirmFoul('D')}>DISQ (D)</button>
-          <button className="bg-transparent text-[#888] underline border-none py-2.5 rounded font-bold text-xs cursor-pointer hover:text-white mt-2" onClick={() => setPendingFoul(null)}>ANNULER</button>
-        </div>
-      ) : pendingAssist ? (
-        <div className="flex flex-col gap-3">
-          <span className="text-center text-xs font-bold text-[var(--success)] tracking-widest">QUI A FAIT LA PASSE ?</span>
-          <button className="bg-[#444] text-white border-none py-3 rounded font-bold text-sm cursor-pointer hover:bg-[#555]" onClick={() => setPendingAssist(null)}>SANS PASSEUR</button>
-        </div>
-      ) : activeAction?.type === 'SUB' ? (
-        <div className="flex flex-col gap-3">
-          <span className="text-center text-xs font-bold text-[var(--accent-purple)] tracking-widest">MODE REMPLACEMENT</span>
-          <button className="bg-[var(--accent-purple)] text-white py-3 rounded-lg font-black text-sm border-none cursor-pointer shadow-lg hover:bg-purple-600 transition-colors" onClick={handleConfirmSubs}>VALIDER CHANGEMENTS</button>
-          {!isForcedSub && <button className="bg-transparent text-[#888] underline border-none py-2 rounded font-bold text-xs cursor-pointer hover:text-white" onClick={() => {setActiveAction(null); setPendingSubs([]);}}>ANNULER</button>}
-        </div>
-      ) : (
-        <div className="flex flex-col w-full gap-2">
-          <div className="flex gap-1.5">
-            {['PLUS1', 'PLUS2', 'PLUS3'].map(type => (
-              <button key={type} className={`flex-1 py-2.5 rounded font-black text-base cursor-pointer transition-all border-2 ${activeAction?.type === type ? 'bg-white text-black border-white scale-105' : 'bg-transparent text-white border-[#555] hover:border-white'}`} onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}>+{type.replace('PLUS', '')}</button>
-            ))}
-          </div>
-          
-          <div className="w-full h-px bg-[#333] my-1"></div>
+            )}
 
-          <div className="flex gap-1.5 w-full">
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'OREB' ? 'bg-[var(--success)] text-white border-[var(--success)]' : 'bg-transparent text-[var(--success)] border-[var(--success)] hover:bg-[var(--success)] hover:text-white'}`} onClick={() => setActiveAction({type: 'OREB', value: null})}>OREB</button>
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'DREB' ? 'bg-[var(--success)] text-white border-[var(--success)]' : 'bg-transparent text-[var(--success)] border-[var(--success)] hover:bg-[var(--success)] hover:text-white'}`} onClick={() => setActiveAction({type: 'DREB', value: null})}>DREB</button>
+            {/* ANNULER SAISIE : Disparaît si c'est une sortie obligatoire */}
+            {!isForcedSub && (
+              <button 
+                onClick={resetAll}
+                className="h-full px-6 bg-amber-500 text-black rounded-xl font-black text-[10px] flex flex-col items-center justify-center leading-tight shadow-lg"
+              >
+                <span className="text-xs">✕</span>
+                <span>ANNULER</span>
+              </button>
+            )}
+
+            {/* MESSAGE D'ALERTE : Apparaît quand l'annulation est bloquée */}
+            {isForcedSub && (
+              <div className="px-4 text-[var(--danger)] font-black text-[10px] animate-pulse text-center leading-tight">
+                SORTIE<br/>OBLIGATOIRE
+              </div>
+            )}
+
           </div>
+        )}
 
-          <div className="flex gap-1.5 w-full">
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'STL' ? 'bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]' : 'bg-transparent text-[var(--accent-blue)] border-[var(--accent-blue)] hover:bg-[var(--accent-blue)] hover:text-white'}`} onClick={() => setActiveAction({type: 'STL', value: null})}>STL</button>
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'BLK' ? 'bg-[var(--accent-blue)] text-white border-[var(--accent-blue)]' : 'bg-transparent text-[var(--accent-blue)] border-[var(--accent-blue)] hover:bg-[var(--accent-blue)] hover:text-white'}`} onClick={() => setActiveAction({type: 'BLK', value: null})}>BLK</button>
-          </div>
-
-          <div className="flex gap-1.5 w-full">
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'TOV' ? 'bg-[#888] text-white border-[#888]' : 'bg-transparent text-[#ccc] border-[#666] hover:bg-[#666] hover:text-white'}`} onClick={() => setActiveAction({type: 'TOV', value: null})}>TOV</button>
-              <button className={`flex-1 py-2.5 rounded font-bold text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'FOUL' ? 'bg-[var(--danger)] text-white border-[var(--danger)]' : 'bg-transparent text-[var(--danger)] border-[var(--danger)] hover:bg-[var(--danger)] hover:text-white'}`} onClick={() => setActiveAction({type: 'FOUL', value: null})}>FOUL</button>
-          </div>
-
-          <button className={`w-full mt-1 py-2.5 rounded font-black tracking-widest text-xs cursor-pointer transition-colors border-2 ${activeAction?.type === 'SUB' ? 'bg-[var(--accent-purple)] text-white border-[var(--accent-purple)]' : 'bg-transparent text-[var(--accent-purple)] border-[var(--accent-purple)] hover:bg-[var(--accent-purple)] hover:text-white'}`} onClick={() => setActiveAction({type: 'SUB', value: null})}>SUB</button>
-
-          {activeAction && <button onClick={() => setActiveAction(null)} className="w-full mt-2 py-2 rounded font-bold text-xs bg-transparent text-[#888] underline border-none cursor-pointer hover:text-white">ANNULER</button>}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
