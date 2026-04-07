@@ -35,7 +35,20 @@ export default function Scoreboard() {
     setActiveMatch(null); 
   };
 
-  const settings = tourney?.matchsettings || { periodCount: 4, periodDuration: 10, timeoutsHalf1: 2, timeoutsHalf2: 3 };
+  // 1. Récupération des paramètres (avec 5 fautes perso et 4 fautes d'équipe par défaut)
+  const settings = tourney?.matchsettings || { 
+    periodCount: 4, 
+    periodDuration: 10, 
+    timeoutsHalf1: 2, 
+    timeoutsHalf2: 3,
+    maxFouls: 5,        // <-- NOUVEAU
+    bonusFouls: 4,
+    courtSize: 5       // <-- NOUVEAU
+  };
+
+  const maxFouls = settings.maxFouls || 5;
+  const bonusFouls = settings.bonusFouls || 4;
+  const courtSize = settings.courtSize || 5;
   const isSpecificallyAssigned = localStorage.getItem(`canEdit_match_${matchId}`) === "true";
   const canEdit = userRole === 'ADMIN' || isSpecificallyAssigned;
   const saveKey = `basketMatchSave_${matchId}`;
@@ -397,8 +410,10 @@ export default function Scoreboard() {
         set(prev => {
             const courtCount = prev.filter(p => p.status === 'court').length;
             const targetPlayer = prev.find(p => p.id === pid);
-            if (targetPlayer?.status === 'bench' && courtCount >= 5) {
-                setTimeout(() => toast.error("5 joueurs maximum sur le terrain !"), 10);
+            
+            // 👇 REMPLACE LE 5 PAR courtSize ICI 👇
+            if (targetPlayer?.status === 'bench' && courtCount >= courtSize) {
+                setTimeout(() => toast.error(`${courtSize} joueurs maximum sur le terrain !`), 10);
                 return prev;
             }
             return prev.map(p => p.id === pid ? { ...p, status: p.status === 'court' ? 'bench' : 'court' } : p);
@@ -554,7 +569,7 @@ export default function Scoreboard() {
     
     const availableBench = playersList.filter(p => p.status === 'bench' && !isPlayerExcluded(p) && !pendingSubs.includes(p.id)).length;
 
-    if (newCourtCount > 5) { toast.error(`Remplacement invalide : L'équipe se retrouverait avec ${newCourtCount} joueurs.`); return; }
+    if (newCourtCount > courtSize) { toast.error(`Remplacement invalide : L'équipe se retrouverait avec ${newCourtCount} joueurs.`); return; }
     if (pOut.length > pIn.length) {
         if (availableBench > 0) { toast.error(`Remplacement incomplet : Il reste ${availableBench} remplaçant(s) valide(s).`); return; }
         const fouledOuts = pOut.filter(p => isPlayerExcluded(p)).length;
@@ -659,7 +674,8 @@ export default function Scoreboard() {
   };
 
   // --- DÉTECTION AUTOMATIQUE DES EXCLUSIONS ---
-  const isPlayerExcluded = (p) => p.fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+  // 2. La détection automatique devient dynamique
+  const isPlayerExcluded = (p) => p.fouls >= maxFouls || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
   const isForcedSub = [...playersA, ...playersB].some(p => p.status === 'court' && isPlayerExcluded(p));
 
   // 👇 DÉBUT DU RENDU RESPONSIVE TAILWIND 👇
@@ -733,6 +749,7 @@ export default function Scoreboard() {
         isEditing={isEditing} setIsEditing={setIsEditing} editMin={editMin} setEditMin={setEditMin} editSec={editSec} setEditSec={setEditSec}
         time={time} isRunning={isRunning} setIsRunning={setIsRunning} handleSaveTime={handleSaveTime} handleResetTime={handleResetTime}
         nextPeriod={nextPeriod} period={period} possession={possession} setPossession={setPossession} activeAction={activeAction}
+        bonusFouls={bonusFouls}
       />
 
       {/* --- VUE TERRAIN (COURT) --- */}
@@ -793,6 +810,7 @@ export default function Scoreboard() {
   canEdit={canEdit} 
   
   // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
+  maxFouls={maxFouls}
   pendingFoul={pendingFoul}
   isForcedSub={isForcedSub} 
 />
@@ -821,6 +839,7 @@ export default function Scoreboard() {
   canEdit={canEdit} 
   
   // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
+  maxFouls={maxFouls}
   pendingFoul={pendingFoul}
   isForcedSub={isForcedSub} 
 />
@@ -849,6 +868,7 @@ export default function Scoreboard() {
   canEdit={canEdit} 
   
   // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
+  maxFouls={maxFouls}
   pendingFoul={pendingFoul} 
   isForcedSub={isForcedSub}
 />
@@ -877,6 +897,7 @@ export default function Scoreboard() {
   canEdit={canEdit} 
   
   // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
+  maxFouls={maxFouls}
   pendingFoul={pendingFoul} 
   isForcedSub={isForcedSub}
 />

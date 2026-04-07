@@ -15,7 +15,7 @@ const playerCardAreEqual = (prevProps, nextProps) => {
   );
 };
 
-const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit, pendingFoul, isForcedSub }) => {
+const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit, pendingFoul, isForcedSub, maxFouls }) => {
   
   // --- FORCER LE MODE "SUB" SI SORTIE OBLIGATOIRE ---
   const effectiveActionType = isForcedSub ? 'SUB' : activeActionType;
@@ -24,8 +24,8 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
   const isPendingScore = pendingAction?.playerId === player.id;
   const isPendingFoul = pendingFoul?.playerId === player.id;
   
-  const isExcluded = player.fouls >= 5 || (player.techFouls || 0) >= 2 || (player.antiFouls || 0) >= 2 || player.isDisqualified;
-  let excluReason = '5 FAUTES';
+  const isExcluded = player.fouls >= maxFouls || (player.techFouls || 0) >= 2 || (player.antiFouls || 0) >= 2 || player.isDisqualified;
+  let excluReason = `${maxFouls} FAUTES`;
   if (player.isDisqualified) excluReason = 'DISQ';
   else if ((player.techFouls || 0) >= 2 || (player.antiFouls || 0) >= 2) excluReason = 'EXCLU';
 
@@ -113,9 +113,9 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
           {player.points} <span className="text-[0.65rem] text-[#888] font-bold ml-0.5">PTS</span>
         </span>
         
-        {/* LIGNE 2B : Les Fautes en dessous */}
+        {/* LIGNE 2B : Les Fautes en dessous (Générées dynamiquement) */}
         <div className="flex gap-1.5">
-          {[0, 1, 2, 3, 4].map(idx => {
+          {[...Array(maxFouls)].map((_, idx) => {
             const isFilled = idx < player.fouls;
             const isDanger = isExcluded && idx === (player.fouls - 1);
             const foulLetter = player.foulTypes && player.foulTypes[idx] ? player.foulTypes[idx] : 'P';
@@ -123,7 +123,6 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
             return (
               <div 
                 key={idx} 
-                // "font-normal" remplace "font-black" pour affiner la lettre
                 className={`w-[16px] h-[16px] flex items-center justify-center rounded-[3px] text-[10px] font-normal transition-colors ${
                   isFilled 
                     ? (isDanger 
@@ -152,14 +151,24 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
 
       {/* VALIDATION SCORE OVERLAY */}
       {isPendingScore && canEdit && (
-        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-3 z-20 backdrop-blur-md" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center gap-2 z-20 backdrop-blur-md px-3" onClick={e => e.stopPropagation()}>
           
-          <div className="flex gap-3">
-            <button className="w-12 h-12 rounded-full border-2 border-[var(--success)] bg-[var(--success)] text-black font-black text-xl hover:scale-110 transition-all cursor-pointer" onClick={() => onConfirm('VALIDATED')}>V</button>
-            <button className="w-12 h-12 rounded-full border-2 border-[var(--danger)] bg-[var(--danger)] text-white font-black text-xl hover:scale-110 transition-all cursor-pointer" onClick={() => onConfirm('MISSED')}>X</button>
+          {/* Boutons clairs et explicites */}
+          <button 
+            className="w-full py-2 rounded border border-emerald-500 bg-emerald-500/20 text-emerald-400 font-black text-xs tracking-widest uppercase hover:bg-emerald-500 hover:text-black transition-all cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
+            onClick={() => onConfirm('VALIDATED')}
+          >
+            🎯 Marqué
+          </button>
+          
+          <button 
+            className="w-full py-2 rounded border border-red-500 bg-red-500/20 text-red-400 font-black text-xs tracking-widest uppercase hover:bg-red-400 hover:text-white transition-all cursor-pointer shadow-[0_0_10px_rgba(239,68,68,0.2)]" 
+            onClick={() => onConfirm('MISSED')}
+          >
+            ❌ Raté
+          </button>
+          
           </div>
-                    
-        </div>
       )}
     </div>
   );

@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [periodDuration, setPeriodDuration] = useState(10);
   const [timeoutsHalf1, setTimeoutsHalf1] = useState(2);
   const [timeoutsHalf2, setTimeoutsHalf2] = useState(3);
+  const [maxFouls, setMaxFouls] = useState(5);
+  const [bonusFouls, setBonusFouls] = useState(4);
+  const [courtSize, setCourtSize] = useState(5);
 
   const canCreate = userRole === 'ADMIN' || userSubscription === 'PRO';
 
@@ -85,20 +88,23 @@ export default function Dashboard() {
     if (!canCreate || !name.trim()) return;
     const generatedPin = Math.random().toString(36).substring(2, 8).toUpperCase();
     const validUuid = crypto.randomUUID(); 
+    
     const newT = { 
       id: validUuid, name, teams: [], schedule: [], status: 'preparing', 
       date: new Date().toLocaleDateString(), organizer_id: session.user.id,
       pin_code: generatedPin, otm_ids: [],
-      matchsettings: { periodCount: parseInt(periodCount) || 4, periodDuration: parseInt(periodDuration) || 10, timeoutsHalf1: parseInt(timeoutsHalf1) || 2, timeoutsHalf2: parseInt(timeoutsHalf2) || 3 }
+      matchsettings: { periodCount: parseInt(periodCount) || 4, periodDuration: parseInt(periodDuration) || 10, timeoutsHalf1: parseInt(timeoutsHalf1) || 2, timeoutsHalf2: parseInt(timeoutsHalf2) || 3, maxFouls: parseInt(maxFouls) || 5,
+      bonusFouls: parseInt(bonusFouls) || 4, courtSize: parseInt(courtSize) || 5 }
     };
     
     setTournaments([...tournaments, newT]);
-    setName(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3);
+    setName(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3); setCourtSize(5);
 
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) toast.error(`Erreur Cloud : ${error.message}`); 
     else toast.success("Tournoi créé avec succès ! 🚀");
   };
+  
 
   const onDragStart = (e, tourney) => {
     if (!canCreate) { e.preventDefault(); return; }
@@ -178,23 +184,58 @@ export default function Dashboard() {
                 value={name} 
                 onChange={e => setName(e.target.value)} 
               />
-              
+
+              {/* FORMAT DE JEU (Isolé au dessus) */}
+              <div className="flex flex-col gap-1.5 mb-5">
+                <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Format</label>
+                <div className="flex gap-2 h-[42px]">
+                  {[
+                    { label: '5x5', value: 5 },
+                    { label: '3x3', value: 3 },
+                    { label: '1x1', value: 1 }
+                  ].map(format => (
+                    <button
+                      key={format.value}
+                      type="button"
+                      onClick={() => setCourtSize(format.value)}
+                      className={`px-4 rounded-xl font-black tracking-widest text-xs transition-all border ${
+                        courtSize === format.value 
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white border-transparent shadow-[0_4px_10px_rgba(168,85,247,0.3)]' 
+                          : 'bg-transparent text-[#666] border-white/10 hover:border-purple-500/30 hover:text-white'
+                      }`}
+                    >
+                      {format.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* TOUS LES AUTRES RÉGLAGES ALIGNÉS SUR UNE LIGNE (Flex Wrap) */}
               <div className="flex flex-wrap items-end gap-4">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Périodes</label>
-                  <input type="number" min="1" max="10" className="w-[80px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
+                  <input type="number" min="1" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Min/Période</label>
-                  <input type="number" min="1" max="60" className="w-[90px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+                  <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 1ère MT</label>
-                  <input type="number" min="0" max="10" className="w-[80px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+                  <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 2ème MT</label>
-                  <input type="number" min="0" max="10" className="w-[80px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
+                  <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
+                </div>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes avant exclusion">Fautes Max</label>
+                  <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={maxFouls} onChange={e => setMaxFouls(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes d'équipe avant pénalité">Pénalité ÉQ.</label>
+                  <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={bonusFouls} onChange={e => setBonusFouls(e.target.value)} />
                 </div>
                 
                 <button 

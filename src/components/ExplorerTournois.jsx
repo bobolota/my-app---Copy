@@ -76,7 +76,7 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
                   
                   <TeamTagList teams={t.teams} />
                   
-                  {myCaptainTeams.length === 0 ? (
+                  {myCaptainTeams.length === 0 && parseInt(t.matchsettings?.courtSize || 5) !== 1 ? (
                     <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
                       <span className="text-xs text-red-400 font-bold">⚠️ Fonde une équipe pour t'inscrire.</span>
                     </div>

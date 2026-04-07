@@ -164,3 +164,17 @@ button:active { transform: scale(0.95) !important; }
   body { background: white !important; color: black !important; overflow: auto !important; }
   .app-layout, .app-main, .app-content { display: block; height: auto; overflow: visible !important; }
 }
+
+/* --- Masquer les flèches des inputs number --- */
+
+/* Pour Chrome, Safari, Edge, Opera */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Pour Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}

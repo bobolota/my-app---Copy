@@ -120,15 +120,27 @@ export default function ActionPanel({
                  </div>
                </div>
              )}
-             {pendingAssist && (
-               <span className="text-emerald-400 font-black text-sm animate-pulse uppercase">Sélectionnez le passeur...</span>
-             )}
+             {/* --- DEMANDE DE PASSE DÉCISIVE --- */}
+            {pendingAssist && (
+              <div className="flex items-center gap-4 animate-fadeIn">
+                <span className="text-emerald-400 font-black text-xs uppercase tracking-widest">
+                  🏀 Passe décisive ?
+                </span>
+                
+                <button 
+                  onClick={() => setPendingAssist(null)}
+                  className="px-4 py-4 bg-gray-600/30 hover:bg-gray-500/50 text-gray-300 border border-gray-500/50 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all cursor-pointer"
+                >
+                  SANS PASSEUR
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* --- ZONE D'ACTION FINALE (DROITE) --- */}
         {(hasActiveProcess) && (
-          <div className="flex items-center gap-3 border-l border-white/10 pl-8 h-12">
+          <div className="flex items-center gap-3 border-l border-transparent/10 pl-8 h-12">
             
             {/* VALIDER CHANGEMENT OU SORTIE DÉFINITIVE */}
             {((activeAction?.type === 'SUB' && pendingSubs?.length > 0) || isForcedSub) && (
@@ -144,8 +156,8 @@ export default function ActionPanel({
               </button>
             )}
 
-            {/* ANNULER SAISIE : Disparaît si c'est une sortie obligatoire */}
-            {!isForcedSub && (
+            {/* ANNULER SAISIE : Disparaît si sortie obligatoire ou attente de passeur */}
+            {!isForcedSub && !pendingAssist && (
               <button 
                 onClick={resetAll}
                 className="h-full px-6 bg-amber-500 text-black rounded-xl font-black text-[10px] flex flex-col items-center justify-center leading-tight shadow-lg"

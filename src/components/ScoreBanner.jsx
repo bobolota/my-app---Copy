@@ -6,8 +6,13 @@ export default function ScoreBanner({
   canEdit, isMatchOver, handleTeamAction,
   isEditing, setIsEditing, editMin, setEditMin, editSec, setEditSec,
   time, isRunning, setIsRunning, handleSaveTime, handleResetTime,
-  nextPeriod, period, possession, setPossession, activeAction
+  nextPeriod, period, possession, setPossession, activeAction,
+  bonusFouls = 4 // 👈 NOUVEAU : On récupère la variable avec 4 par défaut
 }) {
+
+  // On crée un tableau dynamique selon la limite de fautes de l'organisateur (+1 pour la case rouge de pénalité)
+  const foulSquares = [...Array(bonusFouls + 1)].map((_, i) => i + 1);
+
   return (
     <div className="flex justify-center items-stretch gap-2 md:gap-8 mb-10 bg-transparent p-4 rounded-xl border border-[#333] shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
       
@@ -19,11 +24,19 @@ export default function ScoreBanner({
           <span className="text-[0.65rem] text-[#888] font-bold tracking-widest">FAUTES ÉQUIPE</span>
           <div className="flex items-center gap-2 h-4">
             <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map(idx => (
-                <div key={idx} className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${idx <= teamFoulsA ? (idx >= 5 ? 'bg-[var(--danger)] border-[var(--danger)]' : 'bg-[var(--accent-orange)] border-[var(--accent-orange)]') : 'bg-transparent'}`} />
+              {foulSquares.map(idx => (
+                <div 
+                  key={idx} 
+                  className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${
+                    idx <= teamFoulsA 
+                      ? (idx > bonusFouls ? 'bg-[var(--danger)] border-[var(--danger)] shadow-[0_0_8px_var(--danger)]' : 'bg-[var(--accent-orange)] border-[var(--accent-orange)]') 
+                      : 'bg-transparent'
+                  }`} 
+                />
               ))}
             </div>
-            {teamFoulsA >= 5 && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest">BONUS</span>}
+            {/* Le tag BONUS apparaît seulement si les fautes dépassent la limite */}
+            {teamFoulsA > bonusFouls && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest animate-pulse">BONUS</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3 bg-white/5 px-3 py-1.5 rounded-lg">
@@ -82,11 +95,19 @@ export default function ScoreBanner({
           <span className="text-[0.65rem] text-[#888] font-bold tracking-widest">FAUTES ÉQUIPE</span>
           <div className="flex items-center gap-2 h-4">
             <div className="flex gap-1">
-              {[1, 2, 3, 4, 5].map(idx => (
-                <div key={idx} className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${idx <= teamFoulsB ? (idx >= 5 ? 'bg-[var(--danger)] border-[var(--danger)]' : 'bg-[var(--accent-blue)] border-[var(--accent-blue)]') : 'bg-transparent'}`} />
+              {foulSquares.map(idx => (
+                <div 
+                  key={idx} 
+                  className={`w-3.5 h-3.5 rounded-sm border border-[#555] ${
+                    idx <= teamFoulsB 
+                      ? (idx > bonusFouls ? 'bg-[var(--danger)] border-[var(--danger)] shadow-[0_0_8px_var(--danger)]' : 'bg-[var(--accent-blue)] border-[var(--accent-blue)]') 
+                      : 'bg-transparent'
+                  }`} 
+                />
               ))}
             </div>
-            {teamFoulsB >= 5 && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest">BONUS</span>}
+            {/* Le tag BONUS apparaît seulement si les fautes dépassent la limite */}
+            {teamFoulsB > bonusFouls && <span className="bg-[var(--danger)] text-white px-1.5 py-0.5 rounded font-bold text-[0.6rem] tracking-widest animate-pulse">BONUS</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 mt-3 bg-white/5 px-3 py-1.5 rounded-lg">

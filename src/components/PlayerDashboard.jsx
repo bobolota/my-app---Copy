@@ -276,7 +276,7 @@ export default function PlayerDashboard() {
     setConfirmData({
       isOpen: true,
       title: "Dissoudre l'équipe ? 🚨",
-      message: "ATTENTION : Cette action est irréversible. La dissolution de l'équipe supprimera immédiatement et définitivement toutes les données, l'effectif et l'historique liés à cette franchise.",
+      message: "La dissolution de l'équipe supprimera immédiatement et définitivement toutes les données, l'effectif et l'historique liés à cette franchise.",
       isDanger: true,
       onConfirm: async () => {
         try {

@@ -49,7 +49,7 @@ export default function TeamManagerView({
             <h1 className="m-0 text-2xl sm:text-3xl font-black text-white tracking-wide flex items-center flex-wrap gap-3">
               <span className="truncate">{managingTeam.name}</span>
               {isCaptainView && (
-                <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2.5 py-1 rounded-md shadow-sm font-black uppercase tracking-widest shrink-0">
+                <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2.5 rounded-md shadow-sm font-black uppercase tracking-widest shrink-0">
                   👑 Mode Capitaine
                 </span>
               )}
@@ -240,9 +240,7 @@ export default function TeamManagerView({
           >
             DISSOUDRE LA FRANCHISE ⚠️
           </button>
-          <p className="text-[#666] text-[10px] mt-3 uppercase tracking-widest font-bold text-center max-w-sm">
-            Cette action est irréversible et supprimera l'équipe ainsi que tout son historique pour l'ensemble des joueurs.
-          </p>
+          
         </div>
       )}
 
