@@ -76,18 +76,18 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
                   
                   <TeamTagList teams={t.teams} />
                   
-                  {myCaptainTeams.length === 0 && parseInt(t.matchsettings?.courtSize || 5) !== 1 ? (
-                    <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
-                      <span className="text-xs text-red-400 font-bold">⚠️ Fonde une équipe pour t'inscrire.</span>
-                    </div>
-                  ) : (
-                    <button 
-                      onClick={() => setRegisterModalTourney(t)} 
-                      className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] transition-all hover:-translate-y-0.5"
-                    >
-                      S'INSCRIRE 🚀
-                    </button>
-                  )}
+                  {myCaptainTeams.length === 0 && parseInt(t.matchsettings?.courtSize) !== 1 ? (
+    <div className="mt-4 bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+      <span className="text-xs text-red-400 font-bold">⚠️ Fonde une équipe pour t'inscrire.</span>
+    </div>
+  ) : (
+    <button 
+      onClick={() => setRegisterModalTourney(t)} 
+      className="w-full mt-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-3 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(168,85,247,0.3)] transition-all hover:-translate-y-0.5"
+    >
+      S'INSCRIRE 🚀
+    </button>
+)}
                 </div>
               ))
             )}

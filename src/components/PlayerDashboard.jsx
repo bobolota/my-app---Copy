@@ -291,45 +291,101 @@ export default function PlayerDashboard() {
   };
 
   const submitRegistration = async () => {
-    if (!selectedTeamToRegister) return toast.error("Sélectionne une équipe !");
+    // 1. Détection du format du tournoi
+    const courtSize = parseInt(registerModalTourney?.matchsettings?.courtSize) || 5;
+    const is1v1 = courtSize === 1;
+
     try {
-      const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
-      const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
-      
-      if (!members || members.length < 5) {
-        return toast.error(`Effectif incomplet 🛑\n\nL'équipe "${teamToReg.name}" n'a que ${members?.length || 0} joueur(s) validé(s). Il en faut au minimum 5 pour s'inscrire à un tournoi !`);
-      }
+      if (is1v1) {
+        // ==========================================
+        // CAS 1 : INSCRIPTION SOLO 1v1
+        // ==========================================
+        if (!session?.user) return toast.error("Connecte-toi pour participer !");
 
-      let newPlayers = [];
-      if (members && members.length > 0) {
-        const playerIds = members.map(m => m.player_id).filter(Boolean);
-        const { data: profiles } = playerIds.length > 0 ? await supabase.from('profiles').select('id, full_name').in('id', playerIds) : { data: [] };
-        
+        const playerId = session.user.id;
+        const playerName = session.user.user_metadata?.pseudo || session.user.email.split('@')[0];
+
+        // On vérifie si tu n'es pas DÉJÀ inscrit dans ce tournoi
         const existingTeams = registerModalTourney.teams || [];
-        const alreadyRegisteredPlayerIds = new Set();
-        existingTeams.forEach(t => {
-            (t.players || []).forEach(p => alreadyRegisteredPlayerIds.add(p.id));
-        });
+        const isAlreadyIn = existingTeams.some(t => 
+          (t.players || []).some(p => p.id === playerId)
+        );
 
-        const overlappingMember = members.find(m => m.player_id && alreadyRegisteredPlayerIds.has(m.player_id));
-        if (overlappingMember) {
-            const badPlayerName = profiles?.find(p => p.id === overlappingMember.player_id)?.full_name || "Un joueur";
-            toast.error(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe !`);
-            return;
+        if (isAlreadyIn) {
+          return toast.error("Action impossible 🛑\n\nTu participes DÉJÀ à ce tournoi !");
         }
 
-        newPlayers = members.map((m, i) => ({
-          id: m.player_id || `ghost_${Math.random()}`, 
-          name: m.player_id ? (profiles.find(p => p.id === m.player_id)?.full_name || "Inconnu") : (m.manual_name || "Manuel"),
-          number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20
-        }));
-      }
+        // On crée l'équipe Fantôme avec ta structure (licences, paiements, etc.)
+        const ghostTeamObj = { 
+          id: "tm_solo_" + Date.now(), 
+          global_id: `solo_${playerId}`, 
+          name: playerName, 
+          groupId: null,
+          players: [{
+            id: playerId,
+            name: playerName,
+            number: "1", // Numéro 1 par défaut
+            licenseStatus: 'to_check', 
+            paid: 0, 
+            totalDue: 20, // Ton tarif habituel
+            status: 'bench', points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0
+          }]
+        };
 
-      const newTeamObj = { id: "tm_" + Date.now(), global_id: teamToReg.id, name: teamToReg.name, players: newPlayers, groupId: null };
-      await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: newTeamObj });
-      
-      toast.success(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
-      setRegisterModalTourney(null); setSelectedTeamToRegister(""); refetch();
+        // On utilise ton RPC pour l'inscription !
+        await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: ghostTeamObj });
+        
+        toast.success("Inscription solo réussie ! 🔥");
+        setRegisterModalTourney(null);
+        refetch();
+
+      } else {
+        // ==========================================
+        // CAS 2 : INSCRIPTION CLASSIQUE (3x3, 5x5)
+        // ==========================================
+        if (!selectedTeamToRegister) return toast.error("Sélectionne une équipe !");
+        
+        const teamToReg = myTeams.find(mt => mt.global_teams.id === selectedTeamToRegister).global_teams;
+        const { data: members } = await supabase.from('team_members').select('player_id, manual_name').eq('team_id', selectedTeamToRegister).eq('status', 'accepted');
+        
+        // 💡 AMÉLIORATION : La limite s'adapte au format (5 pour 5x5, 3 pour 3x3)
+        if (!members || members.length < courtSize) {
+          return toast.error(`Effectif incomplet 🛑\n\nL'équipe "${teamToReg.name}" n'a que ${members?.length || 0} joueur(s) validé(s). Il en faut au minimum ${courtSize} pour un tournoi ${courtSize}x${courtSize} !`);
+        }
+
+        let newPlayers = [];
+        if (members && members.length > 0) {
+          const playerIds = members.map(m => m.player_id).filter(Boolean);
+          const { data: profiles } = playerIds.length > 0 ? await supabase.from('profiles').select('id, full_name').in('id', playerIds) : { data: [] };
+          
+          const existingTeams = registerModalTourney.teams || [];
+          const alreadyRegisteredPlayerIds = new Set();
+          existingTeams.forEach(t => {
+              (t.players || []).forEach(p => alreadyRegisteredPlayerIds.add(p.id));
+          });
+
+          const overlappingMember = members.find(m => m.player_id && alreadyRegisteredPlayerIds.has(m.player_id));
+          if (overlappingMember) {
+              const badPlayerName = profiles?.find(p => p.id === overlappingMember.player_id)?.full_name || "Un joueur";
+              toast.error(`Action impossible 🛑\n\n${badPlayerName} participe DÉJÀ à ce tournoi avec une autre équipe !`);
+              return;
+          }
+
+          newPlayers = members.map((m, i) => ({
+            id: m.player_id || `ghost_${Math.random()}`, 
+            name: m.player_id ? (profiles.find(p => p.id === m.player_id)?.full_name || "Inconnu") : (m.manual_name || "Manuel"),
+            number: String(i + 4), licenseStatus: 'to_check', paid: 0, totalDue: 20
+          }));
+        }
+
+        const newTeamObj = { id: "tm_" + Date.now(), global_id: teamToReg.id, name: teamToReg.name, players: newPlayers, groupId: null };
+        await supabase.rpc('register_team_to_tournament', { t_id: registerModalTourney.id, new_team: newTeamObj });
+        
+        toast.success(`L'équipe ${teamToReg.name} est inscrite ! 🎉`);
+        setRegisterModalTourney(null); 
+        setSelectedTeamToRegister(""); 
+        refetch();
+      }
 
     } catch(err) {
       console.error(err);
