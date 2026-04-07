@@ -98,7 +98,7 @@ export default function Dashboard() {
     };
     
     setTournaments([...tournaments, newT]);
-    setName(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3); setCourtSize(5);
+    setName(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3); setCourtSize(5); setMaxFouls(5); setBonusFouls(4);
 
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) toast.error(`Erreur Cloud : ${error.message}`); 
