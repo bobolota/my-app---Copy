@@ -49,6 +49,7 @@ export default function Scoreboard() {
   const maxFouls = settings.maxFouls || 5;
   const bonusFouls = settings.bonusFouls || 4;
   const courtSize = settings.courtSize || 5;
+  const pointsSystem = settings.pointsSystem || 'standard'; // 👈 LA LIGNE MAGIQUE EST ICI !
   const isSpecificallyAssigned = localStorage.getItem(`canEdit_match_${matchId}`) === "true";
   const canEdit = userRole === 'ADMIN' || isSpecificallyAssigned;
   const saveKey = `basketMatchSave_${matchId}`;
@@ -58,8 +59,9 @@ export default function Scoreboard() {
       const saved = localStorage.getItem(saveKey);
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      const isRightMatch = parsed.playersA?.length > 0 && teamA?.players?.some(p => p.id === parsed.playersA[0]?.id);
-      return isRightMatch ? parsed : null;
+      // MODIFICATION : La clé contient déjà le matchId, on lui fait confiance !
+      // Ça évite que le 1v1 n'écrase la sauvegarde pendant le chargement de la page.
+      return parsed.playersA ? parsed : null;
     } catch (e) { return null; }
   };
 
@@ -84,7 +86,8 @@ export default function Scoreboard() {
   const initialStartersValidated = isFinished || 
     (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false) || 
     (matchData?.liveHistory?.length > 0) || 
-    cloudHasStarters;
+    cloudHasStarters ||
+    courtSize === 1; // 👈 NOUVEAU : En 1v1, le match est validé et prêt à sauvegarder direct !
 
   const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
   const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : (matchData?.savedStatsA || initPlayers(teamA))));
@@ -93,6 +96,26 @@ export default function Scoreboard() {
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
   const [history, setHistory] = useState(() => safeSave ? safeSave.history : (matchData?.liveHistory || []));
+
+  // 🔄 GESTION DU CHARGEMENT ASYNCHRONE (Rafraîchissement F5)
+  useEffect(() => {
+    // Si les équipes sont déjà chargées avec des joueurs, on ne touche à rien
+    if (playersA.length > 0 && playersB.length > 0) return;
+
+    const savedData = getSafeSave();
+    
+    // Si on a une sauvegarde dans le navigateur, on force sa restauration
+    if (savedData && savedData.playersA && savedData.playersA.length > 0) {
+      setPlayersA(savedData.playersA);
+      setPlayersB(savedData.playersB);
+      if (savedData.history) setHistory(savedData.history);
+    } 
+    // Sinon, dès que teamA/teamB arrivent du Contexte, on les initialise
+    else {
+      if (teamA?.players && playersA.length === 0) setPlayersA(initPlayers(teamA));
+      if (teamB?.players && playersB.length === 0) setPlayersB(initPlayers(teamB));
+    }
+  }, [teamA, teamB, matchId]);
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
   const [isRunning, setIsRunning] = useState(false);
@@ -177,6 +200,9 @@ export default function Scoreboard() {
 
   
   useEffect(() => {
+    // 👇 LE BOUCLIER : On refuse de sauvegarder si les joueurs sont vides (évite d'écraser la sauvegarde au rafraîchissement)
+    if (!playersA || playersA.length === 0 || !playersB || playersB.length === 0) return;
+
     if (!isFinished && canEdit) { 
       const gameState = { playersA, playersB, time, period, history, isMatchOver, possession, startersValidated };
       localStorage.setItem(saveKey, JSON.stringify(gameState));
@@ -471,8 +497,8 @@ export default function Scoreboard() {
         setPendingFoul({ team, playerId: pid });
         return;
     }
-    if (['PLUS1', 'PLUS2', 'PLUS3'].includes(finalActionType)) { 
-        setPendingAction({ team, playerId: pid, value: finalActionValue }); 
+    if (['FT', 'PLUS1', 'PLUS2', 'PLUS3'].includes(finalActionType)) { 
+        setPendingAction({ team, playerId: pid, value: finalActionValue, type: finalActionType }); 
         return; 
     }
     
@@ -627,8 +653,11 @@ export default function Scoreboard() {
         up.fta += 1;
       } else {
         // C'est un tir sur le terrain (Field Goal)
-        if (courtSize === 1 || courtSize === 3 || pointsSystem === 'street') {
-          // Logique Streetball
+        // On écoute le paramètre du tournoi en priorité
+        const isStreetFormat = pointsSystem === 'street' || (!pointsSystem && courtSize !== 5);
+        
+        if (isStreetFormat) {
+          // Logique Streetball (+1 / +2)
           if (value === 1) { 
             if (isMade) up.fg2m += 1; 
             up.fg2a += 1; 
@@ -637,7 +666,7 @@ export default function Scoreboard() {
             up.fg3a += 1; 
           }
         } else {
-          // Logique 5x5 Classique
+          // Logique Classique (+2 / +3)
           if (value === 2) { 
             if (isMade) up.fg2m += 1; 
             up.fg2a += 1; 
@@ -988,6 +1017,8 @@ export default function Scoreboard() {
           isMatchOver={isMatchOver} 
           canEdit={canEdit} 
           onDeleteActionClick={handleDeleteActionClick} 
+          pointsSystem={pointsSystem}
+          courtSize={courtSize}
       />
 
       {/* --- LE MODÈLE CACHÉ POUR L'EXPORT PDF --- */}

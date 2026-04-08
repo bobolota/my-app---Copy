@@ -41,9 +41,8 @@ export default function ActionPanel({
   const isMissingRequiredSub = isForcedSub && pendingSubs?.length === 0 && availableBenchCount > 0;
   const canPlayShorthanded = isForcedSub && pendingSubs?.length === 0 && availableBenchCount === 0;
 
-  // 👇 LOGIQUE DYNAMIQUE POUR LE 1v1 ET LE STREETBALL 👇
-  const pointButtons = pointsSystem === 'street' ? ['PLUS1', 'PLUS2'] : ['PLUS1', 'PLUS2', 'PLUS3'];
-  const btnSizeClass = courtSize === 1 ? 'px-7 text-sm' : 'px-5 text-[11px]'; // Boutons XXL en 1v1
+  // Boutons XXL en 1v1
+  const btnSizeClass = courtSize === 1 ? 'px-7 text-sm' : 'px-5 text-[11px]'; 
 
   return (
     <div className="w-full flex items-center justify-center bg-[#0d0d12] border border-white/5 p-2 rounded-2xl shadow-xl min-h-[85px]">
@@ -65,28 +64,19 @@ export default function ActionPanel({
         ) : !pendingFoul && !pendingAssist && activeAction?.type !== 'STARTERS' ? (
           <div className="flex items-center gap-6">
             
-            {/* POINTS (S'adapte dynamiquement avec le bouton LF) */}
+            {/* 👇 POINTS : S'adapte dynamiquement 5x5 vs Streetball 👇 */}
             <div className="flex gap-2 bg-orange-500/10 p-1.5 rounded-xl border border-orange-500/20">
-              
-              {/* Le bouton Lancer Franc (Toujours présent, vaut 1 pt) */}
-              <button 
-                className={`w-14 h-12 rounded-lg font-black transition-all ${courtSize === 1 ? 'text-lg' : 'text-sm'} ${activeAction?.type === 'FT' ? 'bg-orange-500 text-white shadow-lg' : 'text-orange-500 hover:bg-orange-500/10'}`}
-                onClick={() => setActiveAction({type: 'FT', value: 1})}
-              >
-                LF
-              </button>
-
-              {/* Barre de séparation subtile */}
-              <div className="w-px h-8 my-auto bg-orange-500/30 mx-1"></div>
-
-              {/* Les boutons de Tirs (+1, +2, +3) */}
-              {pointButtons.map(type => (
+              {/* On vérifie si le mode "street" est explicitement demandé, ou si c'est un vieux tournoi 3x3 sans paramètre */}
+              {(pointsSystem === 'street' || (!pointsSystem && courtSize !== 5)
+                ? [ { label: 'LF', type: 'FT', val: 1 }, { label: '+1', type: 'PLUS1', val: 1 }, { label: '+2', type: 'PLUS2', val: 2 } ]
+                : [ { label: 'LF', type: 'FT', val: 1 }, { label: '+2', type: 'PLUS2', val: 2 }, { label: '+3', type: 'PLUS3', val: 3 } ]
+              ).map(btn => (
                 <button 
-                  key={type} 
-                  className={`w-14 h-12 rounded-lg font-black transition-all ${courtSize === 1 ? 'text-lg' : 'text-sm'} ${activeAction?.type === type ? 'bg-orange-500 text-white shadow-lg' : 'text-orange-500 hover:bg-orange-500/10'}`}
-                  onClick={() => setActiveAction({type, value: parseInt(type.replace('PLUS', ''))})}
+                  key={btn.type} 
+                  className={`w-14 h-12 rounded-lg font-black transition-all ${courtSize === 1 ? 'text-lg' : 'text-sm'} ${activeAction?.type === btn.type ? 'bg-orange-500 text-white shadow-lg' : 'text-orange-500 hover:bg-orange-500/10'}`}
+                  onClick={() => setActiveAction({type: btn.type, value: btn.val})}
                 >
-                  +{type.replace('PLUS', '')}
+                  {btn.label}
                 </button>
               ))}
             </div>
@@ -117,7 +107,15 @@ export default function ActionPanel({
         ) : (
           <div className="flex items-center justify-center min-w-[500px]">
              {activeAction?.type === 'STARTERS' && (
-               <button className="bg-emerald-500 text-black px-12 py-3 rounded-xl font-black text-sm" onClick={() => setActiveAction(null)}>VALIDER LES JOUEURS</button>
+               <button 
+                  className="bg-emerald-500 text-black px-12 py-3 rounded-xl font-black text-sm" 
+                  onClick={() => {
+                      setActiveAction(null);
+                      if (setStartersValidated) setStartersValidated(true); 
+                  }}
+               >
+                 VALIDER LES JOUEURS
+               </button>
              )}
              {pendingFoul && (
                <div className="flex items-center gap-4 animate-fadeIn">

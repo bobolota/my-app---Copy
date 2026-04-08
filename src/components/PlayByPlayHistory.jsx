@@ -1,6 +1,7 @@
 import React from 'react';
 
 export default function PlayByPlayHistory({ history, playersA, playersB, isMatchOver, canEdit, onDeleteActionClick }) {
+  
   return (
     <div className="mt-12 bg-[#111] border border-[#222] p-5 rounded-xl shadow-lg">
       <h3 className="text-white border-b border-[#333] pb-3 mb-5 text-lg font-bold">🗓️ Play-by-Play (Historique)</h3>
@@ -24,21 +25,30 @@ export default function PlayByPlayHistory({ history, playersA, playersB, isMatch
                   <div className="text-sm font-bold tracking-wide">
                     {act.type === 'SUB' && <span className="text-[#aaa]">🔄 REMPLACEMENT <span className="text-xs font-normal text-[#666] ml-2 block sm:inline">{act.details}</span></span>}
                     
-                    {act.type === 'SCORE' && (
+                    {/* 👇 AFFICHAGE SIMPLE DES TIRS RÉUSSIS 👇 */}
+                    {act.status === 'SCORE' && (
                       <span style={{ color: actionColor }}>
-                        {act.value === 1 ? '🎯 LF RÉUSSI (+1)' : act.value === 3 ? '🔥 3 PTS RÉUSSI (+3)' : '🏀 TIR RÉUSSI (+2)'} 
+                        {act.type === 'FT' ? '🎯 LF RÉUSSI' : 
+                         act.value === 1 ? '🏀 1 PT RÉUSSI' : 
+                         act.value === 2 ? '🏀 2 PTS RÉUSSI' : 
+                         '🔥 3 PTS RÉUSSI'} 
                         <strong className="text-white ml-2">#{playerInfo?.number} {playerInfo?.name}</strong>
                       </span>
                     )}
                     
-                    {act.type === 'MISS' && (
+                    {/* 👇 AFFICHAGE SIMPLE DES TIRS MANQUÉS 👇 */}
+                    {act.status === 'MISS' && (
                       <span className="text-[#777]">
-                        {act.value === 1 ? '❌ LF MANQUÉ' : act.value === 3 ? '❌ 3 PTS MANQUÉ' : '❌ TIR MANQUÉ'} 
+                        {act.type === 'FT' ? '❌ LF MANQUÉ' : 
+                         act.value === 1 ? '❌ 1 PT MANQUÉ' : 
+                         act.value === 2 ? '❌ 2 PTS MANQUÉ' : 
+                         '❌ 3 PTS MANQUÉ'} 
                         <strong className="text-[#aaa] ml-2">#{playerInfo?.number} {playerInfo?.name}</strong>
                       </span>
                     )}
                     
-                    {!['SUB', 'SCORE', 'MISS'].includes(act.type) && (
+                    {/* AUTRES ACTIONS (Fautes, Rebonds...) */}
+                    {act.status !== 'SCORE' && act.status !== 'MISS' && act.type !== 'SUB' && (
                       <span style={{ color: actionColor }}>
                         {act.type === 'TIMEOUT' ? '⏱️ TEMPS MORT' : 
                          act.type === 'FOUL' ? `⚠️ FAUTE ${act.foulType === 'PO' ? 'OFFENSIVE' : act.foulType === 'T' ? 'TECHNIQUE' : act.foulType === 'U' ? 'ANTISPORTIVE' : act.foulType === 'D' ? 'DISQUALIFIANTE' : 'PERSONNELLE'}` :

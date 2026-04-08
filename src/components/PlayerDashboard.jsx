@@ -24,6 +24,7 @@ export default function PlayerDashboard() {
   const { activeMenu: currentTab, setActiveTourneyId, setView } = useAppContext();
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamCity, setNewTeamCity] = useState("");
+  const [newTeamFormat, setNewTeamFormat] = useState("5x5");
   
   const [confirmData, setConfirmData] = useState({ isOpen: false, title: '', message: '', onConfirm: null, isDanger: false });
   const closeConfirm = () => setConfirmData(prev => ({ ...prev, isOpen: false }));
@@ -46,8 +47,14 @@ export default function PlayerDashboard() {
   const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [selectedNewCaptainId, setSelectedNewCaptainId] = useState("");
 
-  const activeTeamCount = myTeams.filter(t => t.status === 'accepted' || t.status === 'pending').length;
-  const hasTeam = activeTeamCount >= 3;
+  // 👇 NOUVELLE LOGIQUE DE LIMITES (3 en 5x5 ET 3 en 3x3) 👇
+  const activeTeamsList = myTeams.filter(t => t.status === 'accepted' || t.status === 'pending');
+  const count5x5 = activeTeamsList.filter(t => t.global_teams?.format === '5x5' || !t.global_teams?.format).length;
+  const count3x3 = activeTeamsList.filter(t => t.global_teams?.format === '3x3').length;
+
+  const hasMax5x5 = count5x5 >= 3;
+  const hasMax3x3 = count3x3 >= 3;
+  const hasTeam = hasMax5x5 && hasMax3x3; // Le compte est "plein" uniquement si les DEUX jauges sont pleines
 
   // 1. On nettoie proprement la vue SEULEMENT si on change d'onglet
   useEffect(() => {
@@ -107,17 +114,26 @@ export default function PlayerDashboard() {
   };
 
   const handleCreateTeam = async (e) => {
-    if (hasTeam) return toast.error("Tu as atteint la limite de 3 équipes !");
     e.preventDefault();
+    if (newTeamFormat === '5x5' && hasMax5x5) return toast.error("Tu as atteint la limite de 3 équipes 5x5 !");
+    if (newTeamFormat === '3x3' && hasMax3x3) return toast.error("Tu as atteint la limite de 3 équipes 3x3 !");
     if (!newTeamName.trim() || !newTeamCity.trim()) return toast.error("Le nom ET la ville sont obligatoires !");
 
     try {
-      const { data: teamData, error: teamError } = await supabase.from('global_teams').insert([{ name: newTeamName, city: newTeamCity, captain_id: session.user.id }]).select().single();
+      // On envoie le format (5x5 ou 3x3) à Supabase
+      const { data: teamData, error: teamError } = await supabase.from('global_teams').insert([{ 
+        name: newTeamName, 
+        city: newTeamCity, 
+        captain_id: session.user.id,
+        format: newTeamFormat 
+      }]).select().single();
+      
       if (teamError) throw teamError;
       const { error: memberError } = await supabase.from('team_members').insert([{ team_id: teamData.id, player_id: session.user.id, status: 'accepted' }]);
       if (memberError) throw memberError;
-      setNewTeamName(""); setNewTeamCity(""); refetch(); 
-      toast.success("Ton équipe a été créée avec succès ! 🎉");
+      
+      setNewTeamName(""); setNewTeamCity(""); setNewTeamFormat("5x5"); refetch(); 
+      toast.success(`Ton équipe ${newTeamFormat} a été créée avec succès ! 🎉`);
     } catch (error) { toast.error("Erreur : " + error.message); }
   };
 
@@ -539,7 +555,7 @@ export default function PlayerDashboard() {
     <div className="mx-auto text-white w-full max-w-[1400px]">
       {currentTab === 'vestiaire' && (
         <MonVestiaire          
-          myTeams={myTeams} hasTeam={hasTeam} respondToInvite={respondToInvite} openTeamManager={openTeamManager} handleCreateTeam={handleCreateTeam} newTeamName={newTeamName} setNewTeamName={setNewTeamName} newTeamCity={newTeamCity} setNewTeamCity={setNewTeamCity} cancelPendingRequest={cancelPendingRequest}
+          myTeams={myTeams} hasTeam={hasTeam} hasMax5x5={hasMax5x5} hasMax3x3={hasMax3x3} newTeamFormat={newTeamFormat} setNewTeamFormat={setNewTeamFormat} respondToInvite={respondToInvite} openTeamManager={openTeamManager} handleCreateTeam={handleCreateTeam} newTeamName={newTeamName} setNewTeamName={setNewTeamName} newTeamCity={newTeamCity} setNewTeamCity={setNewTeamCity} cancelPendingRequest={cancelPendingRequest}
         />
       )}
 

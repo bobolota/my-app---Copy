@@ -25,6 +25,10 @@ export default function TeamManagerView({
     </div>
   );
 
+  // 👇 Détermine la limite selon le format
+  const maxPlayers = managingTeam.format === '3x3' ? 6 : 15;
+  const isRosterFull = acceptedPlayers.length >= maxPlayers;
+
   return (
     <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1400px] mx-auto relative">
       
@@ -88,7 +92,6 @@ export default function TeamManagerView({
           {isCaptainView && (
             <form 
               onSubmit={handleAddGhostPlayer} 
-              // 👇 J'ai remplacé mt-8 par mt-4 et ajouté mb-8 ici 👇
               className="flex flex-col sm:flex-row gap-4 mt-4 mb-8 pt-6 border-t border-white/5 relative z-10 bg-black/20 p-5 rounded-2xl shadow-inner"
             >
               <div className="flex-1 flex flex-col gap-2">
@@ -98,15 +101,22 @@ export default function TeamManagerView({
                    value={newGhostName} 
                    onChange={e => setNewGhostName(e.target.value)} 
                    placeholder="Saisis un nom complet..." 
-                   className="w-full p-4 rounded-xl bg-black/40 text-white placeholder-[#666] border border-white/10 focus:outline-none focus:border-emerald-500 transition-colors shadow-inner text-sm font-medium"
+                   disabled={isRosterFull}
+                   className="w-full p-4 rounded-xl bg-black/40 text-white placeholder-[#666] border border-white/10 focus:outline-none focus:border-emerald-500 transition-colors shadow-inner text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                  />
               </div>
               <button 
                 type="submit" 
-                disabled={!newGhostName.trim()} 
-                className={`sm:self-end px-8 py-4 rounded-xl font-black tracking-widest text-xs transition-all ${newGhostName.trim() ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5' : 'bg-black/40 text-[#555] cursor-not-allowed border border-white/5 shadow-none'}`}
+                // 👇 On bloque si le nom est vide OU si l'effectif est plein 👇
+                disabled={!newGhostName.trim() || isRosterFull} 
+                className={`sm:self-end px-8 py-4 rounded-xl font-black tracking-widest text-xs transition-all ${
+                  newGhostName.trim() && !isRosterFull 
+                    ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5' 
+                    : 'bg-black/40 text-[#555] cursor-not-allowed border border-white/5 shadow-none'
+                }`}
               >
-                AJOUTER 👤
+                {/* 👇 Le texte s'adapte automatiquement 👇 */}
+                {isRosterFull ? 'EFFECTIF COMPLET' : 'AJOUTER 👤'}
               </button>
             </form>
           )}
@@ -143,7 +153,11 @@ export default function TeamManagerView({
                         {p.full_name}
                       </strong>
                       <div className="flex gap-2 w-full xl:w-auto shrink-0">
-                        <button onClick={() => acceptPlayer(p.player_id)} className="flex-1 xl:flex-none bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2.5 rounded-xl text-xs font-black tracking-widest hover:shadow-[0_4px_10px_rgba(16,185,129,0.3)] transition-all hover:-translate-y-0.5 cursor-pointer">
+                        <button 
+                          onClick={() => acceptPlayer(p.player_id)} 
+                          disabled={isRosterFull}
+                          className={`flex-1 xl:flex-none px-4 py-2.5 rounded-xl text-xs font-black tracking-widest transition-all ${isRosterFull ? 'bg-black/40 text-[#555] cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:shadow-[0_4px_10px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 cursor-pointer'}`}
+                        >
                           ACCEPTER
                         </button>
                         <button onClick={() => removePlayer(p.player_id, false)} className="flex-1 xl:flex-none bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-2.5 rounded-xl text-xs font-black tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer">
@@ -195,8 +209,8 @@ export default function TeamManagerView({
           
           <h2 className="m-0 mb-8 text-emerald-400 text-sm font-black uppercase tracking-widest flex items-center justify-between gap-2 relative z-10">
             <span className="flex items-center gap-2"><span className="text-lg">✅</span> Effectif Actuel</span>
-            <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs px-3 py-1 rounded-lg shadow-inner">
-              {acceptedPlayers.length} / 12
+            <span className={`${isRosterFull ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} border text-xs px-3 py-1 rounded-lg shadow-inner transition-colors`}>
+              {acceptedPlayers.length} / {maxPlayers}
             </span>
           </h2>
           
