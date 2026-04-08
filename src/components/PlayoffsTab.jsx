@@ -13,15 +13,57 @@ export default function PlayoffsTab({
   handleMatchException,
   getGroupLimit
 }) {
+  
   const [draggedMatchId, setDraggedMatchId] = useState(null);
   const { setConfirmData } = useAppContext();
 
-  // NOUVEAU : États pour la saisie manuelle du score
+  // ÉTATS POUR LA SAISIE MANUELLE DU SCORE
   const [editingScoreId, setEditingScoreId] = useState(null);
   const [tempScoreA, setTempScoreA] = useState(0);
   const [tempScoreB, setTempScoreB] = useState(0);
 
-  // NOUVEAU : Fonction de sauvegarde manuelle pour les Playoffs
+  // NOUVEAU : ÉTAT POUR LE MODE "ÉCHANGE D'ÉQUIPES"
+  const [swapSource, setSwapSource] = useState(null);
+
+  // NOUVEAU : FONCTION POUR INTERVERTIR DEUX ÉQUIPES
+  const handleSwapClick = (match, slot) => {
+    if (!canEdit || match.status === 'finished') return;
+    
+    const team = match[slot];
+    if (!team) return; // On ne peut pas échanger une case vide (TBD)
+
+    if (!swapSource) {
+      // Premier clic : On mémorise la première équipe
+      setSwapSource({ matchId: match.id, slot, team });
+      toast("Sélectionnez l'équipe avec laquelle échanger", { icon: "🔄", duration: 3000 });
+    } else {
+      // Deuxième clic
+      if (swapSource.matchId === match.id && swapSource.slot === slot) {
+        setSwapSource(null); // Si on reclique sur la même, on annule
+        return;
+      }
+
+      // On procède à l'échange !
+      const newMatches = [...tourney.playoffs.matches];
+      const m1Idx = newMatches.findIndex(m => m.id === swapSource.matchId);
+      const m2Idx = newMatches.findIndex(m => m.id === match.id);
+
+      const m1 = { ...newMatches[m1Idx] };
+      const m2 = { ...newMatches[m2Idx] };
+
+      m1[swapSource.slot] = match[slot]; // On met l'équipe 2 à la place de la 1
+      m2[slot] = swapSource.team;        // On met l'équipe 1 à la place de la 2
+
+      newMatches[m1Idx] = m1;
+      newMatches[m2Idx] = m2;
+
+      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+      setSwapSource(null);
+      toast.success("Affiches modifiées avec succès ! 🔀");
+    }
+  };
+
+  // Fonction de sauvegarde manuelle pour les Playoffs
   const saveManualScore = (matchId) => {
     const newMatches = tourney.playoffs.matches.map(x => {
       if (x.id === matchId) {
@@ -137,7 +179,6 @@ export default function PlayoffsTab({
       const isAssignedOtm = currentUserName && m.otm && m.otm.includes(currentUserName);
       const canLaunchThisMatch = canEdit || isAssignedOtm;
 
-      // NOUVELLE LOGIQUE SPECTATEUR
       const isSpectator = !canLaunchThisMatch;
       const canSpectateLive = isOngoing && tourney.isPublicScoreboard;
       const canViewStats = isFinished;
@@ -213,7 +254,11 @@ export default function PlayoffsTab({
               ) : (
                 <>
                   {/* ÉQUIPE A */}
-                  <div className="flex justify-between items-center gap-2 mb-2 pr-6">
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamA'); }}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamA && !isFinished ? 'cursor-pointer hover:bg-orange-500/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamA' ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    title={canEdit && m.teamA && !isFinished ? 'Cliquez pour intervertir' : undefined}
+                  >
                       <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
                           {m.teamA?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
                       </span>
@@ -221,7 +266,11 @@ export default function PlayoffsTab({
                   </div>
 
                   {/* ÉQUIPE B */}
-                  <div className="flex justify-between items-center gap-2 mb-2 pr-6">
+                  <div 
+                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamB'); }}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamB && !isFinished ? 'cursor-pointer hover:bg-orange-500/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamB' ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    title={canEdit && m.teamB && !isFinished ? 'Cliquez pour intervertir' : undefined}
+                  >
                       <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
                           {m.teamB?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
                       </span>
@@ -232,30 +281,47 @@ export default function PlayoffsTab({
               
               {m.otm && <div className="text-[0.65rem] font-bold text-[#888] mt-2 mb-1 truncate bg-black/30 border border-white/5 inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-orange-400">{m.otm}</span></div>}
               
-              {/* SAISIE HORAIRE */}
-              {(canEdit && !isFinished && !isCanceled && !isForfeit && !m.teamA?.isBye && !m.teamB?.isBye) && (
-                <div className="flex gap-2 mt-4 border-t border-white/5 pt-4">
-                  <input
-                    type="time"
-                    value={m.time || ''}
-                    onChange={(e) => {
-                      const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
-                      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                    }}
-                    className="flex-1 w-full p-2.5 text-xs bg-black/40 text-[#ccc] font-bold border border-white/10 rounded-lg focus:border-orange-500 outline-none transition-colors shadow-inner"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Terrain..."
-                    value={m.court || ''}
-                    onChange={(e) => {
-                      const newMatches = tourney.playoffs.matches.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
-                      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                    }}
-                    className="flex-[1.5] w-full p-2.5 text-xs bg-black/40 text-[#ccc] font-bold border border-white/10 rounded-lg focus:border-orange-500 outline-none transition-colors shadow-inner"
-                  />
-                </div>
-              )}
+              {/* SAISIE HORAIRE ET TERRAIN */}
+                          {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
+                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-white/5">
+                              {/* SÉLECTEUR DE DATE ET HEURE */}
+                              <input
+                                type="datetime-local"
+                                value={m.datetime || ''}
+                                onChange={(e) => {
+                                  const newMatches = tourney.playoffs.matches.map(x => 
+                                    x.id === m.id ? { ...x, datetime: e.target.value } : x
+                                  );
+                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                }}
+                                className="flex-[3] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-orange-500 outline-none transition-colors shadow-inner"
+                              />
+                              
+                              {/* SÉLECTEUR DE TERRAIN */}
+                              <input
+                                type="text"
+                                placeholder="Court 1..."
+                                value={m.court || ''}
+                                onChange={(e) => {
+                                  const newMatches = tourney.playoffs.matches.map(x => 
+                                    x.id === m.id ? { ...x, court: e.target.value } : x
+                                  );
+                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                }}
+                                className="flex-[2] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-blue-500 outline-none transition-colors shadow-inner"
+                              />
+                            </div>
+                          )}
+
+                          {/* AFFICHAGE DE LA DATE (Pour l'organisateur après saisie, ou en lecture seule) */}
+                          {(!canEdit || isFinished || isCanceled || isForfeit) && m.datetime && (
+                             <div className="mt-3 bg-orange-500/10 border border-orange-500/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                               <span className="text-xs">📅</span>
+                               <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest">
+                                 {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
+                               </span>
+                             </div>
+                          )}
 
               {/* BOUTONS ACTIONS OU BYE */}
               {(m.teamA?.isBye || m.teamB?.isBye) ? (
@@ -309,7 +375,6 @@ export default function PlayoffsTab({
                         {/* AUTRES BOUTONS : Cachés si le match est terminé */}
                         {!isFinished && (
                           <>
-                            {/* 👇 ON PASSE 'true' POUR INDIQUER QUE C'EST UN MATCH DE PLAYOFFS 👇 */}
                             <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:border-orange-400 transition-colors shadow-sm" title="Assigner un OTM">👤</button>
                             <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
                             <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
@@ -350,6 +415,25 @@ export default function PlayoffsTab({
           </button>
         )}
       </div>
+
+      {/* BANNIÈRE MODE ÉCHANGE */}
+      {swapSource && (
+        <div className="bg-orange-500/20 border border-orange-500/50 text-orange-400 p-4 rounded-xl mb-6 flex justify-between items-center shadow-lg animate-pulse">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🔄</span>
+            <div>
+              <strong className="block text-sm uppercase tracking-widest">Mode Modification des affiches</strong>
+              <span className="text-xs text-[#aaa]">Cliquez sur une autre équipe pour l'échanger avec <b>{swapSource.team.name}</b>.</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setSwapSource(null)} 
+            className="bg-black/40 hover:bg-black/60 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors border border-white/10 cursor-pointer"
+          >
+            ANNULER
+          </button>
+        </div>
+      )}
       
       {!tourney.playoffs ? (
         <div className="bg-[#15151e]/60 backdrop-blur-md border border-white/5 rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">

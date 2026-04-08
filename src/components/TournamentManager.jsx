@@ -148,20 +148,25 @@ export default function TournamentManager() {
     const groupTeams = (tourney.teams || []).filter(t => t.groupId === gNum);
     return groupTeams.map(team => {
       let points = 0, diff = 0;
+      let won = 0, lost = 0; // 👈 NOUVEAU : On prépare les compteurs
+
       (tourney.schedule || []).filter(m => m.group === gNum && (m.status === 'finished' || m.status === 'forfeit') && (m.teamA?.id === team.id || m.teamB?.id === team.id)).forEach(m => {
         const isA = m.teamA?.id === team.id;
         const s = isA ? m.scoreA : m.scoreB; 
         const o = isA ? m.scoreB : m.scoreA;
         
         if (m.status === 'forfeit') {
-          if (s > o) points += 2; 
-          else points += 0;       
+          if (s > o) { points += 2; won += 1; } // 👈 Victoire par forfait
+          else { points += 0; lost += 1; }      // 👈 Défaite par forfait
         } else {
-          if (s > o) points += 2; else points += 1; 
+          if (s > o) { points += 2; won += 1; } // 👈 Victoire normale
+          else { points += 1; lost += 1; }      // 👈 Défaite normale
         }
         diff += (s - o);
       });
-      return { ...team, points, diff };
+      
+      // 👈 NOUVEAU : On retourne won et lost
+      return { ...team, points, diff, won, lost }; 
     }).sort((a,b) => b.points - a.points || b.diff - a.diff);
   };
 
@@ -341,7 +346,7 @@ export default function TournamentManager() {
   };
 
 
-  const generateDrawAndSchedule = () => {
+  const generateDrawAndSchedule = (isAllerRetour = false) => {
     if (!canEdit) return;
     
     setConfirmData({
@@ -357,18 +362,34 @@ export default function TournamentManager() {
         const updatedTeams = shuffled.map((t, i) => ({ ...t, groupId: (i % n) + 1 }));
 
         const newSchedule = [];
+        
+        // 1. GÉNÉRATION DES MATCHS ALLER (Ton code d'origine)
         for (let g = 1; g <= n; g++) {
           const gTeams = updatedTeams.filter(t => t.groupId === g);
           for (let i = 0; i < gTeams.length; i++) {
             for (let j = i + 1; j < gTeams.length; j++) {
               newSchedule.push({ 
-                id: `m_${Date.now()}_g${g}_${i}${j}`, 
+                id: `m_${Date.now()}_g${g}_${i}${j}_aller`, // Ajout du suffixe _aller pour la sécurité des IDs
                 group: g, 
                 teamA: gTeams[i], teamB: gTeams[j], 
                 status: 'pending', scoreA: 0, scoreB: 0 
               });
             }
           }
+        }
+
+        // 2. GÉNÉRATION DES MATCHS RETOUR (Si l'option est activée)
+        if (isAllerRetour) {
+          const returnMatches = newSchedule.map(match => ({
+            ...match,
+            // On remplace "aller" par "retour" pour avoir un ID unique
+            id: match.id.replace('_aller', '_retour'), 
+            teamA: match.teamB, // Inversion domicile
+            teamB: match.teamA, // Inversion extérieur
+          }));
+          
+          // On ajoute les matchs retour à la liste complète
+          newSchedule.push(...returnMatches);
         }
 
         update({ 
@@ -625,7 +646,13 @@ export default function TournamentManager() {
         <InfoTab tourney={tourney} />
       )}
       {activeTab === 'planning' && (
-        <PlanningTab tourney={tourney} handleLaunchMatch={handleLaunchMatch} canEdit={canEdit} currentUserName={currentUserName} />
+        <PlanningTab 
+          tourney={tourney} 
+          handleLaunchMatch={handleLaunchMatch} 
+          canEdit={canEdit} 
+          currentUserName={currentUserName} 
+          update={update} /* 👈 AJOUTE JUSTE CETTE LIGNE */
+        />
       )}
 
       {activeTab === "poules" && (

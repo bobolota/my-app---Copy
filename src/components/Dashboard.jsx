@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [maxFouls, setMaxFouls] = useState(5);
   const [bonusFouls, setBonusFouls] = useState(4);
   const [courtSize, setCourtSize] = useState(5);
+  const [pointsSystem, setPointsSystem] = useState('classic'); // 'classic' (2/3 pts) ou 'street' (1/2 pts)
+  const [targetScore, setTargetScore] = useState(''); // vide = pas de limite de score
 
   const canCreate = userRole === 'ADMIN' || userSubscription === 'PRO';
 
@@ -93,8 +95,18 @@ export default function Dashboard() {
       id: validUuid, name, teams: [], schedule: [], status: 'preparing', 
       date: new Date().toLocaleDateString(), organizer_id: session.user.id,
       pin_code: generatedPin, otm_ids: [],
-      matchsettings: { periodCount: parseInt(periodCount) || 4, periodDuration: parseInt(periodDuration) || 10, timeoutsHalf1: parseInt(timeoutsHalf1) || 2, timeoutsHalf2: parseInt(timeoutsHalf2) || 3, maxFouls: parseInt(maxFouls) || 5,
-      bonusFouls: parseInt(bonusFouls) || 4, courtSize: parseInt(courtSize) || 5 }
+      matchsettings: { 
+          courtSize: parseInt(courtSize) || 5, 
+          // 👇 Forçage des valeurs selon le format 👇
+          periodCount: parseInt(courtSize) === 5 ? (parseInt(periodCount) || 4) : 1, 
+          periodDuration: parseInt(periodDuration) || 10, 
+          timeoutsHalf1: parseInt(timeoutsHalf1) || 2, 
+          timeoutsHalf2: parseInt(courtSize) === 5 ? (parseInt(timeoutsHalf2) || 3) : 0, 
+          maxFouls: parseInt(courtSize) === 5 ? (parseInt(maxFouls) || 5) : 99,
+          bonusFouls: parseInt(bonusFouls) || 4, 
+          pointsSystem: (parseInt(courtSize) === 1 || parseInt(courtSize) === 3) ? pointsSystem : 'classic', 
+          targetScore: (parseInt(courtSize) === 1 || parseInt(courtSize) === 3) && targetScore ? parseInt(targetScore) : null 
+      }
     };
     
     setTournaments([...tournaments, newT]);
@@ -185,7 +197,7 @@ export default function Dashboard() {
                 onChange={e => setName(e.target.value)} 
               />
 
-              {/* FORMAT DE JEU (Isolé au dessus) */}
+              {/* FORMAT DE JEU */}
               <div className="flex flex-col gap-1.5 mb-5">
                 <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Format</label>
                 <div className="flex gap-2 h-[42px]">
@@ -210,29 +222,92 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* TOUS LES AUTRES RÉGLAGES ALIGNÉS SUR UNE LIGNE (Flex Wrap) */}
+              {/* NOUVELLES OPTIONS 1v1 / 3x3 (Points & Score Cible) */}
+              {(courtSize === 1 || courtSize === 3) && (
+                <div className="flex flex-wrap items-end gap-4 mb-5 p-5 bg-purple-900/10 border border-purple-500/20 rounded-xl shadow-inner relative overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500/50"></div>
+                  
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[0.65rem] text-purple-300 font-bold uppercase tracking-widest">Valeur des Paniers</label>
+                    <div className="flex gap-2 h-[42px]">
+                      <button
+                        type="button"
+                        onClick={() => setPointsSystem('classic')}
+                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'classic' ? 'bg-purple-600 text-white border-transparent shadow-md' : 'bg-black/40 text-[#888] border-white/10 hover:border-purple-500/30 hover:text-white'}`}
+                      >
+                        2 PTS / 3 PTS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPointsSystem('street')}
+                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'street' ? 'bg-purple-600 text-white border-transparent shadow-md' : 'bg-black/40 text-[#888] border-white/10 hover:border-purple-500/30 hover:text-white'}`}
+                      >
+                        1 PT / 2 PTS
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[0.65rem] text-purple-300 font-bold uppercase tracking-widest" title="Le match se termine automatiquement si atteint">Score Cible (Optionnel)</label>
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        min="1" 
+                        placeholder="ex: 21" 
+                        className="w-[140px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-black placeholder:text-[#555] placeholder:font-medium" 
+                        value={targetScore} 
+                        onChange={e => setTargetScore(e.target.value)} 
+                      />
+                      {targetScore && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#888]">PTS</span>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* RÉGLAGES ALIGNÉS SELON LE FORMAT */}
               <div className="flex flex-wrap items-end gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Périodes</label>
-                  <input type="number" min="1" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Min/Période</label>
-                  <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 1ère MT</label>
-                  <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 2ème MT</label>
-                  <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
-                </div>
                 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes avant exclusion">Fautes Max</label>
-                  <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={maxFouls} onChange={e => setMaxFouls(e.target.value)} />
-                </div>
+                {/* 5x5 UNIQUEMENT */}
+                {courtSize === 5 && (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Périodes</label>
+                      <input type="number" min="1" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Min/Période</label>
+                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 1ère MT</label>
+                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 2ème MT</label>
+                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes avant exclusion">Fautes Max</label>
+                      <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={maxFouls} onChange={e => setMaxFouls(e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                {/* 3x3 ET 1v1 UNIQUEMENT */}
+                {(courtSize === 3 || courtSize === 1) && (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Chrono (Min)</label>
+                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Temps Morts</label>
+                      <input type="number" min="0" max="10" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+                    </div>
+                  </>
+                )}
+
+                {/* COMMUN À TOUS */}
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes d'équipe avant pénalité">Pénalité ÉQ.</label>
                   <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={bonusFouls} onChange={e => setBonusFouls(e.target.value)} />

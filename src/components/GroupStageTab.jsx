@@ -11,6 +11,17 @@ export default function GroupStageTab({
   
   // État pour mémoriser quel match tu es en train de glisser
   const [draggedMatchId, setDraggedMatchId] = useState(null);
+  const [isAllerRetour, setIsAllerRetour] = useState(false);
+
+  // FONCTION DE TRI PAR DATE/HEURE
+  const sortMatchesByDate = (a, b) => {
+    if (a.datetime && !b.datetime) return -1;
+    if (!a.datetime && b.datetime) return 1;
+    if (a.datetime && b.datetime) {
+      return new Date(a.datetime) - new Date(b.datetime);
+    }
+    return 0; // Si aucun n'a de date, on garde l'ordre de base
+  };
 
   // NOUVEAU : États pour la saisie manuelle du score
   const [editingScoreId, setEditingScoreId] = useState(null);
@@ -66,7 +77,7 @@ export default function GroupStageTab({
               const groupMatches = (tourney.schedule || []).filter(m => 
                 m.group === gNum && 
                 (['finished', 'canceled', 'forfeit'].includes(m.status) || m.startersValidated || m.liveHistory?.length > 0)
-              );
+              ).sort(sortMatchesByDate);
 
               return (
                 <div key={gNum} className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-6 border border-white/5 flex flex-col shadow-2xl relative overflow-hidden group">
@@ -79,32 +90,38 @@ export default function GroupStageTab({
 
                   <div className="bg-black/20 rounded-xl border border-white/5 overflow-hidden mb-6">
                     <table className="w-full text-sm border-collapse">
-                      <thead>
-                        <tr className="text-[#888] text-xs uppercase tracking-wider font-bold border-b border-white/5 bg-black/40">
-                          <th className="py-3 px-4 text-left">Classement</th>
-                          <th className="py-3 px-2 text-center">Pts</th>
-                          <th className="py-3 px-4 text-right">+/-</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {standings.map((team, idx) => {
-                          const isMyTeam = team.name === myTeamName;
-                          const isQualified = idx < limit;
-                          
-                          return (
-                            <tr key={team.id} className={`border-b border-white/5 transition-colors ${isMyTeam ? 'bg-purple-500/10' : 'hover:bg-white/5'} ${isQualified ? 'text-white' : 'text-[#888]'}`}>
-                              <td className={`py-3 px-4 truncate max-w-[140px] ${isMyTeam ? 'border-l-4 border-purple-500 font-bold' : 'border-l-4 border-transparent'}`}>
-                                {idx + 1}. {team.name} {isQualified && <span className="ml-1 text-[10px]" title="Qualifié">⭐</span>}
-                              </td>
-                              <td className="text-center font-black">{team.points}</td>
-                              <td className={`text-right font-bold pr-4 ${team.diff > 0 ? 'text-emerald-400' : (team.diff < 0 ? 'text-red-400' : 'inherit')}`}>
-                                {team.diff > 0 ? `+${team.diff}` : team.diff}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    <thead>
+                      <tr className="text-[#888] text-xs uppercase tracking-wider font-bold border-b border-white/5 bg-black/40">
+                        <th className="py-3 px-4 text-left">Classement</th>
+                        {/* 👇 NOUVELLES COLONNES 👇 */}
+                        <th className="py-3 px-1 text-center" title="Victoires">V</th>
+                        <th className="py-3 px-1 text-center" title="Défaites">D</th>
+                        <th className="py-3 px-2 text-center text-white-400">Pts</th>
+                        <th className="py-3 px-4 text-right">+/-</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {standings.map((team, idx) => {
+                        const isMyTeam = team.name === myTeamName;
+                        const isQualified = idx < limit;
+                        
+                        return (
+                          <tr key={team.id} className={`border-b border-white/5 transition-colors ${isMyTeam ? 'bg-purple-500/10' : 'hover:bg-white/5'} ${isQualified ? 'text-white' : 'text-[#888]'}`}>
+                            <td className={`py-3 px-4 truncate max-w-[140px] ${isMyTeam ? 'border-l-4 border-purple-500 font-bold' : 'border-l-4 border-transparent'}`}>
+                              {idx + 1}. {team.name} {isQualified && <span className="ml-1 text-[10px]" title="Qualifié">⭐</span>}
+                            </td>
+                            {/* 👇 AFFICHAGE DES VICTOIRES ET DÉFAITES 👇 */}
+                            <td className="text-center font-bold text-emerald-400/90">{team.won || 0}</td>
+                            <td className="text-center font-bold text-red-400/90">{team.lost || 0}</td>
+                            <td className="text-center font-black text-white-300">{team.points}</td>
+                            <td className={`text-right font-bold pr-4 ${team.diff > 0 ? 'text-emerald-400' : (team.diff < 0 ? 'text-red-400' : 'inherit')}`}>
+                              {team.diff > 0 ? `+${team.diff}` : team.diff}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                   </div>
 
                   <div className="flex-1 mt-auto">
@@ -271,12 +288,43 @@ export default function GroupStageTab({
           </div>
         </div>
 
+        
+
         {/* 2. PLANNING & GROUPES */}
         <div className="bg-[#15151e]/80 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-600 to-pink-500"></div>
           <h3 className="text-sm tracking-widest font-black text-purple-400 mt-0 mb-6 uppercase flex items-center gap-2">
             <span className="text-lg">2.</span> Planning & Groupes
           </h3>
+
+          {/* OPTION ALLER-RETOUR */}
+        <div className="flex items-center justify-between bg-[#15151e]/80 border border-white/5 p-4 rounded-xl mb-4 shadow-inner">
+          <div className="flex flex-col">
+            <span className="text-white font-black text-sm uppercase tracking-widest flex items-center gap-2">
+            🔄 Matchs Aller-Retour
+            </span>
+            <span className="text-[#666] text-[10px] font-bold uppercase mt-1">
+            Chaque équipe s'affrontera deux fois
+            </span>
+          </div>
+  
+        {/* Switch / Toggle CSS */}
+        <label className="relative inline-flex items-center cursor-pointer">
+        <input 
+          type="checkbox" 
+          className="sr-only peer" 
+          checked={isAllerRetour}
+          onChange={(e) => setIsAllerRetour(e.target.checked)}
+          />
+        <div className="w-11 h-6 bg-black/50 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 border border-white/10 shadow-inner"></div>
+        </label>
+      </div>
+
+      {/* TON BOUTON DE GÉNÉRATION EXISTANT (modifié pour passer le paramètre) */}
+      <button 
+      onClick={() => generateMatches(isAllerRetour)} 
+      className="..."
+      ></button>
           
           {canEdit && (
             <div className="flex flex-col gap-5">
@@ -284,9 +332,13 @@ export default function GroupStageTab({
                   <label className="text-xs text-[#888] font-black tracking-widest uppercase">Nombre de poules</label>
                   <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="w-16 p-2 rounded-lg bg-[#1e1e2a] border border-white/10 text-white text-center font-bold focus:outline-none focus:border-purple-500 transition-colors shadow-inner" />
                 </div>
-                <button onClick={generateMatches} className="w-full p-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black tracking-widest rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] hover:-translate-y-0.5 cursor-pointer">
-                  🎲 GÉNÉRER LE PLANNING AUTO
-                </button>
+                <button 
+  // 👇 LA MODIFICATION EST ICI 👇
+  onClick={() => generateMatches(isAllerRetour)} 
+  className="w-full p-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black tracking-widest rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(168,85,247,0.3)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] hover:-translate-y-0.5 cursor-pointer"
+>
+  🎲 GÉNÉRER LE PLANNING AUTO
+</button>
             </div>
           )}
         </div>
@@ -311,20 +363,36 @@ export default function GroupStageTab({
                 </div>
                 
                 <table className="w-full text-xs mb-6 border-collapse">
-                  <thead><tr className="text-[#666] uppercase tracking-wider font-bold"><th className="text-left pb-3 px-2">Nom</th><th className="text-center pb-3 px-1">Pts</th><th className="text-right pb-3 px-2">+/-</th></tr></thead>
+                  <thead>
+                    <tr className="text-[#666] uppercase tracking-wider font-bold">
+                      <th className="text-left pb-3 px-2">Nom</th>
+                      {/* 👇 NOUVELLES COLONNES 👇 */}
+                      <th className="text-center pb-3 px-1" title="Victoires">V</th>
+                      <th className="text-center pb-3 px-1" title="Défaites">D</th>
+                      <th className="text-center pb-3 px-1 text-white-400">Pts</th>
+                      <th className="text-right pb-3 px-2">+/-</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {standings.map((team, idx) => (
                       <tr key={team.id} className={`border-t border-white/5 ${idx < limit ? 'text-white' : 'text-[#666]'}`}>
-                        <td className="py-3 px-2 truncate max-w-[120px] font-bold">{idx + 1}. {team.name} {idx < limit && <span className="ml-1 text-[9px]" title="Qualifié">⭐</span>}</td>
-                        <td className="text-center font-black">{team.points}</td>
-                        <td className={`text-right font-bold px-2 ${team.diff > 0 ? 'text-emerald-400' : (team.diff < 0 ? 'text-red-400' : 'text-[#666]')}`}>{team.diff > 0 ? `+${team.diff}` : team.diff}</td>
+                        <td className="py-3 px-2 truncate max-w-[120px] font-bold">
+                          {idx + 1}. {team.name} {idx < limit && <span className="ml-1 text-[9px]" title="Qualifié">⭐</span>}
+                        </td>
+                        {/* 👇 AFFICHAGE DES VICTOIRES ET DÉFAITES 👇 */}
+                        <td className="text-center font-bold text-emerald-400/90">{team.won || 0}</td>
+                        <td className="text-center font-bold text-red-400/90">{team.lost || 0}</td>
+                        <td className="text-center font-black text-white-300">{team.points}</td>
+                        <td className={`text-right font-bold px-2 ${team.diff > 0 ? 'text-emerald-400' : (team.diff < 0 ? 'text-red-400' : 'text-[#666]')}`}>
+                          {team.diff > 0 ? `+${team.diff}` : team.diff}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
                 <div className="flex flex-col gap-3 mt-auto">
-                  {(tourney.schedule || []).filter(m => m.group === gNum).map(m => {
+                  {(tourney.schedule || []).filter(m => m.group === gNum).sort(sortMatchesByDate).map(m => {
                     const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
                     const isReady = m.teamA?.players?.length >= courtSize && m.teamB?.players?.length >= courtSize;
                     const isFinished = m.status === 'finished';
@@ -418,27 +486,44 @@ export default function GroupStageTab({
 
                           {/* SAISIE HORAIRE ET TERRAIN */}
                           {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
-                            <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-white/5">
+                              {/* SÉLECTEUR DE DATE ET HEURE */}
                               <input
-                                type="time"
-                                value={m.time || ''}
+                                type="datetime-local"
+                                value={m.datetime || ''}
                                 onChange={(e) => {
-                                  const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, time: e.target.value } : x);
+                                  const newSchedule = tourney.schedule.map(x => 
+                                    x.id === m.id ? { ...x, datetime: e.target.value } : x
+                                  );
                                   update({ schedule: newSchedule });
                                 }}
-                                className="flex-1 p-2.5 text-xs bg-black/40 text-[#ccc] font-bold border border-white/10 rounded-lg focus:border-blue-500 outline-none transition-colors shadow-inner"
+                                className="flex-[3] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-orange-500 outline-none transition-colors shadow-inner"
                               />
+                              
+                              {/* SÉLECTEUR DE TERRAIN */}
                               <input
                                 type="text"
                                 placeholder="Court 1..."
                                 value={m.court || ''}
                                 onChange={(e) => {
-                                  const newSchedule = tourney.schedule.map(x => x.id === m.id ? { ...x, court: e.target.value } : x);
+                                  const newSchedule = tourney.schedule.map(x => 
+                                    x.id === m.id ? { ...x, court: e.target.value } : x
+                                  );
                                   update({ schedule: newSchedule });
                                 }}
-                                className="flex-1 p-2.5 text-xs bg-black/40 text-[#ccc] font-bold border border-white/10 rounded-lg focus:border-blue-500 outline-none transition-colors shadow-inner"
+                                className="flex-[2] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-blue-500 outline-none transition-colors shadow-inner"
                               />
                             </div>
+                          )}
+
+                          {/* AFFICHAGE DE LA DATE (Pour l'organisateur après saisie, ou en lecture seule) */}
+                          {(!canEdit || isFinished || isCanceled || isForfeit) && m.datetime && (
+                             <div className="mt-3 bg-orange-500/10 border border-orange-500/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                               <span className="text-xs">📅</span>
+                               <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest">
+                                 {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
+                               </span>
+                             </div>
                           )}
                                           
                           {/* BOUTONS D'ACTION (Vue Admin) */}

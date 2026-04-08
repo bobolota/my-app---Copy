@@ -1,7 +1,7 @@
 import React from 'react';
 
 // Composant Memoïsé pour la performance (il ne se recharge que si les joueurs changent)
-const BoxscoreTable = React.memo(({ title, players, color }) => {
+const BoxscoreTable = React.memo(({ title, players, color, courtSize = 5 }) => { // Added courtSize with default
   const formatPlayerTime = (sec) => {
     const safeSec = Number(sec) || 0;
     return `${Math.floor(safeSec / 60).toString().padStart(2, '0')}:${(safeSec % 60).toString().padStart(2, '0')}`;
@@ -22,8 +22,17 @@ const BoxscoreTable = React.memo(({ title, players, color }) => {
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">TIRS</th>
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">3PT</th>
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">LF</th>
-            <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">+/-</th>
-            <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">AST</th>
+            
+            {/* Conditionally render +/- header (hide for 1v1 and 3x3) */}
+            {courtSize === 5 && (
+              <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">+/-</th>
+            )}
+
+            {/* Conditionally render AST header (hide for 1v1) */}
+            {courtSize !== 1 && (
+              <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">AST</th>
+            )}
+
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">OREB</th>
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">DREB</th>
             <th className="bg-[#111115] text-[#A0A0A0] text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-[#2a2a30]">REB</th>
@@ -62,8 +71,17 @@ const BoxscoreTable = React.memo(({ title, players, color }) => {
                 <td className="text-center p-3.5 border-b border-[#2a2a30]">{fgm}/{fga}</td>
                 <td className="text-center p-3.5 border-b border-[#2a2a30]">{fg3m}/{fg3a}</td>
                 <td className="text-center p-3.5 border-b border-[#2a2a30]">{ftm}/{fta}</td>
-                <td className={`text-center p-3.5 border-b border-[#2a2a30] font-bold ${pmColor}`}>{pm > 0 ? `+${pm}` : pm}</td>
-                <td className="text-center p-3.5 border-b border-[#2a2a30]">{ast}</td>
+                
+                {/* Conditionally render +/- data cell */}
+                {courtSize === 5 && (
+                  <td className={`text-center p-3.5 border-b border-[#2a2a30] font-bold ${pmColor}`}>{pm > 0 ? `+${pm}` : pm}</td>
+                )}
+
+                {/* Conditionally render AST data cell */}
+                {courtSize !== 1 && (
+                  <td className="text-center p-3.5 border-b border-[#2a2a30]">{ast}</td>
+                )}
+
                 <td className="text-center p-3.5 border-b border-[#2a2a30]">{oreb}</td>
                 <td className="text-center p-3.5 border-b border-[#2a2a30]">{dreb}</td>
                 <td className="text-center p-3.5 border-b border-[#2a2a30] font-bold text-gray-300">{reb}</td>

@@ -65,8 +65,14 @@ export default function Scoreboard() {
 
   const initPlayers = (team) => {
     const playersList = team?.players || [];
+    
+    // NOUVEAU : En 1v1, le joueur est placé directement sur le terrain !
+    const initialStatus = courtSize === 1 ? 'court' : 'bench';
+
     return playersList.map(p => ({
-      ...p, status: 'bench', points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
+      ...p, 
+      status: initialStatus, 
+      points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
       ftm: 0, fta: 0, fg2m: 0, fg2a: 0, fg3m: 0, fg3a: 0, plusMinus: 0
     }));
   };
@@ -603,32 +609,70 @@ export default function Scoreboard() {
   const confirmScore = (status) => {
     if (!pendingAction || !canEdit) return;
 
-    // NOUVEAU : Si on a cliqué sur "Annuler le tir"
     if (status === 'CANCEL') {
       setPendingAction(null);
       setActiveAction(null);
-      return; // On arrête tout ici, rien n'est enregistré !
+      return; 
     }
 
-    const { team, playerId, value } = pendingAction;
+    // ON RÉCUPÈRE LE TYPE DE L'ACTION (FT, PLUS1, PLUS2, PLUS3)
+    const { team, playerId, value, type } = pendingAction;
     const isA = team === 'A';
     
+    // 🧠 FONCTION INTELLIGENTE DE RÉPARTITION DES STATS
+    const mapStats = (up, isMade) => {
+      if (type === 'FT') {
+        // C'est un lancer franc
+        if (isMade) up.ftm += 1;
+        up.fta += 1;
+      } else {
+        // C'est un tir sur le terrain (Field Goal)
+        if (courtSize === 1 || courtSize === 3 || pointsSystem === 'street') {
+          // Logique Streetball
+          if (value === 1) { 
+            if (isMade) up.fg2m += 1; 
+            up.fg2a += 1; 
+          } else if (value === 2) { 
+            if (isMade) up.fg3m += 1; // Le +2 est un tir primé en street !
+            up.fg3a += 1; 
+          }
+        } else {
+          // Logique 5x5 Classique
+          if (value === 2) { 
+            if (isMade) up.fg2m += 1; 
+            up.fg2a += 1; 
+          } else if (value === 3) { 
+            if (isMade) up.fg3m += 1; 
+            up.fg3a += 1; 
+          }
+        }
+      }
+    };
+
     if (status === 'VALIDATED') {
       const updateList = (list, scoringTeam) => list.map(p => {
         let up = { ...p };
         if (p.id === playerId) {
           up.points += value;
-          if (value === 1) { up.ftm += 1; up.fta += 1; } 
-          else if (value === 2) { up.fg2m += 1; up.fg2a += 1; } 
-          else { up.fg3m += 1; up.fg3a += 1; }
+          mapStats(up, true); // On ajoute le tir réussi
         }
-        if (p.status === 'court') { up.plusMinus += (scoringTeam === isA) ? value : -value; }
+        
+        // On calcule le +/- uniquement en 5x5
+        if (p.status === 'court' && courtSize === 5) { 
+            up.plusMinus += (scoringTeam === isA) ? value : -value; 
+        }
+        
         return up;
       });
+      
       setPlayersA(updateList(playersA, true)); 
       setPlayersB(updateList(playersB, false));
-      setHistory([{ team, playerId, value, type: 'SCORE', time, period }, ...history]);
-      if (value > 1) { setTimeout(() => setPendingAssist({ team, scorerId: playerId }), 10); }
+      setHistory([{ team, playerId, value, type, status: 'SCORE', time, period }, ...history]);
+      
+      // On déclenche l'assist SAUF pour un LF ou en 1v1
+      if (type !== 'FT' && courtSize !== 1) { 
+          setTimeout(() => setPendingAssist({ team, scorerId: playerId }), 10); 
+      }
       
       const newScoreA = isA ? scoreA + value : scoreA;
       const newScoreB = !isA ? scoreB + value : scoreB;
@@ -638,18 +682,15 @@ export default function Scoreboard() {
       const updateMiss = (list) => list.map(p => {
         if (p.id === playerId) {
           let up = { ...p };
-          if (value === 1) up.fta += 1; 
-          else if (value === 2) up.fg2a += 1; 
-          else up.fg3a += 1; 
+          mapStats(up, false); // On ajoute le tir raté
           return up;
         } 
         return p;
       });
       isA ? setPlayersA(updateMiss(playersA)) : setPlayersB(updateMiss(playersB));
-      setHistory([{ team, playerId, value, type: 'MISS', time, period }, ...history]);
+      setHistory([{ team, playerId, value, type, status: 'MISS', time, period }, ...history]);
     }
     
-    // On nettoie la sélection une fois l'action (V ou X) terminée
     setPendingAction(null); 
     setActiveAction(null);
   };
@@ -770,30 +811,26 @@ export default function Scoreboard() {
           {/* 1. CONSOLE D'ACTIONS : REMONTÉE EN HAUT (PLEINE LARGEUR) */}
           {canEdit && (
             <div className="w-full">
-              {/* Dans Scoreboard.jsx */}
-{/* Dans Scoreboard.jsx (vers la ligne 483) */}
-<ActionPanel 
-  activeAction={activeAction} 
-  setActiveAction={setActiveAction}
-  pendingFoul={pendingFoul} 
-  setPendingFoul={setPendingFoul} 
-  handleConfirmFoul={handleConfirmFoul}
-  pendingAssist={pendingAssist} 
-  setPendingAssist={setPendingAssist}
-  isForcedSub={isForcedSub} 
-  handleConfirmSubs={handleConfirmSubs} 
-  pendingSubs={pendingSubs} 
-
-  
-  pendingAction={pendingAction}
-  setPendingAction={setPendingAction}
-  setPendingSubs={setPendingSubs}
-  
-
-  playersA={playersA} 
-  playersB={playersB} 
-  setStartersValidated={setStartersValidated}
-/>
+              <ActionPanel 
+                activeAction={activeAction} 
+                setActiveAction={setActiveAction}
+                pendingFoul={pendingFoul} 
+                setPendingFoul={setPendingFoul} 
+                handleConfirmFoul={handleConfirmFoul}
+                pendingAssist={pendingAssist} 
+                setPendingAssist={setPendingAssist}
+                isForcedSub={isForcedSub} 
+                handleConfirmSubs={handleConfirmSubs} 
+                pendingSubs={pendingSubs} 
+                pendingAction={pendingAction}
+                setPendingAction={setPendingAction}
+                setPendingSubs={setPendingSubs}
+                playersA={playersA} 
+                playersB={playersB} 
+                setStartersValidated={setStartersValidated}
+                courtSize={courtSize}
+                pointsSystem={settings?.pointsSystem}
+              />
             </div>
           )}
 
@@ -805,57 +842,61 @@ export default function Scoreboard() {
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 shadow-[0_0_15px_rgba(249,115,22,0.4)] opacity-80"></div>
                 <h3 className="text-center font-black tracking-widest text-orange-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamA?.name}</h3>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pb-6">
+                {/* LES TITULAIRES */}
+                <div className={`grid gap-3 pb-6 ${courtSize === 1 ? 'grid-cols-1 max-w-[280px] mx-auto' : 'grid-cols-2 sm:grid-cols-5'}`}>
                   {playersA.filter(p => p.status === 'court').map(p => (
                       <PlayerCard 
-  key={p.id} 
-  team="A" // (ou B)
-  player={p} 
-  onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
-  pendingSubs={pendingSubs} 
-  pendingAction={pendingAction} 
-  onConfirm={confirmScore} 
-  hasGlobalAction={!!activeAction || !!pendingAssist} 
-  pendingAssist={pendingAssist} 
-  activeActionType={activeAction?.type} 
-  canEdit={canEdit} 
-  
-  // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
-  maxFouls={maxFouls}
-  pendingFoul={pendingFoul}
-  isForcedSub={isForcedSub} 
-/>
+                        key={p.id} 
+                        team="A" 
+                        player={p} 
+                        onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
+                        pendingSubs={pendingSubs} 
+                        pendingAction={pendingAction} 
+                        onConfirm={confirmScore} 
+                        hasGlobalAction={!!activeAction || !!pendingAssist} 
+                        pendingAssist={pendingAssist} 
+                        activeActionType={activeAction?.type} 
+                        canEdit={canEdit} 
+                        maxFouls={maxFouls}
+                        pendingFoul={pendingFoul}
+                        isForcedSub={isForcedSub} 
+                        courtSize={courtSize}
+                      />
                   ))}
                 </div>
                 
-                <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="h-px bg-white/10 flex-1"></div>
-                  <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
-                  <div className="h-px bg-white/10 flex-1"></div>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                  {playersA.filter(p => p.status === 'bench').map(p => (
-                      <PlayerCard 
-  key={p.id} 
-  team="A" // (ou B)
-  player={p} 
-  onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
-  pendingSubs={pendingSubs} 
-  pendingAction={pendingAction} 
-  onConfirm={confirmScore} 
-  hasGlobalAction={!!activeAction || !!pendingAssist} 
-  pendingAssist={pendingAssist} 
-  activeActionType={activeAction?.type} 
-  canEdit={canEdit} 
-  
-  // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
-  maxFouls={maxFouls}
-  pendingFoul={pendingFoul}
-  isForcedSub={isForcedSub} 
-/>
-                  ))}
-                </div>
+                {/* 👇 LE BANC (MASQUÉ EN 1v1) 👇 */}
+                {courtSize !== 1 && (
+                  <>
+                    <div className="flex items-center gap-3 mb-4 mt-2">
+                      <div className="h-px bg-white/10 flex-1"></div>
+                      <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                      <div className="h-px bg-white/10 flex-1"></div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                      {playersA.filter(p => p.status === 'bench').map(p => (
+                          <PlayerCard 
+                            key={p.id} 
+                            team="A" 
+                            player={p} 
+                            onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
+                            pendingSubs={pendingSubs} 
+                            pendingAction={pendingAction} 
+                            onConfirm={confirmScore} 
+                            hasGlobalAction={!!activeAction || !!pendingAssist} 
+                            pendingAssist={pendingAssist} 
+                            activeActionType={activeAction?.type} 
+                            canEdit={canEdit} 
+                            maxFouls={maxFouls}
+                            pendingFoul={pendingFoul}
+                            isForcedSub={isForcedSub} 
+                            courtSize={courtSize}
+                          />
+                      ))}
+                    </div>
+                  </>
+                )}
             </div>
 
             {/* TERRAIN ÉQUIPE B */}
@@ -863,65 +904,79 @@ export default function Scoreboard() {
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.4)] opacity-80"></div>
                 <h3 className="text-center font-black tracking-widest text-blue-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamB?.name}</h3>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pb-6">
+                {/* LES TITULAIRES */}
+                <div className={`grid gap-3 pb-6 ${courtSize === 1 ? 'grid-cols-1 max-w-[280px] mx-auto' : 'grid-cols-2 sm:grid-cols-5'}`}>
                   {playersB.filter(p => p.status === 'court').map(p => (
                       <PlayerCard 
-  key={p.id} 
-  team="B" // (ou B)
-  player={p} 
-  onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
-  pendingSubs={pendingSubs} 
-  pendingAction={pendingAction} 
-  onConfirm={confirmScore} 
-  hasGlobalAction={!!activeAction || !!pendingAssist} 
-  pendingAssist={pendingAssist} 
-  activeActionType={activeAction?.type} 
-  canEdit={canEdit} 
-  
-  // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
-  maxFouls={maxFouls}
-  pendingFoul={pendingFoul} 
-  isForcedSub={isForcedSub}
-/>
+                        key={p.id} 
+                        team="B" 
+                        player={p} 
+                        onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
+                        pendingSubs={pendingSubs} 
+                        pendingAction={pendingAction} 
+                        onConfirm={confirmScore} 
+                        hasGlobalAction={!!activeAction || !!pendingAssist} 
+                        pendingAssist={pendingAssist} 
+                        activeActionType={activeAction?.type} 
+                        canEdit={canEdit} 
+                        maxFouls={maxFouls}
+                        pendingFoul={pendingFoul} 
+                        isForcedSub={isForcedSub}
+                        courtSize={courtSize}
+                      />
                   ))}
                 </div>
                 
-                <div className="flex items-center gap-3 mb-4 mt-2">
-                  <div className="h-px bg-white/10 flex-1"></div>
-                  <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
-                  <div className="h-px bg-white/10 flex-1"></div>
-                </div>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-                  {playersB.filter(p => p.status === 'bench').map(p => (
-                      <PlayerCard 
-  key={p.id} 
-  team="B" // (ou B)
-  player={p} 
-  onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
-  pendingSubs={pendingSubs} 
-  pendingAction={pendingAction} 
-  onConfirm={confirmScore} 
-  hasGlobalAction={!!activeAction || !!pendingAssist} 
-  pendingAssist={pendingAssist} 
-  activeActionType={activeAction?.type} 
-  canEdit={canEdit} 
-  
-  // 👇 AJOUTE UNIQUEMENT CETTE LIGNE SUR LES 4 PLAYERCARD 👇
-  maxFouls={maxFouls}
-  pendingFoul={pendingFoul} 
-  isForcedSub={isForcedSub}
-/>
-                  ))}
-                </div>
+                {/* 👇 LE BANC (MASQUÉ EN 1v1) 👇 */}
+                {courtSize !== 1 && (
+                  <>
+                    <div className="flex items-center gap-3 mb-4 mt-2">
+                      <div className="h-px bg-white/10 flex-1"></div>
+                      <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                      <div className="h-px bg-white/10 flex-1"></div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                      {playersB.filter(p => p.status === 'bench').map(p => (
+                          <PlayerCard 
+                            key={p.id} 
+                            team="B" 
+                            player={p} 
+                            onPlayerClick={(type, t, pid) => handleAction(activeAction?.type || type, t, pid, activeAction?.value)} 
+                            pendingSubs={pendingSubs} 
+                            pendingAction={pendingAction} 
+                            onConfirm={confirmScore} 
+                            hasGlobalAction={!!activeAction || !!pendingAssist} 
+                            pendingAssist={pendingAssist} 
+                            activeActionType={activeAction?.type} 
+                            canEdit={canEdit} 
+                            maxFouls={maxFouls}
+                            pendingFoul={pendingFoul} 
+                            isForcedSub={isForcedSub}
+                            courtSize={courtSize}
+                          />
+                      ))}
+                    </div>
+                  </>
+                )}
             </div>
 
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-8 bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl relative z-10">
-          <BoxscoreTable title={teamA?.name} players={playersA} color="var(--accent-orange)" />
-          <BoxscoreTable title={teamB?.name} players={playersB} color="var(--accent-blue)" />
+          <BoxscoreTable 
+            title={teamA?.name} 
+            players={playersA} 
+            color="var(--accent-orange)" 
+            courtSize={courtSize} 
+          />
+          <BoxscoreTable 
+            title={teamB?.name} 
+            players={playersB} 
+            color="var(--accent-blue)" 
+            courtSize={courtSize} 
+          />
         </div>
       )}
 

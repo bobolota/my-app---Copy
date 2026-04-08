@@ -11,11 +11,12 @@ const playerCardAreEqual = (prevProps, nextProps) => {
     prevProps.pendingAction === nextProps.pendingAction &&
     prevProps.pendingSubs === nextProps.pendingSubs &&
     prevProps.pendingFoul === nextProps.pendingFoul &&
-    prevProps.isForcedSub === nextProps.isForcedSub
+    prevProps.isForcedSub === nextProps.isForcedSub &&
+    prevProps.courtSize === nextProps.courtSize
   );
 };
 
-const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit, pendingFoul, isForcedSub, maxFouls }) => {
+const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendingAction, onConfirm, hasGlobalAction, pendingAssist, activeActionType, canEdit, pendingFoul, isForcedSub, maxFouls, courtSize }) => {
   
   // --- FORCER LE MODE "SUB" SI SORTIE OBLIGATOIRE ---
   const effectiveActionType = isForcedSub ? 'SUB' : activeActionType;
@@ -53,7 +54,8 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
   }
 
   const minorStats = [
-    { label: 'AS', val: player.ast },
+    // 👇 CONDITION ICI 👇
+    ...(courtSize !== 1 ? [{ label: 'AS', val: player.ast }] : []),
     { label: 'RB', val: (player.oreb || 0) + (player.dreb || 0) },
     { label: 'ST', val: player.stl },
     { label: 'BL', val: player.blk },
@@ -113,29 +115,31 @@ const PlayerCard = React.memo(({ team, player, onPlayerClick, pendingSubs, pendi
           {player.points} <span className="text-[0.65rem] text-[#888] font-bold ml-0.5">PTS</span>
         </span>
         
-        {/* LIGNE 2B : Les Fautes en dessous (Générées dynamiquement) */}
-        <div className="flex gap-1.5">
-          {[...Array(maxFouls)].map((_, idx) => {
-            const isFilled = idx < player.fouls;
-            const isDanger = isExcluded && idx === (player.fouls - 1);
-            const foulLetter = player.foulTypes && player.foulTypes[idx] ? player.foulTypes[idx] : 'P';
-            
-            return (
-              <div 
-                key={idx} 
-                className={`w-[16px] h-[16px] flex items-center justify-center rounded-[3px] text-[10px] font-normal transition-colors ${
-                  isFilled 
-                    ? (isDanger 
-                        ? 'bg-[var(--danger)] border border-[var(--danger)] text-white shadow-[0_0_5px_var(--danger)]' 
-                        : 'bg-white border border-white text-black') 
-                    : 'bg-[#111] border border-[#444] text-transparent'
-                }`}
-              >
-                {isFilled ? foulLetter : ''}
-              </div>
-            );
-          })}
-        </div>
+        {/* LIGNE 2B : Les Fautes en dessous (Générées dynamiquement UNIQUEMENT en 5x5) */}
+        {courtSize === 5 && (
+          <div className="flex gap-1.5">
+            {[...Array(maxFouls)].map((_, idx) => {
+              const isFilled = idx < player.fouls;
+              const isDanger = isExcluded && idx === (player.fouls - 1);
+              const foulLetter = player.foulTypes && player.foulTypes[idx] ? player.foulTypes[idx] : 'P';
+              
+              return (
+                <div 
+                  key={idx} 
+                  className={`w-[16px] h-[16px] flex items-center justify-center rounded-[3px] text-[10px] font-normal transition-colors ${
+                    isFilled 
+                      ? (isDanger 
+                          ? 'bg-[var(--danger)] border border-[var(--danger)] text-white shadow-[0_0_5px_var(--danger)]' 
+                          : 'bg-white border border-white text-black') 
+                      : 'bg-[#111] border border-[#444] text-transparent'
+                  }`}
+                >
+                  {isFilled ? foulLetter : ''}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* LIGNE 3 : Stats mineures */}

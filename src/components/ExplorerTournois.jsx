@@ -20,7 +20,22 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   
   const myCaptainTeams = myTeams.filter(mt => mt.global_teams.captain_id === session.user.id && mt.status === 'accepted').map(mt => mt.global_teams);
   const myAcceptedTeamIds = myTeams.filter(mt => mt.status === 'accepted').map(mt => mt.global_teams.id);
-  const isRegisteredIn = (t) => t.teams && t.teams.some(team => myAcceptedTeamIds.includes(team.global_id));
+  const isRegisteredIn = (t) => {
+  if (!t.teams) return false;
+  
+  return t.teams.some(team => {
+    // 1. Est-ce que c'est une de mes équipes officielles ? (Cas du 5x5 / 3x3)
+    const isMyOfficialTeam = myAcceptedTeamIds.includes(team.global_id);
+    
+    // 2. Est-ce que c'est une équipe fantôme (1v1) dans laquelle je suis le joueur ?
+    // On fouille dans la liste des joueurs de l'équipe pour voir si mon ID s'y trouve.
+    const amIInPhantomTeam = team.players && team.players.some(p => 
+      p.user_id === session?.user?.id || p.id === session?.user?.id
+    );
+
+    return isMyOfficialTeam || amIInPhantomTeam;
+  });
+};
 
   const activeTournaments = allTournaments.filter(t => t.status !== 'delete');
   const publicTourneys = activeTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));

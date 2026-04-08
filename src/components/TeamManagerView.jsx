@@ -37,19 +37,19 @@ export default function TeamManagerView({
       </button>
       
       {/* EN-TÊTE DE L'ÉQUIPE PREMIUM */}
-      <div className="bg-[#15151e]/80 backdrop-blur-md border border-white/5 p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-8 relative overflow-hidden group">
+      <div className="bg-[#15151e]/80 backdrop-blur-md border border-white/5 p-6 sm:p-8 rounded-3xl shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8 relative overflow-hidden group">
         {/* Lueur de fond bleue */}
         <div className="absolute top-0 right-0 w-48 h-48 bg-blue-500/10 blur-[60px] rounded-full pointer-events-none transition-opacity group-hover:opacity-100 opacity-60"></div>
         {/* Ligne LED */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.4)] opacity-80"></div>
         
-        <div className="flex items-center gap-5 relative z-10 w-full sm:w-auto">
+        <div className="flex items-center gap-5 relative z-10 w-full lg:w-auto">
           <TeamBadge name={managingTeam.name} />
           <div className="flex flex-col flex-1 min-w-0">
             <h1 className="m-0 text-2xl sm:text-3xl font-black text-white tracking-wide flex items-center flex-wrap gap-3">
               <span className="truncate">{managingTeam.name}</span>
               {isCaptainView && (
-                <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2.5 rounded-md shadow-sm font-black uppercase tracking-widest shrink-0">
+                <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[10px] px-2.5 py-1 rounded-md shadow-sm font-black uppercase tracking-widest shrink-0">
                   👑 Mode Capitaine
                 </span>
               )}
@@ -60,17 +60,56 @@ export default function TeamManagerView({
           </div>
         </div>
 
-        {isCaptainView && acceptedPlayers.length > 1 && (
-          <div className="flex flex-wrap gap-3 relative z-10 w-full sm:w-auto mt-4 sm:mt-0">
+        {/* ACTIONS CAPITAINE : Séparées pour gérer les conditions correctement */}
+        {isCaptainView && (
+          <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full lg:w-auto mt-2 lg:mt-0">
+            {/* On ne peut léguer que s'il y a d'autres joueurs */}
+            {acceptedPlayers.length > 1 && (
+              <button 
+                onClick={() => setTransferModalOpen(true)} 
+                className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-3.5 rounded-xl text-xs font-black tracking-widest hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)] hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                👑 LÉGUER LE BRASSARD
+              </button>
+            )}
+
+            {/* Mais on peut toujours dissoudre ! */}
             <button 
-              onClick={() => setTransferModalOpen(true)} 
-              className="w-full sm:w-auto bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-3 rounded-xl text-xs font-black tracking-widest hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)] hover:-translate-y-0.5 transition-all cursor-pointer"
+              onClick={handleDeleteTeam} 
+              className="w-full sm:w-auto bg-red-500/10 border border-red-500/30 text-red-400 px-6 py-3.5 rounded-xl text-xs font-black tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer shadow-sm"
             >
-              👑 LÉGUER LE BRASSARD
+              DISSOUDRE ⚠️
             </button>
           </div>
         )}
       </div>
+
+      {/* Formulaire Ajout Ghost PREMIUM */}
+          {isCaptainView && (
+            <form 
+              onSubmit={handleAddGhostPlayer} 
+              // 👇 J'ai remplacé mt-8 par mt-4 et ajouté mb-8 ici 👇
+              className="flex flex-col sm:flex-row gap-4 mt-4 mb-8 pt-6 border-t border-white/5 relative z-10 bg-black/20 p-5 rounded-2xl shadow-inner"
+            >
+              <div className="flex-1 flex flex-col gap-2">
+                 <label className="text-[10px] text-[#888] font-black uppercase tracking-widest ml-1">Inviter un joueur sans compte (Manuel)</label>
+                 <input 
+                   type="text" 
+                   value={newGhostName} 
+                   onChange={e => setNewGhostName(e.target.value)} 
+                   placeholder="Saisis un nom complet..." 
+                   className="w-full p-4 rounded-xl bg-black/40 text-white placeholder-[#666] border border-white/10 focus:outline-none focus:border-emerald-500 transition-colors shadow-inner text-sm font-medium"
+                 />
+              </div>
+              <button 
+                type="submit" 
+                disabled={!newGhostName.trim()} 
+                className={`sm:self-end px-8 py-4 rounded-xl font-black tracking-widest text-xs transition-all ${newGhostName.trim() ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5' : 'bg-black/40 text-[#555] cursor-not-allowed border border-white/5 shadow-none'}`}
+              >
+                AJOUTER 👤
+              </button>
+            </form>
+          )}
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex flex-col lg:flex-row gap-8 items-start relative z-10">
@@ -161,7 +200,8 @@ export default function TeamManagerView({
             </span>
           </h2>
           
-          <div className="flex flex-col gap-4 relative z-10 max-h-[600px] overflow-y-auto custom-scrollbar pr-2 flex-1">
+          {/* 👇 LA MODIFICATION EST ICI 👇 */}
+          <div className="flex flex-col gap-4 relative z-10">
             {acceptedPlayers.map(p => {
               const isMe = p.player_id === session.user.id;
               const isTheCaptain = p.player_id === managingTeam.captain_id;
@@ -206,43 +246,9 @@ export default function TeamManagerView({
             })}
           </div>
 
-          {/* Formulaire Ajout Ghost PREMIUM */}
-          {isCaptainView && (
-            <form onSubmit={handleAddGhostPlayer} className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-white/5 relative z-10 bg-black/20 p-5 rounded-2xl shadow-inner">
-              <div className="flex-1 flex flex-col gap-2">
-                 <label className="text-[10px] text-[#888] font-black uppercase tracking-widest ml-1">Inviter un joueur sans compte (Manuel)</label>
-                 <input 
-                   type="text" 
-                   value={newGhostName} 
-                   onChange={e => setNewGhostName(e.target.value)} 
-                   placeholder="Saisis un nom complet..." 
-                   className="w-full p-4 rounded-xl bg-black/40 text-white placeholder-[#666] border border-white/10 focus:outline-none focus:border-emerald-500 transition-colors shadow-inner text-sm font-medium"
-                 />
-              </div>
-              <button 
-                type="submit" 
-                disabled={!newGhostName.trim()} 
-                className={`sm:self-end px-8 py-4 rounded-xl font-black tracking-widest text-xs transition-all ${newGhostName.trim() ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5' : 'bg-black/40 text-[#555] cursor-not-allowed border border-white/5 shadow-none'}`}
-              >
-                AJOUTER 👤
-              </button>
-            </form>
-          )}
+          
         </section>
       </div>
-
-      {/* ZONE DANGEREUSE PREMIUM (Tout en bas) */}
-      {isCaptainView && (
-        <div className="mt-16 pt-8 border-t border-dashed border-white/10 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
-          <button 
-            onClick={handleDeleteTeam} 
-            className="bg-red-500/10 border border-red-500/30 text-red-400 px-8 py-3.5 rounded-xl text-xs font-black tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer shadow-sm"
-          >
-            DISSOUDRE LA FRANCHISE ⚠️
-          </button>
-          
-        </div>
-      )}
 
     </div>
   );

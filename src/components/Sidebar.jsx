@@ -114,7 +114,7 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
           <div className="text-2xl shrink-0">🏀</div>
           {!isSidebarCollapsed && (
             <span className="text-[var(--accent-orange)] font-black tracking-widest text-2xl drop-shadow-sm">
-              GameDay
+              SWISH
             </span>
           )}
         </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import MatchCard from './MatchCard'; // 👈 On importe notre nouveau composant !
 
-export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName }) {
+export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName, update }) {
   const groupMatches = tourney?.schedule || [];
   const playoffMatches = tourney?.playoffs?.matches || [];
   const allMatches = [...groupMatches, ...playoffMatches].filter(m => m && m.teamA && m.teamB);
@@ -17,10 +17,17 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
   const [filter, setFilter] = useState((myMatches.length > 0 && !canEdit) ? 'mine' : 'all');
   
   const sortFunction = (a, b) => {
-    if (!a.time && !b.time) return 0;
-    if (!a.time) return 1;
-    if (!b.time) return -1;
-    return a.time.localeCompare(b.time);
+    // 1. Les matchs AVEC une date/heure s'affichent en premier
+    if (a.datetime && !b.datetime) return -1;
+    if (!a.datetime && b.datetime) return 1;
+    
+    // 2. Si les deux ont une date, on trie par ordre chronologique
+    if (a.datetime && b.datetime) {
+      return new Date(a.datetime) - new Date(b.datetime);
+    }
+    
+    // 3. Fallback (ordre de création)
+    return 0;
   };
 
   const baseMatches = filter === 'mine' ? myMatches : allMatches;
@@ -105,10 +112,12 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
                     <MatchCard 
                       key={match.id} 
                       match={match} 
+                      tourney={tourney}
                       currentUserName={currentUserName} 
                       canEdit={canEdit} 
                       handleLaunchMatch={handleLaunchMatch} 
                       isPublicScoreboard={tourney.isPublicScoreboard} 
+                      update={update}
                     />
                   ))}
                 </div>
@@ -123,10 +132,12 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
               <MatchCard 
                 key={match.id} 
                 match={match} 
+                tourney={tourney}
                 currentUserName={currentUserName} 
                 canEdit={canEdit} 
                 handleLaunchMatch={handleLaunchMatch} 
                 isPublicScoreboard={tourney.isPublicScoreboard} 
+                update={update}
               />
             ))}
             
