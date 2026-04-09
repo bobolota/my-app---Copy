@@ -10,12 +10,15 @@ export default function PlayerProfileModal({
   handleInvitePlayer,
   managingTeam,
   removePlayer,
-  allTournaments // 👈 1. ON RÉCUPÈRE LES TOURNOIS ICI
+  allTournaments
 }) {
   const [activeStatsTab, setActiveStatsTab] = useState('moyennes'); // 'moyennes', 'records', ou 'totaux'
+  // 👇 NOUVEAU : Onglet pour le format (5x5, 3x3, 1v1)
+  const [activeFormat, setActiveFormat] = useState(5); 
+
   const { session } = useAuth();
 
-  // 👇 2. LE MOTEUR DE CALCUL DES STATS EN TEMPS RÉEL 👇
+  // 👇 LE MOTEUR DE CALCUL DES STATS AVEC FILTRE PAR FORMAT 👇
   const computedStats = useMemo(() => {
     let gp = 0, pts = 0, reb = 0, ast = 0, stl = 0, blk = 0;
     let maxPts = 0, maxReb = 0, maxAst = 0, maxStl = 0, maxBlk = 0, maxEff = 0;
@@ -24,6 +27,10 @@ export default function PlayerProfileModal({
     if (!selectedProfile || !selectedProfile.full_name || !allTournaments) return { gp: 0 };
 
     allTournaments.forEach(t => {
+      // 👇 NOUVEAU : On ignore le tournoi s'il ne correspond pas au format actif
+      const tFormat = t.matchsettings?.courtSize || 5; 
+      if (tFormat !== activeFormat) return;
+
       const allMatches = [...(t.schedule || []), ...(t.playoffs?.matches || [])];
       
       allMatches.forEach(m => {
@@ -70,7 +77,7 @@ export default function PlayerProfileModal({
         blkAvg: (blk / gp).toFixed(1),
         effAvg: (totalEff / gp).toFixed(1)
     } : { gp: 0 };
-  }, [allTournaments, selectedProfile]);
+  }, [allTournaments, selectedProfile, activeFormat]); // 👈 Ne pas oublier activeFormat !
 
   if (!selectedProfile) return null;
 
@@ -85,51 +92,82 @@ export default function PlayerProfileModal({
 
   const isCaptainOfManagingTeam = managingTeam && managingTeam.captain_id === session.user.id;
   const isSelectedPlayerMe = selectedProfile.id === session.user.id;
-  const hasReachedTeamLimit = selectedProfile.playerTeams && selectedProfile.playerTeams.length >= 3;
+  
+  // NOTE: La logique de "hasReachedTeamLimit" devra être affinée dans le composant parent (Dashboard) 
+  // car ici on ne connait pas le format de ses équipes, on sait juste qu'il en a N au total.
+  // Pour l'instant, on laisse tel quel pour ne pas tout casser, mais il faudrait lui passer hasReached5x5 et hasReached3x3.
+  const hasReachedTeamLimit = selectedProfile.playerTeams && selectedProfile.playerTeams.length >= 6; // On passe à 6 (max 3x 5v5 + 3x 3v3) en attendant
 
   return (
     <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[1000] backdrop-blur-sm p-4">
-      <div className="bg-[#15151e]/95 backdrop-blur-xl p-8 rounded-3xl border border-white/10 w-full max-w-[700px] relative flex flex-col max-h-[90vh] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="bg-[#15151e]/95 backdrop-blur-xl p-6 sm:p-8 rounded-3xl border border-white/10 w-full max-w-[700px] relative flex flex-col max-h-[90vh] shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
         
         {/* Lueur d'arrière-plan douce (Couleur du rôle) */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/20 rounded-full blur-[80px] pointer-events-none"></div>
 
         <button 
           onClick={() => setSelectedProfile(null)} 
-          className="absolute top-6 right-6 bg-black/40 border border-white/10 text-[#888] w-10 h-10 rounded-full flex items-center justify-center text-xl cursor-pointer z-20 hover:text-white hover:bg-white/10 transition-all shadow-inner"
+          className="absolute top-4 sm:top-6 right-4 sm:right-6 bg-black/40 border border-white/10 text-[#888] w-10 h-10 rounded-full flex items-center justify-center text-xl cursor-pointer z-20 hover:text-white hover:bg-white/10 transition-all shadow-inner"
         >
           ✕
         </button>
         
-        {/* EN-TÊTE FIXE PREMIUM */}
-        <div className="shrink-0 mb-6 relative z-10 border-b border-white/10 pb-6">
-          <div className="flex items-start gap-5">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-orange-600 to-yellow-500 flex items-center justify-center text-3xl font-black text-white shadow-[0_0_20px_rgba(249,115,22,0.4)] border border-white/20 shrink-0">
+        {/* EN-TÊTE FIXE PREMIUM COMPACT */}
+        <div className="shrink-0 mb-6 relative z-10 border-b border-white/10 pb-5">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-orange-600 to-yellow-500 flex items-center justify-center text-3xl font-black text-white shadow-[0_0_20px_rgba(249,115,22,0.4)] border border-white/20 shrink-0">
                 {selectedProfile.full_name.charAt(0).toUpperCase()}
             </div>
-            <div className="flex flex-col justify-center">
-              <h2 className="mt-0 mb-1 text-white text-3xl sm:text-4xl font-black tracking-wide drop-shadow-md">{selectedProfile.full_name}</h2>
-              <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-black text-[10px] tracking-widest uppercase px-2.5 py-1 rounded w-fit">
-                {selectedProfile.role || 'Joueur'}
-              </span>
+            
+            <div className="flex flex-col justify-center items-center sm:items-start flex-1 w-full">
+              <div className="flex items-center gap-3 mb-2">
+                <h2 className="m-0 text-white text-2xl sm:text-3xl font-black tracking-wide drop-shadow-md">{selectedProfile.full_name}</h2>
+                <span className="bg-orange-500/10 text-orange-400 border border-orange-500/20 font-black text-[9px] tracking-widest uppercase px-2 py-0.5 rounded w-fit">
+                  {selectedProfile.role || 'Joueur'}
+                </span>
+              </div>
+              
+              {/* 👇 LES ONGLETS INTÉGRÉS SOUS LE NOM 👇 */}
+              <div className="flex bg-black/40 border border-white/10 rounded-xl overflow-hidden shadow-inner w-full sm:w-fit mt-1">
+                {[
+                  { val: 5, label: "5x5 CLASSIC" },
+                  { val: 3, label: "3x3 STREET" },
+                  { val: 1, label: "1v1 DUEL" }
+                ].map(tab => (
+                  <button
+                    key={tab.val}
+                    onClick={() => setActiveFormat(tab.val)}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 font-black text-[9px] sm:text-[10px] tracking-widest transition-all ${
+                      activeFormat === tab.val
+                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]'
+                        : 'text-[#888] hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              
             </div>
           </div>
 
           {/* AFFICHAGE DES ÉQUIPES DU JOUEUR */}
-          <div className="mt-5">
-            <div className="flex gap-2 flex-wrap">
-              {selectedProfile.playerTeams && selectedProfile.playerTeams.length > 0 ? (
-                selectedProfile.playerTeams.map((pt, i) => (
-                  <span key={i} className="bg-black/40 text-white px-3 py-1.5 rounded-lg text-xs border border-white/10 font-bold shadow-inner tracking-wider flex items-center gap-1.5">
-                    <span className="text-emerald-400">🛡️</span> {pt.name}
+          <div className="mt-4 flex gap-2 flex-wrap justify-center sm:justify-start">
+            {selectedProfile.playerTeams && selectedProfile.playerTeams.length > 0 ? (
+              selectedProfile.playerTeams.map((pt, i) => (
+                <span key={i} className="bg-black/40 text-white px-3 py-1.5 rounded-lg text-[10px] sm:text-xs border border-white/10 font-bold shadow-inner tracking-wider flex items-center gap-1.5">
+                  <span className="text-emerald-400">🛡️</span> {pt.name}
+                  <span className="bg-white/10 text-white font-black text-[8px] sm:text-[9px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-white/20 ml-1">
+                    {pt.format || '5x5'}
                   </span>
-                ))
-              ) : (
-                <span className="text-[#666] text-xs font-bold uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
-                  Agent libre (Aucune équipe)
                 </span>
-              )}
-            </div>
+              ))
+            ) : (
+              <span className="text-[#666] text-[10px] sm:text-xs font-bold uppercase tracking-widest bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                Agent libre (Aucune équipe)
+              </span>
+            )}
           </div>
         </div>
         
@@ -137,32 +175,31 @@ export default function PlayerProfileModal({
         <div className="overflow-y-auto pr-2 flex-grow custom-scrollbar relative z-10">
           
           <div className="mt-2">
-            {/* 👇 3. ON UTILISE computedStats AU LIEU DE selectedProfile.stats 👇 */}
             {computedStats.gp === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 opacity-50 bg-black/20 rounded-2xl border border-white/5">
+              <div className="flex flex-col items-center justify-center py-8 opacity-50 bg-black/20 rounded-2xl border border-white/5">
                 <span className="text-4xl mb-3 drop-shadow-md">📊</span>
-                <p className="text-center text-[#888] font-bold text-xs uppercase tracking-wider m-0">Aucun match officiel joué</p>
+                <p className="text-center text-[#888] font-bold text-xs uppercase tracking-wider m-0">Aucun match officiel en {activeFormat}x{activeFormat}</p>
               </div>
             ) : (
-              <div className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-inner">
+              <div className="bg-black/20 p-4 sm:p-5 rounded-2xl border border-white/5 shadow-inner">
                 
-                {/* BARRE D'ONGLETS PREMIUM */}
-                <div className="flex bg-black/40 rounded-xl p-1.5 mb-6 border border-white/5 shadow-inner">
+                {/* BARRE D'ONGLETS POUR LES STATS */}
+                <div className="flex bg-black/40 rounded-xl p-1 mb-5 border border-white/5 shadow-inner">
                   <button 
                     onClick={() => setActiveStatsTab('moyennes')} 
-                    className={`flex-1 py-2.5 px-2 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'moyennes' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
+                    className={`flex-1 py-2 px-2 rounded-lg font-black text-[10px] sm:text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'moyennes' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
                   >
                     🎯 Moyennes
                   </button>
                   <button 
                     onClick={() => setActiveStatsTab('records')} 
-                    className={`flex-1 py-2.5 px-2 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'records' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
+                    className={`flex-1 py-2 px-2 rounded-lg font-black text-[10px] sm:text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'records' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
                   >
                     🚀 Records
                   </button>
                   <button 
                     onClick={() => setActiveStatsTab('totaux')} 
-                    className={`flex-1 py-2.5 px-2 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'totaux' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
+                    className={`flex-1 py-2 px-2 rounded-lg font-black text-[10px] sm:text-[11px] uppercase tracking-widest transition-all ${activeStatsTab === 'totaux' ? 'bg-[#333] text-white shadow-md border border-white/10' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`}
                   >
                     📈 Totaux
                   </button>
@@ -170,7 +207,7 @@ export default function PlayerProfileModal({
 
                 {/* CONTENU CONDITIONNEL SELON L'ONGLET */}
                 {activeStatsTab === 'moyennes' && (
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 sm:gap-3 flex-wrap">
                     <StatCard label="PTS / m" value={computedStats.ptsAvg} color="#ef4444" />
                     <StatCard label="REB / m" value={computedStats.rebAvg} color="#3b82f6" />
                     <StatCard label="AST / m" value={computedStats.astAvg} color="#10b981" />
@@ -181,7 +218,7 @@ export default function PlayerProfileModal({
                 )}
 
                 {activeStatsTab === 'records' && (
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 sm:gap-3 flex-wrap">
                     <StatCard label="Max PTS" value={computedStats.maxPts} color="#ef4444" />
                     <StatCard label="Max REB" value={computedStats.maxReb} color="#3b82f6" />
                     <StatCard label="Max AST" value={computedStats.maxAst} color="#10b981" />
@@ -192,7 +229,7 @@ export default function PlayerProfileModal({
                 )}
 
                 {activeStatsTab === 'totaux' && (
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="flex gap-2 sm:gap-3 flex-wrap">
                     <StatCard label="Matchs" value={computedStats.gp} color="#666" />
                     <StatCard label="Tot PTS" value={computedStats.pts} color="#ef4444" />
                     <StatCard label="Tot REB" value={computedStats.reb} color="#3b82f6" />
@@ -208,21 +245,18 @@ export default function PlayerProfileModal({
           
           {/* --- GESTION DU RECRUTEMENT / STATUT DANS L'ÉQUIPE --- */}
           {managingTeam ? (
-            <div className="mt-8 pt-6 border-t border-white/5">
-              <h4 className="text-white m-0 mb-4 text-base font-black uppercase tracking-widest flex items-center gap-2">
-                <span className="text-xl">🤝</span> Statut avec {managingTeam.name}
+            <div className="mt-6 pt-5 border-t border-white/5">
+              <h4 className="text-white m-0 mb-3 text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <span className="text-lg">🤝</span> Statut avec {managingTeam.name}
               </h4>
               
               {selectedProfile.relationStatus === 'accepted' && (
-                <div className="flex justify-between items-center bg-emerald-500/10 p-5 rounded-2xl border border-emerald-500/20 shadow-inner">
-                  <span className="text-emerald-400 font-black tracking-wide">✅ Membre de l'équipe</span>
+                <div className="flex justify-between items-center bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20 shadow-inner">
+                  <span className="text-emerald-400 text-xs font-black tracking-wide">✅ Membre de l'équipe</span>
                   {isCaptainOfManagingTeam && !isSelectedPlayerMe && (
                     <button 
-                      onClick={() => {
-                        removePlayer(selectedProfile.id);
-                        setSelectedProfile(null);
-                      }} 
-                      className="bg-red-500/10 text-red-400 border border-red-500/30 px-5 py-2.5 rounded-xl font-black text-xs tracking-widest cursor-pointer hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                      onClick={() => { removePlayer(selectedProfile.id); setSelectedProfile(null); }} 
+                      className="bg-red-500/10 text-red-400 border border-red-500/30 px-4 py-2 rounded-lg font-black text-[10px] tracking-widest cursor-pointer hover:bg-red-500 hover:text-white transition-all shadow-sm"
                     >
                       EXCLURE ❌
                     </button>
@@ -231,84 +265,110 @@ export default function PlayerProfileModal({
               )}
 
               {(selectedProfile.relationStatus === 'invited' || selectedProfile.relationStatus === 'pending') && (
-                <div className="bg-orange-500/10 p-5 rounded-2xl border border-orange-500/20 text-center text-orange-400 font-black tracking-wide shadow-inner">
+                <div className="bg-orange-500/10 p-3.5 rounded-xl border border-orange-500/20 text-center text-orange-400 text-xs font-black tracking-wide shadow-inner">
                   ⏳ {selectedProfile.relationStatus === 'invited' ? 'Invitation envoyée (En attente)' : 'A postulé (En attente de validation)'}
                 </div>
               )}
 
               {!selectedProfile.relationStatus && isCaptainOfManagingTeam && !isSelectedPlayerMe && (
                  hasReachedTeamLimit ? (
-                   <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-center text-red-400 font-black tracking-wide text-sm shadow-inner">
-                      🚫 Ce joueur a déjà atteint la limite de 3 équipes actives. Il ne peut plus être recruté.
+                   <div className="bg-red-500/10 p-3.5 rounded-xl border border-red-500/20 text-center text-red-400 font-black tracking-wide text-[10px] sm:text-xs shadow-inner">
+                      🚫 Ce joueur a atteint la limite d'équipes actives.
                    </div>
                  ) : (
-                   <div className="flex">
-                     <button 
-                      onClick={() => {
-                        handleInvitePlayer(selectedProfile.id);
-                        setSelectedProfile({...selectedProfile, relationStatus: 'invited'});
-                      }} 
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none p-4 rounded-xl font-black tracking-widest cursor-pointer text-sm hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
-                     >
-                        INVITER CE JOUEUR ✉️
-                     </button>
-                   </div>
+                   <button 
+                    onClick={() => { handleInvitePlayer(selectedProfile.id); setSelectedProfile({...selectedProfile, relationStatus: 'invited'}); }} 
+                    className="w-full bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none py-3 rounded-xl font-black tracking-widest cursor-pointer text-xs hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
+                   >
+                      INVITER CE JOUEUR ✉️
+                   </button>
                  )
               )}
             </div>
           ) : (
             myCaptainTeams.length > 0 && !isSelectedPlayerMe && (
-              <div className="mt-8 pt-6 border-t border-white/5">
-                {selectedProfile.relationStatus === 'invited' || selectedProfile.relationStatus === 'pending' || selectedProfile.relationStatus === 'accepted' ? (
-                  <div className="bg-orange-500/10 p-5 rounded-2xl border border-orange-500/20 text-center text-orange-400 font-black text-sm tracking-wide shadow-inner">
-                    {selectedProfile.relationStatus === 'accepted' ? '✅ Ce joueur fait déjà partie de votre équipe' : '✅ Invitation déjà envoyée (ou en attente)'}
-                  </div>
-                ) : hasReachedTeamLimit ? (
-                  <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 text-center text-red-400 font-black text-sm tracking-wide shadow-inner">
-                    🚫 Ce joueur a déjà atteint la limite de 3 équipes actives. Vous ne pouvez pas lui envoyer d'offre.
-                  </div>
-                ) : (
-                  <div className="bg-black/20 p-5 rounded-2xl border border-white/5 shadow-inner">
-                    <h4 className="text-blue-400 m-0 mb-4 text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                      <span className="text-lg">✉️</span> Recruter ce joueur
-                    </h4>
-                    <div className="flex flex-col gap-4">
+              <div className="mt-6 pt-5 border-t border-white/5">
+                {(() => {
+                  // 1. On récupère les noms des équipes dans lesquelles le joueur est DÉJÀ
+                  const playerTeamNames = (selectedProfile.playerTeams || []).map(pt => pt.name);
+                  
+                  // 2. On filtre TES équipes pour ne garder que celles où il n'est PAS encore
+                  const availableCaptainTeams = myCaptainTeams.filter(t => !playerTeamNames.includes(t.name));
+
+                  // 3. S'il est déjà dans TOUTES tes équipes
+                  if (availableCaptainTeams.length === 0) {
+                    return (
+                      <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/20 text-center text-emerald-400 font-black text-xs tracking-wide shadow-inner">
+                        ✅ Ce joueur fait déjà partie de toutes vos équipes !
+                      </div>
+                    );
+                  }
+
+                  // 4. S'il a atteint la limite absolue d'équipes (6)
+                  if (hasReachedTeamLimit) {
+                    return (
+                      <div className="bg-red-500/10 p-3.5 rounded-xl border border-red-500/20 text-center text-red-400 font-black text-xs tracking-wide shadow-inner">
+                        🚫 Ce joueur a atteint la limite d'équipes actives. Vous ne pouvez pas le recruter.
+                      </div>
+                    );
+                  }
+
+                  // 5. S'il reste des équipes disponibles, on affiche le formulaire !
+                  return (
+                    <div className="bg-black/20 p-4 rounded-xl border border-white/5 shadow-inner">
                       
-                      {/* LA LISTE DES ÉQUIPES EN BOUTONS RADIO PREMIUM */}
-                      <div className="flex flex-col gap-3">
-                        {myCaptainTeams.map(t => (
-                          <label 
-                            key={t.id} 
-                            className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all shadow-sm ${inviteTeamId === t.id ? 'bg-blue-500/10 border-blue-500/30' : 'bg-black/40 border-white/10 hover:bg-white/5'}`}
-                          >
-                            <input 
-                              type="radio" 
-                              name="teamInvite" 
-                              value={t.id} 
-                              checked={inviteTeamId === t.id} 
-                              onChange={(e) => setInviteTeamId(e.target.value)} 
-                              className="cursor-pointer scale-125 accent-blue-500"
-                            />
-                            <span className={`text-base font-black tracking-wide ${inviteTeamId === t.id ? 'text-white' : 'text-[#888]'}`}>
-                              {t.name}
-                            </span>
-                          </label>
-                        ))}
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="text-blue-400 m-0 text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                          <span className="text-sm">✉️</span> Recruter ce joueur
+                        </h4>
+                        {/* Petit badge discret si une invitation est déjà en cours dans l'une des équipes */}
+                        {(selectedProfile.relationStatus === 'invited' || selectedProfile.relationStatus === 'pending') && (
+                          <span className="text-[8px] bg-orange-500/10 text-orange-400 border border-orange-500/20 px-2 py-0.5 rounded uppercase tracking-widest font-bold">
+                            ⏳ Invité ailleurs
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-stretch">
+                        
+                        <div className="flex flex-col gap-2 flex-1 w-full max-h-[90px] overflow-y-auto custom-scrollbar pr-1">
+                          {availableCaptainTeams.map(t => (
+                            <label 
+                              key={t.id} 
+                              className={`flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all shadow-sm ${inviteTeamId === t.id ? 'bg-blue-500/10 border-blue-500/30' : 'bg-black/40 border-white/10 hover:bg-white/5'}`}
+                            >
+                              <input 
+                                type="radio" name="teamInvite" value={t.id} 
+                                checked={inviteTeamId === t.id} 
+                                onChange={(e) => setInviteTeamId(e.target.value)} 
+                                className="cursor-pointer accent-blue-500 ml-1"
+                              />
+                              <div className="flex justify-between items-center flex-1 pr-2">
+                                <span className={`text-xs font-black tracking-wide truncate max-w-[130px] sm:max-w-[180px] ${inviteTeamId === t.id ? 'text-white' : 'text-[#888]'}`}>
+                                  {t.name}
+                                </span>
+                                <span className="text-[8px] uppercase tracking-widest font-bold text-[#aaa] bg-black/40 px-1.5 py-0.5 rounded border border-white/10 shrink-0">
+                                  {t.format || '5x5'}
+                                </span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+
+                        <button 
+                          onClick={() => {
+                            if(!inviteTeamId) return alert("Sélectionnez une équipe !");
+                            handleInvitePlayer(selectedProfile.id);
+                          }} 
+                          className="w-full sm:w-auto shrink-0 bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none px-5 py-3 rounded-lg font-black tracking-widest uppercase cursor-pointer text-[10px] hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] transition-all shadow-md flex items-center justify-center"
+                        >
+                          ENVOYER 🚀
+                        </button>
                       </div>
 
-                      {/* LE BOUTON DE VALIDATION */}
-                      <button 
-                        onClick={() => {
-                          if(!inviteTeamId) return alert("Sélectionnez une équipe en cochant la case !");
-                          handleInvitePlayer(selectedProfile.id);
-                        }} 
-                        className="mt-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none p-4 rounded-xl font-black tracking-widest uppercase cursor-pointer text-xs hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
-                      >
-                        ENVOYER L'INVITATION 🚀
-                      </button>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )
           )}

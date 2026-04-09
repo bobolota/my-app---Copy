@@ -2,7 +2,15 @@ import React, { useState } from 'react';
 import PlayerListItem from './PlayerListItem'; 
 
 export default function Mercato({
-  availableTeams, hasTeam, handleJoinTeam, allPlayers, searchQuery, setSearchQuery, viewPlayerProfile
+  availableTeams, 
+  // On remplace hasTeam par nos deux nouvelles limites spécifiques :
+  hasMax5x5, 
+  hasMax3x3, 
+  handleJoinTeam, 
+  allPlayers, 
+  searchQuery, 
+  setSearchQuery, 
+  viewPlayerProfile
 }) {
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
@@ -78,30 +86,41 @@ export default function Mercato({
                 <p className="text-red-400 font-bold text-sm m-0">Aucune équipe ne correspond à "{teamSearchQuery}".</p>
               </div>
             ) : (
-              filteredTeams.map(team => (
-                <div key={team.id} className="bg-[#1e1e2a] border border-white/5 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-500/30 transition-all hover:-translate-y-0.5 shadow-lg group/item">
-                  <div className="flex items-center gap-4">
-                    <TeamBadge name={team.name} />
-                    <div className="flex flex-col">
-                      <strong className="block text-lg text-white font-black tracking-wide group-hover/item:text-emerald-300 transition-colors">{team.name}</strong>
-                      <span className="text-[10px] text-[#888] font-bold tracking-widest uppercase bg-black/30 px-2 py-0.5 rounded w-fit mt-1 border border-white/5">
-                        📍 {team.city || 'Ville inconnue'}
-                      </span>
+              filteredTeams.map(team => {
+                // 👇 On détermine si le bouton doit être bloqué pour CE format précis 👇
+                const isFormatFull = team.format === '3x3' ? hasMax3x3 : hasMax5x5;
+
+                return (
+                  <div key={team.id} className="bg-[#1e1e2a] border border-white/5 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-500/30 transition-all hover:-translate-y-0.5 shadow-lg group/item">
+                    <div className="flex items-center gap-4">
+                      <TeamBadge name={team.name} />
+                      <div className="flex flex-col">
+                        <strong className="flex items-center gap-2 text-lg text-white font-black tracking-wide group-hover/item:text-emerald-300 transition-colors">
+                          {team.name}
+                          {/* 👇 Badge du format (5x5 ou 3x3) 👇 */}
+                          <span className="bg-white/10 text-white font-black text-[10px] uppercase tracking-widest px-2 py-0.5 rounded border border-white/20">
+                            {team.format || '5x5'}
+                          </span>
+                        </strong>
+                        <span className="text-[10px] text-[#888] font-bold tracking-widest uppercase bg-black/30 px-2 py-0.5 rounded w-fit mt-1 border border-white/5">
+                          📍 {team.city || 'Ville inconnue'}
+                        </span>
+                      </div>
                     </div>
+                    <button 
+                      onClick={() => { handleJoinTeam(team.id); setTeamSearchQuery(""); }} 
+                      disabled={isFormatFull}
+                      className={`w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-black tracking-widest transition-all ${
+                        isFormatFull 
+                          ? 'bg-black/40 border border-white/5 text-[#555] cursor-not-allowed shadow-none' 
+                          : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:shadow-[0_4px_15px_rgba(16,185,129,0.4)] cursor-pointer hover:-translate-y-0.5'
+                      }`}
+                    >
+                      {isFormatFull ? `LIMITE ${team.format || '5x5'} ATTEINTE` : 'POSTULER 🚀'}
+                    </button>
                   </div>
-                  <button 
-                    onClick={() => { handleJoinTeam(team.id); setTeamSearchQuery(""); }} 
-                    disabled={hasTeam}
-                    className={`w-full sm:w-auto px-6 py-3 rounded-xl text-xs font-black tracking-widest transition-all ${
-                      hasTeam 
-                        ? 'bg-black/40 border border-white/5 text-[#555] cursor-not-allowed shadow-none' 
-                        : 'bg-gradient-to-r from-emerald-500 to-green-500 text-white hover:shadow-[0_4px_15px_rgba(16,185,129,0.4)] cursor-pointer hover:-translate-y-0.5'
-                    }`}
-                  >
-                    {hasTeam ? 'LIMITE ATTEINTE' : 'POSTULER 🚀'}
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>

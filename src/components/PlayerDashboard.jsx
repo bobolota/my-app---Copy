@@ -106,7 +106,7 @@ export default function PlayerDashboard() {
     }
 
     let playerTeams = [];
-    const { data: ptData } = await supabase.from('team_members').select('global_teams(name)').eq('player_id', player.id).eq('status', 'accepted');
+    const { data: ptData } = await supabase.from('team_members').select('global_teams(name, format)').eq('player_id', player.id).eq('status', 'accepted');
     if (ptData) playerTeams = ptData.map(d => d.global_teams).filter(Boolean);
 
     setSelectedProfile({ ...player, stats: {}, relationStatus, playerTeams });
