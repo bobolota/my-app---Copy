@@ -11,8 +11,6 @@ export default function ActionPanel({
   pendingAction, setPendingAction,
   setPendingSubs,
   playersA, playersB, setStartersValidated,
-  
-  // 👇 NOUVELLES PROPS À RECEVOIR ICI 👇
   courtSize, pointsSystem 
 }) {
   
@@ -26,8 +24,8 @@ export default function ActionPanel({
   };
 
   const hasActiveProcess = activeAction || pendingFoul || pendingAssist || pendingAction || pendingSubs?.length > 0 || isForcedSub;
-
   const isPlayerExcluded = (p) => p.fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
+
   let availableBenchCount = 0;
   if (isForcedSub) {
     const forcedA = playersA?.find(p => p.status === 'court' && isPlayerExcluded(p));
@@ -40,40 +38,31 @@ export default function ActionPanel({
   
   const isMissingRequiredSub = isForcedSub && pendingSubs?.length === 0 && availableBenchCount > 0;
   const canPlayShorthanded = isForcedSub && pendingSubs?.length === 0 && availableBenchCount === 0;
-
-  // Boutons XXL en 1v1
   const btnSizeClass = courtSize === 1 ? 'px-7 text-sm' : 'px-5 text-[11px]'; 
 
   return (
-    <div className="w-full flex items-center justify-center bg-[#0d0d12] border border-white/5 p-2 rounded-2xl shadow-xl min-h-[85px]">
-      
+    <div className="w-full flex items-center justify-center bg-app-bg border border-muted-line p-2 rounded-2xl shadow-xl min-h-[85px]">
       <div className="flex items-center gap-8 px-4">
         
-        {/* --- CONSOLE DE SAISIE / VERROUILLAGE --- */}
         {isForcedSub ? (
           <div className="flex flex-1 items-center justify-center min-w-[600px]">
-             <div className="bg-red-600/10 border border-red-500/50 rounded-xl px-8 py-3 flex flex-col items-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
-               <span className="text-red-500 font-black text-lg uppercase tracking-widest animate-pulse">
+             <div className="bg-danger/10 border border-danger/50 rounded-xl px-8 py-3 flex flex-col items-center shadow-[0_0_20px_rgba(239,68,68,0.2)]">
+               <span className="text-danger font-black text-lg uppercase tracking-widest animate-pulse">
                  🚨 Joueur exclu : Remplacement Obligatoire
                </span>
-               <span className="text-white/70 font-bold text-xs mt-1">
-                 Sélectionnez un joueur sur le banc puis validez à droite
-               </span>
+               <span className="text-white/70 font-bold text-xs mt-1">Sélectionnez un joueur sur le banc puis validez à droite</span>
              </div>
           </div>
         ) : !pendingFoul && !pendingAssist && activeAction?.type !== 'STARTERS' ? (
           <div className="flex items-center gap-6">
-            
-            {/* 👇 POINTS : S'adapte dynamiquement 5x5 vs Streetball 👇 */}
-            <div className="flex gap-2 bg-orange-500/10 p-1.5 rounded-xl border border-orange-500/20">
-              {/* On vérifie si le mode "street" est explicitement demandé, ou si c'est un vieux tournoi 3x3 sans paramètre */}
+            <div className="flex gap-2 bg-secondary/10 p-1.5 rounded-xl border border-secondary/20">
               {(pointsSystem === 'street' || (!pointsSystem && courtSize !== 5)
                 ? [ { label: 'LF', type: 'FT', val: 1 }, { label: '+1', type: 'PLUS1', val: 1 }, { label: '+2', type: 'PLUS2', val: 2 } ]
                 : [ { label: 'LF', type: 'FT', val: 1 }, { label: '+2', type: 'PLUS2', val: 2 }, { label: '+3', type: 'PLUS3', val: 3 } ]
               ).map(btn => (
                 <button 
                   key={btn.type} 
-                  className={`w-14 h-12 rounded-lg font-black transition-all ${courtSize === 1 ? 'text-lg' : 'text-sm'} ${activeAction?.type === btn.type ? 'bg-orange-500 text-white shadow-lg' : 'text-orange-500 hover:bg-orange-500/10'}`}
+                  className={`w-14 h-12 rounded-lg font-black transition-all ${courtSize === 1 ? 'text-lg' : 'text-sm'} ${activeAction?.type === btn.type ? 'bg-secondary text-white shadow-lg' : 'text-secondary hover:bg-secondary/10'}`}
                   onClick={() => setActiveAction({type: btn.type, value: btn.val})}
                 >
                   {btn.label}
@@ -81,109 +70,64 @@ export default function ActionPanel({
               ))}
             </div>
 
-            <div className="h-10 w-px bg-white/10"></div>
+            <div className="h-10 w-px bg-muted-line"></div>
 
-            {/* STATS TECHNIQUES (Boutons élargis en 1v1) */}
             <div className="flex gap-2">
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'OREB' ? 'bg-emerald-500 text-white' : 'border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5'}`} onClick={() => setActiveAction({type: 'OREB', value: null})}>REB OFF</button>
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'DREB' ? 'bg-emerald-500 text-white' : 'border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/5'}`} onClick={() => setActiveAction({type: 'DREB', value: null})}>REB DEF</button>
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'STL' ? 'bg-blue-500 text-white' : 'border-blue-500/20 text-blue-500 hover:bg-blue-500/5'}`} onClick={() => setActiveAction({type: 'STL', value: null})}>INT</button>
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'BLK' ? 'bg-blue-500 text-white' : 'border-blue-500/20 text-blue-500 hover:bg-blue-500/5'}`} onClick={() => setActiveAction({type: 'BLK', value: null})}>CTR</button>
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'OREB' ? 'bg-primary text-white' : 'border-primary/20 text-primary hover:bg-primary/10'}`} onClick={() => setActiveAction({type: 'OREB', value: null})}>REB OFF</button>
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'DREB' ? 'bg-primary text-white' : 'border-primary/20 text-primary hover:bg-primary/10'}`} onClick={() => setActiveAction({type: 'DREB', value: null})}>REB DEF</button>
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'STL' ? 'bg-action text-white' : 'border-action/20 text-action hover:bg-action/10'}`} onClick={() => setActiveAction({type: 'STL', value: null})}>INT</button>
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'BLK' ? 'bg-action text-white' : 'border-action/20 text-action hover:bg-action/10'}`} onClick={() => setActiveAction({type: 'BLK', value: null})}>CTR</button>
             </div>
 
-            <div className="h-10 w-px bg-white/10"></div>
+            <div className="h-10 w-px bg-muted-line"></div>
 
-            {/* FAUTES ET SUBS */}
             <div className="flex gap-2">
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'TOV' ? 'bg-gray-600 text-white' : 'border-gray-500/30 text-gray-400 hover:bg-white/5'}`} onClick={() => setActiveAction({type: 'TOV', value: null})}>B. PERDUE</button>
-              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'FOUL' ? 'bg-red-600 text-white' : 'border-red-600/30 text-red-500 hover:bg-red-600/5'}`} onClick={() => setActiveAction({type: 'FOUL', value: null})}>FAUTE</button>
-              
-              {/* Le bouton SUB disparaît si courtSize === 1 */}
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'TOV' ? 'bg-muted-dark text-white' : 'border-muted/30 text-muted-light hover:bg-white/5'}`} onClick={() => setActiveAction({type: 'TOV', value: null})}>B. PERDUE</button>
+              <button className={`h-12 rounded-lg font-black ${btnSizeClass} border ${activeAction?.type === 'FOUL' ? 'bg-danger text-white' : 'border-danger/30 text-danger hover:bg-danger/10'}`} onClick={() => setActiveAction({type: 'FOUL', value: null})}>FAUTE</button>
               {courtSize !== 1 && (
-                <button className={`h-12 rounded-lg font-black px-5 text-[11px] border ${activeAction?.type === 'SUB' ? 'bg-purple-600 text-white' : 'border-purple-600/30 text-purple-500 hover:bg-purple-600/5'}`} onClick={() => setActiveAction({type: 'SUB', value: null})}>SUB</button>
+                <button className={`h-12 rounded-lg font-black px-5 text-[11px] border ${activeAction?.type === 'SUB' ? 'bg-purple-600 text-white' : 'border-purple-600/30 text-purple-500 hover:bg-purple-600/10'}`} onClick={() => setActiveAction({type: 'SUB', value: null})}>SUB</button>
               )}
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-center min-w-[500px]">
              {activeAction?.type === 'STARTERS' && (
-               <button 
-                  className="bg-emerald-500 text-black px-12 py-3 rounded-xl font-black text-sm" 
-                  onClick={() => {
-                      setActiveAction(null);
-                      if (setStartersValidated) setStartersValidated(true); 
-                  }}
-               >
-                 VALIDER LES JOUEURS
-               </button>
+               <button className="bg-primary text-black px-12 py-3 rounded-xl font-black text-sm" onClick={() => { setActiveAction(null); if (setStartersValidated) setStartersValidated(true); }}>VALIDER LES JOUEURS</button>
              )}
              {pendingFoul && (
-               <div className="flex items-center gap-4 animate-fadeIn">
-                 <div className="flex gap-2">
-                   {['P', 'PO', 'T', 'U', 'D'].map(f => (
-                     <button 
-                       key={f} 
-                       className="w-14 h-12 rounded-lg font-black text-lg border-2 border-red-500/30 text-red-500 bg-transparent hover:bg-red-600 hover:text-white hover:border-red-600 hover:scale-105 transition-all shadow-sm" 
-                       onClick={() => handleConfirmFoul(f)}
-                     >
-                       {f}
-                     </button>
-                   ))}
-                 </div>
+               <div className="flex gap-2">
+                 {['P', 'PO', 'T', 'U', 'D'].map(f => (
+                   <button key={f} className="w-14 h-12 rounded-lg font-black text-lg border-2 border-danger/30 text-danger hover:bg-danger hover:text-white transition-all" onClick={() => handleConfirmFoul(f)}>{f}</button>
+                 ))}
                </div>
              )}
             {pendingAssist && (
               <div className="flex items-center gap-4 animate-fadeIn">
-                <span className="text-emerald-400 font-black text-xs uppercase tracking-widest">
-                  🏀 Passe décisive ?
-                </span>
-                <button 
-                  onClick={() => setPendingAssist(null)}
-                  className="px-4 py-4 bg-gray-600/30 hover:bg-gray-500/50 text-gray-300 border border-gray-500/50 rounded-lg font-black text-[11px] uppercase tracking-widest transition-all cursor-pointer"
-                >
-                  SANS PASSEUR
-                </button>
+                <span className="text-primary-light font-black text-xs uppercase tracking-widest">🏀 Passe décisive ?</span>
+                <button onClick={() => setPendingAssist(null)} className="px-4 py-4 bg-muted-dark/30 text-muted-light border border-muted/50 rounded-lg font-black text-[11px] uppercase transition-all">SANS PASSEUR</button>
               </div>
             )}
           </div>
         )}
 
-        {/* --- ZONE D'ACTION FINALE (DROITE) --- */}
-        {(hasActiveProcess) && (
-          <div className="flex items-center gap-3 border-l border-transparent/10 pl-8 h-12">
-            
+        {hasActiveProcess && (
+          <div className="flex items-center gap-3 border-l border-muted-line pl-8 h-12">
             {((activeAction?.type === 'SUB' && pendingSubs?.length > 0) || isForcedSub) && (
               <button 
                 onClick={handleConfirmSubs}
-                className={`h-full px-8 text-black rounded-xl font-black text-xs shadow-lg transition-all ${
-                  isMissingRequiredSub ? 'bg-gray-500 opacity-50 cursor-not-allowed' :
-                  canPlayShorthanded ? 'bg-orange-500 animate-pulse' : 
-                  'bg-emerald-500 animate-pulse'
-                }`}
+                className={`h-full px-8 text-black rounded-xl font-black text-xs shadow-lg transition-all ${isMissingRequiredSub ? 'bg-muted cursor-not-allowed' : canPlayShorthanded ? 'bg-secondary animate-pulse' : 'bg-primary animate-pulse'}`}
               >
                 {canPlayShorthanded ? 'SORTIR SANS REMPLAÇANT' : 'CONFIRMER'}
               </button>
             )}
-
             {!isForcedSub && !pendingAssist && (
-              <button 
-                onClick={resetAll}
-                className="h-full px-6 bg-amber-500 text-black rounded-xl font-black text-[10px] flex flex-col items-center justify-center leading-tight shadow-lg"
-              >
-                <span className="text-xs">✕</span>
-                <span>ANNULER</span>
+              <button onClick={resetAll} className="h-full px-6 bg-warning text-black rounded-xl font-black text-[10px] flex flex-col items-center justify-center leading-tight shadow-lg">
+                <span className="text-xs">✕</span><span>ANNULER</span>
               </button>
             )}
-
-            {isForcedSub && (
-              <div className="px-4 text-[var(--danger)] font-black text-[10px] animate-pulse text-center leading-tight">
-                SORTIE<br/>OBLIGATOIRE
-              </div>
-            )}
-
+            {isForcedSub && <div className="px-4 text-danger font-black text-[10px] animate-pulse text-center leading-tight">SORTIE<br/>OBLIGATOIRE</div>}
           </div>
         )}
-
       </div>
     </div>
   );

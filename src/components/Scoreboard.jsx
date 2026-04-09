@@ -519,8 +519,6 @@ export default function Scoreboard() {
     setActiveAction(null);
   };
   
-  // DANS Scoreboard.jsx > handleConfirmFoul
-
   const handleConfirmFoul = (typeFoul) => {
     if (!pendingFoul || !canEdit) return;
     
@@ -547,7 +545,6 @@ export default function Scoreboard() {
     if (isA) setPlayersA(updateFouls(playersA));
     else setPlayersB(updateFouls(playersB));
 
-    // 👇 C'EST CETTE LIGNE QUI MANQUAIT 👇
     // On enregistre la faute dans l'historique pour le Play-by-Play et les Fautes d'Équipe
     setHistory([{ 
       team, 
@@ -764,38 +761,38 @@ export default function Scoreboard() {
     <div className="w-full h-full flex flex-col max-w-[1920px] mx-auto p-2 sm:p-4 md:p-6 relative">
       
       {/* TOP BAR PREMIUM */}
-      <div className="flex justify-between items-center mb-6 flex-wrap gap-4 bg-[#15151e]/80 backdrop-blur-md p-4 rounded-2xl border border-white/5 shadow-lg relative z-10">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4 bg-app-panel/80 backdrop-blur-md p-4 rounded-2xl border border-muted-line shadow-lg relative z-10">
         
         <div className="flex items-center gap-4">
           <button 
-            className="bg-black/40 text-[#aaa] font-black tracking-widest uppercase border border-white/10 px-5 py-2.5 rounded-xl hover:bg-white/10 hover:text-white transition-all cursor-pointer shadow-inner text-xs" 
+            className="bg-app-input text-muted-light font-black tracking-widest uppercase border border-muted-line px-5 py-2.5 rounded-xl hover:bg-muted-dark hover:text-white transition-all cursor-pointer shadow-inner text-xs" 
             onClick={handleExit}
           >
             ⬅ RETOUR
           </button>
           
           {canEdit ? (
-            <span className={`flex items-center gap-2 text-[10px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg border shadow-sm ${isOnline ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.8)]'}`}></div>
+            <span className={`flex items-center gap-2 text-[10px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg border shadow-sm ${isOnline ? 'bg-primary/10 text-primary border-primary/30' : 'bg-danger/10 text-danger border-danger/30'}`}>
+              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-primary shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-danger shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></div>
               {isOnline ? 'EN LIGNE' : 'HORS-LIGNE'}
             </span>
           ) : (
-            <span className="bg-blue-500/10 border border-blue-500/30 text-blue-400 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-black flex items-center gap-2 shadow-sm animate-pulse">
+            <span className="bg-action/10 border border-action/30 text-action px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-black flex items-center gap-2 shadow-sm animate-pulse">
               <span className="text-sm">👁️</span> MODE SPECTATEUR (DIRECT)
             </span>
           )}
         </div>
 
         <div className="flex gap-3 items-center">
-            <div className="flex bg-black/40 rounded-xl p-1 border border-white/5 shadow-inner">
+            <div className="flex bg-app-input rounded-xl p-1 border border-muted-line shadow-inner">
               <button 
-                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'court' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`} 
+                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'court' ? 'bg-gradient-to-r from-secondary to-danger text-white shadow-md' : 'bg-transparent text-muted hover:text-muted-light'}`} 
                 onClick={() => !isFinished && setCurrentView('court')}
               >
                 TERRAIN
               </button>
               <button 
-                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'boxscore' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-md' : 'bg-transparent text-[#666] hover:text-[#aaa]'}`} 
+                className={`px-5 py-2 rounded-lg font-black tracking-widest text-xs transition-all ${currentView === 'boxscore' ? 'bg-gradient-to-r from-secondary to-danger text-white shadow-md' : 'bg-transparent text-muted hover:text-muted-light'}`} 
                 onClick={() => setCurrentView('boxscore')}
               >
                 STATS
@@ -814,7 +811,7 @@ export default function Scoreboard() {
             {(!isMatchOver && canEdit) && (
               <button 
                 onClick={handleFinishMatch} 
-                className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-5 py-2.5 rounded-xl font-black tracking-widest text-xs hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer"
+                className="bg-gradient-to-r from-primary to-primary-dark text-white px-5 py-2.5 rounded-xl font-black tracking-widest text-xs hover:shadow-[0_4px_15px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 TERMINER LE MATCH 🏁
               </button>
@@ -867,9 +864,9 @@ export default function Scoreboard() {
           <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
             
             {/* TERRAIN ÉQUIPE A */}
-            <div className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 shadow-[0_0_15px_rgba(249,115,22,0.4)] opacity-80"></div>
-                <h3 className="text-center font-black tracking-widest text-orange-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamA?.name}</h3>
+            <div className="flex-1 w-full bg-app-panel/80 backdrop-blur-md border border-muted-line rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-secondary to-danger shadow-[0_0_15px_rgba(249,115,22,0.4)] opacity-80"></div>
+                <h3 className="text-center font-black tracking-widest text-secondary mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamA?.name}</h3>
                 
                 {/* LES TITULAIRES */}
                 <div className={`grid gap-3 pb-6 ${courtSize === 1 ? 'grid-cols-1 max-w-[280px] mx-auto' : 'grid-cols-2 sm:grid-cols-5'}`}>
@@ -898,9 +895,9 @@ export default function Scoreboard() {
                 {courtSize !== 1 && (
                   <>
                     <div className="flex items-center gap-3 mb-4 mt-2">
-                      <div className="h-px bg-white/10 flex-1"></div>
-                      <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
-                      <div className="h-px bg-white/10 flex-1"></div>
+                      <div className="h-px bg-muted-line flex-1"></div>
+                      <p className="text-center text-muted text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                      <div className="h-px bg-muted-line flex-1"></div>
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -929,9 +926,9 @@ export default function Scoreboard() {
             </div>
 
             {/* TERRAIN ÉQUIPE B */}
-            <div className="flex-1 w-full bg-[#15151e]/80 backdrop-blur-md border border-white/5 rounded-3xl p-5 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[0_0_15px_rgba(59,130,246,0.4)] opacity-80"></div>
-                <h3 className="text-center font-black tracking-widest text-blue-400 mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamB?.name}</h3>
+            <div className="flex-1 w-full bg-app-panel/80 backdrop-blur-md border border-muted-line rounded-3xl p-5 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-action to-action-light shadow-[0_0_15px_rgba(59,130,246,0.4)] opacity-80"></div>
+                <h3 className="text-center font-black tracking-widest text-action mb-6 mt-2 text-lg uppercase drop-shadow-md">{teamB?.name}</h3>
                 
                 {/* LES TITULAIRES */}
                 <div className={`grid gap-3 pb-6 ${courtSize === 1 ? 'grid-cols-1 max-w-[280px] mx-auto' : 'grid-cols-2 sm:grid-cols-5'}`}>
@@ -960,9 +957,9 @@ export default function Scoreboard() {
                 {courtSize !== 1 && (
                   <>
                     <div className="flex items-center gap-3 mb-4 mt-2">
-                      <div className="h-px bg-white/10 flex-1"></div>
-                      <p className="text-center text-[#888] text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
-                      <div className="h-px bg-white/10 flex-1"></div>
+                      <div className="h-px bg-muted-line flex-1"></div>
+                      <p className="text-center text-muted text-[10px] tracking-widest font-black uppercase m-0">BANC</p>
+                      <div className="h-px bg-muted-line flex-1"></div>
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
@@ -993,17 +990,17 @@ export default function Scoreboard() {
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-8 bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl relative z-10">
+        <div className="flex flex-col gap-8 bg-app-panel/80 backdrop-blur-md p-6 rounded-3xl border border-muted-line shadow-2xl relative z-10">
           <BoxscoreTable 
             title={teamA?.name} 
             players={playersA} 
-            color="var(--accent-orange)" 
+            color="#f97316" // secondary
             courtSize={courtSize} 
           />
           <BoxscoreTable 
             title={teamB?.name} 
             players={playersB} 
-            color="var(--accent-blue)" 
+            color="#3b82f6" // action
             courtSize={courtSize} 
           />
         </div>

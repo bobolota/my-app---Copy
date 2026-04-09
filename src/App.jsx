@@ -38,8 +38,7 @@ export default function App() {
 
     
   if (loading) {
-    return <div style={{ minHeight: '100vh', background: 'var(--bg-color, #0f0f13)' }}></div>;
-
+    return <div className="min-h-screen bg-app-bg"></div>;
   }
 
   if (!session) {
@@ -49,7 +48,14 @@ export default function App() {
   return (
     
     <div className="app-layout">
-      <Toaster position="top-center" toastOptions={{ duration: 3000, style: { background: '#333', color: '#fff' } }} />
+      {/* Mise à jour du Toaster avec les couleurs Hex de la charte (app-card et bordure glassmorphism) */}
+      <Toaster 
+        position="top-center" 
+        toastOptions={{ 
+          duration: 3000, 
+          style: { background: '#1A2B1F', color: '#fff', border: '1px solid #ffffff1a' } 
+        }} 
+      />
       
       <Sidebar 
         isSidebarCollapsed={isSidebarCollapsed}
@@ -88,8 +94,12 @@ export default function App() {
         </div>
       </main>
 
+      {/* Remplacement du style en ligne par les classes natives de Tailwind */}
       {isSidebarOpen && (
-        <div onClick={() => setIsSidebarOpen(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }} />
+        <div 
+          onClick={() => setIsSidebarOpen(false)} 
+          className="fixed inset-0 bg-black/50 z-[999]" 
+        />
       )}
 
       {/* --- MODALES GLOBALES DU DASHBOARD --- */}

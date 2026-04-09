@@ -184,15 +184,15 @@ export default function PlayoffsTab({
       const canViewStats = isFinished;
       const disableButton = isCanceled || isForfeit || (isSpectator && !canSpectateLive && !canViewStats);
 
-      let borderClass = 'border-l-[4px] border-l-red-500';
-      if (isOngoing) borderClass = 'border-l-[4px] border-l-blue-500';
-      else if (isCanceled || isForfeit) borderClass = 'border-l-[4px] border-l-[#555]';
-      else if (canLaunchThisMatch || isFinished) borderClass = 'border-l-[4px] border-l-orange-500';
+      let borderClass = 'border-l-[4px] border-l-danger';
+      if (isOngoing) borderClass = 'border-l-[4px] border-l-action';
+      else if (isCanceled || isForfeit) borderClass = 'border-l-[4px] border-l-muted-dark';
+      else if (canLaunchThisMatch || isFinished) borderClass = 'border-l-[4px] border-l-secondary';
 
       return (
           <div 
             key={m.id} 
-            className={`bg-[#1e1e2a] p-4 rounded-xl relative transition-all border border-white/5 shadow-lg w-full ${borderClass} ${draggedMatchId === m.id ? 'opacity-50 scale-95 border-dashed border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5'} ${canEdit ? (draggedMatchId === m.id ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing') : 'cursor-default'} ${isCanceled ? 'opacity-60' : ''}`}
+            className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg w-full ${borderClass} ${draggedMatchId === m.id ? 'opacity-50 scale-95 border-dashed border-secondary shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5'} ${canEdit ? (draggedMatchId === m.id ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing') : 'cursor-default'} ${isCanceled ? 'opacity-60' : ''}`}
             draggable={canEdit}
             onDragStart={(e) => {
                 if(!canEdit) return;
@@ -225,30 +225,30 @@ export default function PlayoffsTab({
                 setDraggedMatchId(null);
             }}
           >
-              {canEdit && <div className="absolute top-2.5 right-3 text-[#444] text-lg hover:text-white cursor-grab transition-colors" title="Glisser pour intervertir">⠿</div>}
+              {canEdit && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-grab transition-colors" title="Glisser pour intervertir">⠿</div>}
 
               {/* RUBANS VISUELS */}
-              {isOngoing && <div className="absolute -top-2 -left-2 bg-blue-500 text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-[#111]">EN COURS</div>}
-              {isFinished && <div className="absolute -top-2 -left-2 bg-[#444] text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-[#111]">TERMINÉ</div>}
-              {isCanceled && <div className="absolute -top-2 -left-2 bg-[#555] text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-[#111]">ANNULÉ</div>}
-              {isForfeit && <div className="absolute -top-2 -left-2 bg-red-600 text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-[#111]">FORFAIT</div>}
+              {isOngoing && <div className="absolute -top-2 -left-2 bg-action text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">EN COURS</div>}
+              {isFinished && <div className="absolute -top-2 -left-2 bg-muted-dark text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">TERMINÉ</div>}
+              {isCanceled && <div className="absolute -top-2 -left-2 bg-muted-dark text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">ANNULÉ</div>}
+              {isForfeit && <div className="absolute -top-2 -left-2 bg-danger-dark text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">FORFAIT</div>}
               
-              <div className="text-[0.65rem] text-orange-400 font-black mb-3 uppercase tracking-widest">{m.label}</div>
+              <div className="text-[0.65rem] text-secondary font-black mb-3 uppercase tracking-widest">{m.label}</div>
               
               {/* NOMS DES ÉQUIPES ET SCORES */}
               {editingScoreId === m.id ? (
-                <div className="flex flex-col gap-2 mt-3 mb-2 bg-black/40 p-3 rounded-xl border border-white/10 shadow-inner">
+                <div className="flex flex-col gap-2 mt-3 mb-2 bg-app-input p-3 rounded-xl border border-muted-line shadow-inner">
                   <div className="flex justify-between items-center gap-4">
                     <span className="text-xs text-white font-bold truncate flex-1">{m.teamA?.name || 'Équipe A'}</span>
-                    <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                    <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(e.target.value)} className="w-14 p-1.5 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner transition-colors" />
                   </div>
                   <div className="flex justify-between items-center gap-4">
                     <span className="text-xs text-white font-bold truncate flex-1">{m.teamB?.name || 'Équipe B'}</span>
-                    <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(e.target.value)} className="w-14 p-1.5 text-center bg-[#15151e] text-white font-black border border-white/10 rounded-lg focus:outline-none focus:border-orange-500 shadow-inner transition-colors" />
+                    <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(e.target.value)} className="w-14 p-1.5 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner transition-colors" />
                   </div>
-                  <div className="flex gap-2 mt-2 pt-2 border-t border-white/5">
-                    <button onClick={(e) => { e.stopPropagation(); setEditingScoreId(null); }} className="flex-1 text-[0.65rem] font-bold text-[#888] hover:text-white py-1.5 transition-colors uppercase tracking-widest cursor-pointer">Annuler</button>
-                    <button onClick={(e) => { e.stopPropagation(); saveManualScore(m.id); }} className="flex-1 text-[0.65rem] font-black bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-white rounded py-1.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-orange-500/30">Valider</button>
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-muted-line">
+                    <button onClick={(e) => { e.stopPropagation(); setEditingScoreId(null); }} className="flex-1 text-[0.65rem] font-bold text-muted hover:text-white py-1.5 transition-colors uppercase tracking-widest cursor-pointer">Annuler</button>
+                    <button onClick={(e) => { e.stopPropagation(); saveManualScore(m.id); }} className="flex-1 text-[0.65rem] font-black bg-secondary/20 text-secondary hover:bg-secondary hover:text-white rounded py-1.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-secondary/30">Valider</button>
                   </div>
                 </div>
               ) : (
@@ -256,34 +256,34 @@ export default function PlayoffsTab({
                   {/* ÉQUIPE A */}
                   <div 
                     onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamA'); }}
-                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamA && !isFinished ? 'cursor-pointer hover:bg-orange-500/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamA' ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamA && !isFinished ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamA' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
                     title={canEdit && m.teamA && !isFinished ? 'Cliquez pour intervertir' : undefined}
                   >
-                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
-                          {m.teamA?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
+                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreA > m.scoreB ? 'text-primary font-black' : 'text-muted-dark font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                          {m.teamA?.name || <span className="text-muted italic font-normal">À déterminer...</span>}
                       </span>
-                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreA}</b>}
+                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-app-input px-2.5 py-1 rounded border border-muted-line">{m.scoreA}</b>}
                   </div>
 
                   {/* ÉQUIPE B */}
                   <div 
                     onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamB'); }}
-                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamB && !isFinished ? 'cursor-pointer hover:bg-orange-500/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamB' ? 'bg-orange-500 text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && m.teamB && !isFinished ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamB' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
                     title={canEdit && m.teamB && !isFinished ? 'Cliquez pour intervertir' : undefined}
                   >
-                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-emerald-400 font-black' : 'text-[#666] font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
-                          {m.teamB?.name || <span className="text-[#555] italic font-normal">À déterminer...</span>}
+                      <span className={`text-sm truncate ${isFinished || isForfeit ? (m.scoreB > m.scoreA ? 'text-primary font-black' : 'text-muted-dark font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
+                          {m.teamB?.name || <span className="text-muted italic font-normal">À déterminer...</span>}
                       </span>
-                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-black/40 px-2.5 py-1 rounded border border-white/5">{m.scoreB}</b>}
+                      {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-app-input px-2.5 py-1 rounded border border-muted-line">{m.scoreB}</b>}
                   </div>
                 </>
               )}
               
-              {m.otm && <div className="text-[0.65rem] font-bold text-[#888] mt-2 mb-1 truncate bg-black/30 border border-white/5 inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-orange-400">{m.otm}</span></div>}
+              {m.otm && <div className="text-[0.65rem] font-bold text-muted mt-2 mb-1 truncate bg-black/30 border border-muted-line inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-secondary">{m.otm}</span></div>}
               
               {/* SAISIE HORAIRE ET TERRAIN */}
                           {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
-                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-white/5">
+                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-muted-line">
                               {/* SÉLECTEUR DE DATE ET HEURE */}
                               <input
                                 type="datetime-local"
@@ -294,7 +294,7 @@ export default function PlayoffsTab({
                                   );
                                   update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
                                 }}
-                                className="flex-[3] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-orange-500 outline-none transition-colors shadow-inner"
+                                className="flex-[3] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner"
                               />
                               
                               {/* SÉLECTEUR DE TERRAIN */}
@@ -308,16 +308,16 @@ export default function PlayoffsTab({
                                   );
                                   update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
                                 }}
-                                className="flex-[2] p-2.5 text-xs bg-black/40 text-white font-bold border border-white/10 rounded-lg focus:border-blue-500 outline-none transition-colors shadow-inner"
+                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner"
                               />
                             </div>
                           )}
 
                           {/* AFFICHAGE DE LA DATE (Pour l'organisateur après saisie, ou en lecture seule) */}
                           {(!canEdit || isFinished || isCanceled || isForfeit) && m.datetime && (
-                             <div className="mt-3 bg-orange-500/10 border border-orange-500/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
+                             <div className="mt-3 bg-secondary/10 border border-secondary/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
                                <span className="text-xs">📅</span>
-                               <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest">
+                               <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
                                  {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
                                </span>
                              </div>
@@ -325,7 +325,7 @@ export default function PlayoffsTab({
 
               {/* BOUTONS ACTIONS OU BYE */}
               {(m.teamA?.isBye || m.teamB?.isBye) ? (
-                  <div className="text-center text-[0.65rem] font-black tracking-widest text-[#888] mt-4 p-2 bg-black/20 rounded-lg border border-dashed border-white/10 uppercase">
+                  <div className="text-center text-[0.65rem] font-black tracking-widest text-muted mt-4 p-2 bg-app-input rounded-lg border border-dashed border-muted-line uppercase">
                       ⏩ Qualification Directe
                   </div>
               ) : (
@@ -344,11 +344,11 @@ export default function PlayoffsTab({
                       }}
                       className={`flex-1 rounded-lg font-black tracking-widest text-[0.65rem] transition-all shadow-md ${
                           disableButton 
-                              ? 'text-[#666] bg-black/40 cursor-not-allowed border border-white/5 shadow-none' 
+                              ? 'text-muted-dark bg-app-input cursor-not-allowed border border-muted-line shadow-none' 
                               : 'text-white cursor-pointer hover:-translate-y-0.5 ' + (
-                                  isFinished ? 'bg-[#333] hover:bg-[#444] border border-white/5 shadow-none text-[#ccc]' : 
-                                  canLaunchThisMatch ? (isOngoing ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:shadow-[0_4px_10px_rgba(59,130,246,0.4)]' : 'bg-gradient-to-r from-emerald-500 to-green-500 hover:shadow-[0_4px_10px_rgba(16,185,129,0.4)]') : 
-                                  'bg-red-500/20 text-red-400 border border-red-500/30 animate-pulse hover:bg-red-500 hover:text-white'
+                                  isFinished ? 'bg-muted-dark hover:bg-muted border border-muted-line shadow-none text-muted-light' : 
+                                  canLaunchThisMatch ? (isOngoing ? 'bg-gradient-to-r from-action to-action-light hover:shadow-[0_4px_10px_rgba(59,130,246,0.4)]' : 'bg-gradient-to-r from-primary to-primary-dark hover:shadow-[0_4px_10px_rgba(16,185,129,0.4)]') : 
+                                  'bg-danger/20 text-danger border border-danger/30 animate-pulse hover:bg-danger hover:text-white'
                               )
                       }`}
                       disabled={disableButton}
@@ -366,7 +366,7 @@ export default function PlayoffsTab({
                             setTempScoreA(m.scoreA || 0); 
                             setTempScoreB(m.scoreB || 0); 
                           }} 
-                          className="w-10 h-10 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:text-white transition-colors shadow-sm" 
+                          className="w-10 h-10 rounded-lg bg-secondary/10 border border-secondary/20 text-secondary flex items-center justify-center text-sm cursor-pointer hover:bg-secondary hover:text-white transition-colors shadow-sm" 
                           title="Saisie / Modification manuelle du score"
                         >
                           ✏️
@@ -375,9 +375,9 @@ export default function PlayoffsTab({
                         {/* AUTRES BOUTONS : Cachés si le match est terminé */}
                         {!isFinished && (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-black/40 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-orange-500 hover:border-orange-400 transition-colors shadow-sm" title="Assigner un OTM">👤</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 text-white flex items-center justify-center text-sm cursor-pointer hover:bg-[#444] transition-colors shadow-sm" title="Annuler le match">❌</button>
-                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 flex items-center justify-center text-sm cursor-pointer hover:bg-red-600 hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-app-input border border-muted-line text-white flex items-center justify-center text-sm cursor-pointer hover:bg-secondary hover:border-secondary transition-colors shadow-sm" title="Assigner un OTM">👤</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-muted-line text-white flex items-center justify-center text-sm cursor-pointer hover:bg-muted-dark transition-colors shadow-sm" title="Annuler le match">❌</button>
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-danger/20 border border-danger/30 text-danger flex items-center justify-center text-sm cursor-pointer hover:bg-danger hover:text-white transition-colors shadow-sm" title="Déclarer Forfait">🏳️</button>
                           </>
                         )}
                       </div>
@@ -395,13 +395,13 @@ export default function PlayoffsTab({
     <div className="py-4 w-full flex-1 flex flex-col box-border">
       
       {/* EN-TÊTE PREMIUM */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-white/10 pb-5 mb-8 gap-5 w-full">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-muted-line pb-5 mb-8 gap-5 w-full">
         <div className="text-left">
           <h2 className="m-0 text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center justify-start gap-3">
             <span className="text-3xl drop-shadow-lg">🏆</span> 
             Phase Finale
           </h2>
-          <p className="mt-2 text-[#888] font-medium text-sm text-left">
+          <p className="mt-2 text-muted font-medium text-sm text-left">
             L'arbre du tournoi. Seuls les meilleurs atteindront le sommet.
           </p>
         </div>
@@ -409,7 +409,7 @@ export default function PlayoffsTab({
         {(tourney.playoffs && canEdit) && (
           <button 
             onClick={() => update({playoffs: null})} 
-            className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-red-500 hover:text-white transition-all shadow-sm shrink-0"
+            className="bg-danger/10 border border-danger/30 text-danger px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-danger hover:text-white transition-all shadow-sm shrink-0"
           >
             RESET TABLEAU ⚠️
           </button>
@@ -418,17 +418,17 @@ export default function PlayoffsTab({
 
       {/* BANNIÈRE MODE ÉCHANGE */}
       {swapSource && (
-        <div className="bg-orange-500/20 border border-orange-500/50 text-orange-400 p-4 rounded-xl mb-6 flex justify-between items-center shadow-lg animate-pulse">
+        <div className="bg-secondary/20 border border-secondary/50 text-secondary p-4 rounded-xl mb-6 flex justify-between items-center shadow-lg animate-pulse">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🔄</span>
             <div>
               <strong className="block text-sm uppercase tracking-widest">Mode Modification des affiches</strong>
-              <span className="text-xs text-[#aaa]">Cliquez sur une autre équipe pour l'échanger avec <b>{swapSource.team.name}</b>.</span>
+              <span className="text-xs text-muted-light">Cliquez sur une autre équipe pour l'échanger avec <b className="text-white">{swapSource.team.name}</b>.</span>
             </div>
           </div>
           <button 
             onClick={() => setSwapSource(null)} 
-            className="bg-black/40 hover:bg-black/60 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors border border-white/10 cursor-pointer"
+            className="bg-app-input hover:bg-app-panel text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors border border-muted-line cursor-pointer"
           >
             ANNULER
           </button>
@@ -436,32 +436,32 @@ export default function PlayoffsTab({
       )}
       
       {!tourney.playoffs ? (
-        <div className="bg-[#15151e]/60 backdrop-blur-md border border-white/5 rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
+        <div className="bg-app-panel/60 backdrop-blur-md border border-muted-line rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
             {/* Lueur de fond douce */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-secondary/10 rounded-full blur-[80px] pointer-events-none"></div>
 
             <div className="text-6xl mb-6 drop-shadow-2xl relative z-10">⏳</div>
             
             {canEdit ? (
                 /* --- VUE ORGANISATEUR --- */
                 <div className="relative z-10 flex flex-col items-center">
-                    <p className="mb-8 text-sm sm:text-base text-[#aaa] font-medium text-center max-w-xl leading-relaxed">
-                        <b className="text-orange-400 text-lg sm:text-xl font-black">{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages de poules.
+                    <p className="mb-8 text-sm sm:text-base text-muted-light font-medium text-center max-w-xl leading-relaxed">
+                        <b className="text-secondary text-lg sm:text-xl font-black">{totalQualified} équipes</b> sont actuellement qualifiées d'après vos réglages de poules.
                     </p>
                     {totalQualified >= 2 ? (
                         <div className="flex flex-col items-center gap-6">
-                            <span className="text-orange-400 text-xs sm:text-sm font-bold text-center bg-orange-500/10 px-5 py-3 rounded-xl border border-orange-500/20">
+                            <span className="text-secondary text-xs sm:text-sm font-bold text-center bg-secondary/10 px-5 py-3 rounded-xl border border-secondary/20">
                                 L'arbre sera généré pour <b>{bracketSize} places</b>. <br/>Les premiers de poules seront potentiellement exemptés (Bye) au 1er tour !
                             </span>
                             <button 
                               onClick={generatePlayoffs} 
-                              className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-xl text-sm sm:text-base font-black tracking-widest cursor-pointer hover:shadow-[0_6px_20px_rgba(249,115,22,0.4)] hover:-translate-y-1 transition-all mt-2"
+                              className="bg-gradient-to-r from-secondary to-danger text-white px-8 py-4 rounded-xl text-sm sm:text-base font-black tracking-widest cursor-pointer hover:shadow-[0_6px_20px_rgba(249,115,22,0.4)] hover:-translate-y-1 transition-all mt-2"
                             >
                                 🚀 GÉNÉRER {getStartRoundName(bracketSize)}
                             </button>
                         </div>
                     ) : (
-                        <div className="text-red-400 text-sm font-bold bg-red-500/10 border border-red-500/20 px-5 py-3 rounded-xl">
+                        <div className="text-danger text-sm font-bold bg-danger/10 border border-danger/20 px-5 py-3 rounded-xl">
                             ⚠️ Il faut au moins 2 équipes qualifiées pour générer l'arbre.
                         </div>
                     )}
@@ -470,10 +470,10 @@ export default function PlayoffsTab({
                 /* --- VUE JOUEUR / SPECTATEUR --- */
                 <div className="relative z-10 flex flex-col items-center">
                     <h3 className="text-xl sm:text-2xl text-white font-black mb-4 tracking-wide">En attente des qualifications</h3>
-                    <p className="text-[#888] max-w-lg mx-auto leading-relaxed text-center text-sm md:text-base font-medium">
+                    <p className="text-muted max-w-lg mx-auto leading-relaxed text-center text-sm md:text-base font-medium">
                         Le tableau de la phase finale sera généré dès que les matchs de poules seront terminés et que les positions seront figées. 
                         <br/><br/>
-                        <span className="text-orange-400 font-black tracking-wide text-base sm:text-lg inline-block mt-2">
+                        <span className="text-secondary font-black tracking-wide text-base sm:text-lg inline-block mt-2">
                             Seuls les meilleurs décrocheront leur ticket pour {getStartRoundName(bracketSize)} !
                         </span>
                     </p>
@@ -486,12 +486,12 @@ export default function PlayoffsTab({
             {columns.map((col) => (
                 <div 
                   key={col.id} 
-                  className={`flex flex-col p-6 rounded-3xl shrink-0 border relative overflow-hidden ${col.isCenter ? 'min-w-[360px] bg-[#15151e]/90 backdrop-blur-md border-orange-500/30 shadow-[0_0_40px_rgba(249,115,22,0.15)] z-10' : 'min-w-[320px] bg-[#15151e]/60 backdrop-blur-sm border-white/5 shadow-xl flex-1'}`}
+                  className={`flex flex-col p-6 rounded-3xl shrink-0 border relative overflow-hidden ${col.isCenter ? 'min-w-[360px] bg-app-panel/90 backdrop-blur-md border-secondary/30 shadow-[0_0_40px_rgba(249,115,22,0.15)] z-10' : 'min-w-[320px] bg-app-panel/60 backdrop-blur-sm border-muted-line shadow-xl flex-1'}`}
                 >
                     {/* Ruban lumineux pour la finale */}
-                    {col.isCenter && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500"></div>}
+                    {col.isCenter && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warning via-secondary to-danger"></div>}
                     
-                    <h3 className={`text-center m-0 mb-8 pb-4 border-b ${col.isCenter ? 'text-orange-400 border-orange-500/30 text-2xl font-black uppercase tracking-widest drop-shadow-md' : 'text-[#aaa] border-white/10 text-lg font-black tracking-widest uppercase'}`}>
+                    <h3 className={`text-center m-0 mb-8 pb-4 border-b ${col.isCenter ? 'text-secondary border-secondary/30 text-2xl font-black uppercase tracking-widest drop-shadow-md' : 'text-muted-light border-muted-line text-lg font-black tracking-widest uppercase'}`}>
                         {col.title}
                     </h3>
                     

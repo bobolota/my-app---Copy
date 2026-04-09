@@ -97,7 +97,6 @@ export default function Dashboard() {
       pin_code: generatedPin, otm_ids: [],
       matchsettings: { 
           courtSize: parseInt(courtSize) || 5, 
-          // 👇 Forçage des valeurs selon le format 👇
           periodCount: parseInt(courtSize) === 5 ? (parseInt(periodCount) || 4) : 1, 
           periodDuration: parseInt(periodDuration) || 10, 
           timeoutsHalf1: parseInt(timeoutsHalf1) || 2, 
@@ -158,12 +157,12 @@ export default function Dashboard() {
     <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1400px] mx-auto relative">
       
       {/* EN-TÊTE PREMIUM */}
-      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+      <div className="mb-8 border-b border-muted-line pb-5 w-full text-left">
         <h1 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
           <span className="text-4xl drop-shadow-lg">🛰️</span> 
           Centre de Contrôle
         </h1>
-        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+        <p className="mt-2 text-muted font-medium text-sm text-left">
           Espace d'administration et de gestion pour organiser tes événements sportifs.
         </p>
       </div>
@@ -181,17 +180,17 @@ export default function Dashboard() {
           <section className="mt-2">
             
             {/* Formulaire de création PREMIUM */}
-            <div className="bg-[#15151e]/80 backdrop-blur-md p-6 rounded-2xl border border-white/5 shadow-2xl relative overflow-hidden mb-10 w-full xl:max-w-[950px] group">
-              {/* Ligne LED décorative */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-600 to-pink-500 shadow-[0_0_15px_rgba(168,85,247,0.6)]"></div>
+            <div className="bg-app-panel/80 backdrop-blur-md p-6 rounded-2xl border border-muted-line shadow-2xl relative overflow-hidden mb-10 w-full xl:max-w-[950px] group">
+              {/* Ligne LED décorative (Action vers Primary) */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-action to-primary shadow-[0_0_15px_rgba(59,130,246,0.6)]"></div>
               
-              <strong className="flex items-center gap-2 text-sm text-purple-400 mb-6 uppercase tracking-widest font-black">
-                <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,1)]"></span>
+              <strong className="flex items-center gap-2 text-sm text-action mb-6 uppercase tracking-widest font-black">
+                <span className="w-2 h-2 rounded-full bg-action animate-pulse shadow-[0_0_8px_rgba(59,130,246,1)]"></span>
                 Créer un nouveau tournoi
               </strong>
               
               <input 
-                className="w-full p-4 rounded-xl border border-white/10 bg-black/40 text-white placeholder-[#555] focus:outline-none focus:border-purple-500 focus:bg-black/60 focus:ring-1 focus:ring-purple-500 transition-all shadow-inner mb-5 font-medium"
+                className="w-full p-4 rounded-xl border border-muted-line bg-app-input text-white placeholder:text-muted-dark focus:outline-none focus:border-action focus:bg-app-bg focus:ring-1 focus:ring-action transition-all shadow-inner mb-5 font-medium"
                 placeholder="Nom de l'événement (ex: Summer League 2026)..." 
                 value={name} 
                 onChange={e => setName(e.target.value)} 
@@ -199,7 +198,7 @@ export default function Dashboard() {
 
               {/* FORMAT DE JEU */}
               <div className="flex flex-col gap-1.5 mb-5">
-                <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Format</label>
+                <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">Format</label>
                 <div className="flex gap-2 h-[42px]">
                   {[
                     { label: '5x5', value: 5 },
@@ -212,8 +211,8 @@ export default function Dashboard() {
                       onClick={() => setCourtSize(format.value)}
                       className={`px-4 rounded-xl font-black tracking-widest text-xs transition-all border ${
                         courtSize === format.value 
-                          ? 'bg-gradient-to-r from-purple-600 to-pink-500 text-white border-transparent shadow-[0_4px_10px_rgba(168,85,247,0.3)]' 
-                          : 'bg-transparent text-[#666] border-white/10 hover:border-purple-500/30 hover:text-white'
+                          ? 'bg-gradient-to-r from-action to-primary text-white border-transparent shadow-[0_4px_10px_rgba(59,130,246,0.3)]' 
+                          : 'bg-transparent text-muted-dark border-muted-line hover:border-action/30 hover:text-white'
                       }`}
                     >
                       {format.label}
@@ -224,23 +223,23 @@ export default function Dashboard() {
 
               {/* NOUVELLES OPTIONS 1v1 / 3x3 (Points & Score Cible) */}
               {(courtSize === 1 || courtSize === 3) && (
-                <div className="flex flex-wrap items-end gap-4 mb-5 p-5 bg-purple-900/10 border border-purple-500/20 rounded-xl shadow-inner relative overflow-hidden">
-                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500/50"></div>
+                <div className="flex flex-wrap items-end gap-4 mb-5 p-5 bg-action/10 border border-action/20 rounded-xl shadow-inner relative overflow-hidden">
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-action/50"></div>
                   
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[0.65rem] text-purple-300 font-bold uppercase tracking-widest">Valeur des Paniers</label>
+                    <label className="text-[0.65rem] text-action-light font-bold uppercase tracking-widest">Valeur des Paniers</label>
                     <div className="flex gap-2 h-[42px]">
                       <button
                         type="button"
                         onClick={() => setPointsSystem('classic')}
-                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'classic' ? 'bg-purple-600 text-white border-transparent shadow-md' : 'bg-black/40 text-[#888] border-white/10 hover:border-purple-500/30 hover:text-white'}`}
+                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'classic' ? 'bg-action text-white border-transparent shadow-md' : 'bg-app-input text-muted border-muted-line hover:border-action/30 hover:text-white'}`}
                       >
                         2 PTS / 3 PTS
                       </button>
                       <button
                         type="button"
                         onClick={() => setPointsSystem('street')}
-                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'street' ? 'bg-purple-600 text-white border-transparent shadow-md' : 'bg-black/40 text-[#888] border-white/10 hover:border-purple-500/30 hover:text-white'}`}
+                        className={`px-4 rounded-xl font-black tracking-widest text-[10px] transition-all border ${pointsSystem === 'street' ? 'bg-action text-white border-transparent shadow-md' : 'bg-app-input text-muted border-muted-line hover:border-action/30 hover:text-white'}`}
                       >
                         1 PT / 2 PTS
                       </button>
@@ -248,17 +247,17 @@ export default function Dashboard() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[0.65rem] text-purple-300 font-bold uppercase tracking-widest" title="Le match se termine automatiquement si atteint">Score Cible (Optionnel)</label>
+                    <label className="text-[0.65rem] text-action-light font-bold uppercase tracking-widest" title="Le match se termine automatiquement si atteint">Score Cible (Optionnel)</label>
                     <div className="relative">
                       <input 
                         type="number" 
                         min="1" 
                         placeholder="ex: 21" 
-                        className="w-[140px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-black placeholder:text-[#555] placeholder:font-medium" 
+                        className="w-[140px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-black placeholder:text-muted-dark placeholder:font-medium" 
                         value={targetScore} 
                         onChange={e => setTargetScore(e.target.value)} 
                       />
-                      {targetScore && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#888]">PTS</span>}
+                      {targetScore && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-muted">PTS</span>}
                     </div>
                   </div>
                 </div>
@@ -271,24 +270,24 @@ export default function Dashboard() {
                 {courtSize === 5 && (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Périodes</label>
-                      <input type="number" min="1" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">Périodes</label>
+                      <input type="number" min="1" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={periodCount} onChange={e => setPeriodCount(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Min/Période</label>
-                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">Min/Période</label>
+                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 1ère MT</label>
-                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">TM 1ère MT</label>
+                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">TM 2ème MT</label>
-                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">TM 2ème MT</label>
+                      <input type="number" min="0" max="10" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={timeoutsHalf2} onChange={e => setTimeoutsHalf2(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes avant exclusion">Fautes Max</label>
-                      <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={maxFouls} onChange={e => setMaxFouls(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest" title="Fautes avant exclusion">Fautes Max</label>
+                      <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={maxFouls} onChange={e => setMaxFouls(e.target.value)} />
                     </div>
                   </>
                 )}
@@ -297,25 +296,25 @@ export default function Dashboard() {
                 {(courtSize === 3 || courtSize === 1) && (
                   <>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Chrono (Min)</label>
-                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">Chrono (Min)</label>
+                      <input type="number" min="1" max="60" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={periodDuration} onChange={e => setPeriodDuration(e.target.value)} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest">Temps Morts</label>
-                      <input type="number" min="0" max="10" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
+                      <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest">Temps Morts</label>
+                      <input type="number" min="0" max="10" className="w-[90px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={timeoutsHalf1} onChange={e => setTimeoutsHalf1(e.target.value)} />
                     </div>
                   </>
                 )}
 
                 {/* COMMUN À TOUS */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[0.65rem] text-[#888] font-bold uppercase tracking-widest" title="Fautes d'équipe avant pénalité">Pénalité ÉQ.</label>
-                  <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-white/10 bg-black/40 text-white text-center focus:outline-none focus:border-purple-500 transition-all shadow-inner font-bold" value={bonusFouls} onChange={e => setBonusFouls(e.target.value)} />
+                  <label className="text-[0.65rem] text-muted font-bold uppercase tracking-widest" title="Fautes d'équipe avant pénalité">Pénalité ÉQ.</label>
+                  <input type="number" min="1" max="15" className="w-[80px] h-[42px] p-2.5 rounded-xl border border-muted-line bg-app-input text-white text-center focus:outline-none focus:border-action transition-all shadow-inner font-bold" value={bonusFouls} onChange={e => setBonusFouls(e.target.value)} />
                 </div>
                 
                 <button 
                   onClick={create} 
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-none rounded-xl px-8 py-2.5 font-black tracking-widest cursor-pointer hover:shadow-[0_6px_20px_rgba(168,85,247,0.5)] transition-all shadow-[0_4px_15px_rgba(168,85,247,0.3)] hover:-translate-y-0.5 ml-auto sm:ml-0 text-sm h-[42px] mt-auto"
+                  className="bg-gradient-to-r from-action to-primary text-white border-none rounded-xl px-8 py-2.5 font-black tracking-widest cursor-pointer hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] transition-all shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:-translate-y-0.5 ml-auto sm:ml-0 text-sm h-[42px] mt-auto"
                 >
                   CRÉER 🚀
                 </button>
@@ -323,24 +322,24 @@ export default function Dashboard() {
             </div>
 
             {/* Kanban Organisateur PREMIUM */}
-            <h3 className="text-[#888] font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-2">
+            <h3 className="text-muted font-black text-sm uppercase tracking-widest mb-6 flex items-center gap-2">
               <span className="text-lg">🗂️</span> Mes tournois gérés
             </h3>
             <div className="flex flex-col lg:flex-row gap-6 overflow-x-auto pb-5 custom-scrollbar">
               <KanbanColumn 
-                title="PRÉPARATION" status="preparing" accentHex="#9d4edd"
+                title="PRÉPARATION" status="preparing" accentHex="#f97316" // Orange (secondary)
                 visibleTournaments={myOrganizedTourneys} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
                 setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
               />
               <KanbanColumn 
-                title="EN COURS" status="ongoing" accentHex="#3b82f6" // Changé en bleu pour correspondre au nouveau style
+                title="EN COURS" status="ongoing" accentHex="#3b82f6" // Bleu (action)
                 visibleTournaments={myOrganizedTourneys} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
                 setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
               />
               <KanbanColumn 
-                title="TERMINÉ" status="finished" accentHex="#10b981" // Changé en vert émeraude premium
+                title="TERMINÉ" status="finished" accentHex="#10b981" // Vert (primary)
                 visibleTournaments={myOrganizedTourneys} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
                 userRole={userRole} session={session} onDragStart={onDragStart} onDragEnd={onDragEnd}
                 setActiveTourneyId={setActiveTourneyId} setView={setView} draggedId={draggedId} deleteTourney={deleteTourney}
@@ -351,26 +350,26 @@ export default function Dashboard() {
 
         {/* 🟢 SECTION 4 : COMPTE VIDE (Raccourcis) */}
         {!canCreate && myUpcomingMatches.length === 0 && myOtmMatches.length === 0 && (
-          <div className="bg-[#15151e]/60 backdrop-blur-md border border-white/5 rounded-3xl p-10 sm:p-14 text-center mt-8 shadow-2xl relative overflow-hidden flex flex-col items-center">
+          <div className="bg-app-panel/60 backdrop-blur-md border border-muted-line rounded-3xl p-10 sm:p-14 text-center mt-8 shadow-2xl relative overflow-hidden flex flex-col items-center">
             {/* Lueur de fond douce */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-action/10 rounded-full blur-[80px] pointer-events-none"></div>
 
             <div className="text-6xl mb-6 drop-shadow-2xl">👋</div>
             <h2 className="text-2xl sm:text-3xl text-white font-black mb-3 tracking-wide">Bienvenue dans ton Espace !</h2>
-            <p className="text-[#888] max-w-md mb-10 leading-relaxed text-sm font-medium">
+            <p className="text-muted max-w-md mb-10 leading-relaxed text-sm font-medium">
               Tu n'as aucun match prévu pour le moment. Rejoins une équipe ou explore les tournois publics pour commencer l'aventure.
             </p>
             
             <div className="flex gap-4 flex-wrap justify-center relative z-10">
               <button 
                 onClick={() => setView('explorer')} 
-                className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white px-8 py-3.5 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-1"
+                className="bg-gradient-to-r from-action to-action-light text-white px-8 py-3.5 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(59,130,246,0.3)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] transition-all hover:-translate-y-1"
               >
                 EXPLORER 🌍
               </button>
               <button 
                 onClick={() => setView('vestiaire')} 
-                className="bg-black/50 backdrop-blur-sm border border-white/10 text-white px-8 py-3.5 rounded-xl font-black tracking-widest text-sm hover:bg-white/10 transition-colors shadow-lg"
+                className="bg-app-input/50 backdrop-blur-sm border border-muted-line text-white px-8 py-3.5 rounded-xl font-black tracking-widest text-sm hover:bg-muted-line transition-colors shadow-lg"
               >
                 VESTIAIRE 👟
               </button>

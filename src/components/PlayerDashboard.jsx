@@ -446,15 +446,15 @@ export default function PlayerDashboard() {
   if (loading) {
     return (
       <div className="w-full max-w-[1400px] mx-auto p-4 sm:p-6">
-        <div className="h-10 bg-white/5 border border-white/10 rounded-2xl w-1/3 animate-pulse mb-10"></div>
+        <div className="h-10 bg-app-input border border-muted-line rounded-2xl w-1/3 animate-pulse mb-10"></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map(n => (
-            <div key={n} className="bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-white/10"></div>
-              <div className="h-8 bg-white/10 rounded-lg w-3/5 animate-pulse mb-6"></div>
-              <div className="h-4 bg-white/5 rounded w-full animate-pulse mb-3"></div>
-              <div className="h-4 bg-white/5 rounded w-4/5 animate-pulse mb-6"></div>
-              <div className="h-12 bg-white/10 rounded-xl w-full animate-pulse mt-4"></div>
+            <div key={n} className="bg-app-panel/80 backdrop-blur-md p-6 rounded-3xl border border-muted-line shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-muted-line"></div>
+              <div className="h-8 bg-muted-line rounded-lg w-3/5 animate-pulse mb-6"></div>
+              <div className="h-4 bg-muted-dark/30 rounded w-full animate-pulse mb-3"></div>
+              <div className="h-4 bg-muted-dark/30 rounded w-4/5 animate-pulse mb-6"></div>
+              <div className="h-12 bg-app-input rounded-xl w-full animate-pulse mt-4"></div>
             </div>
           ))}
         </div>
@@ -492,20 +492,20 @@ export default function PlayerDashboard() {
         {/* MODALE DE TRANSFERT DE CAPITANAT PREMIUM */}
         {transferModalOpen && (
           <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] backdrop-blur-sm p-4">
-            <div className="bg-[#15151e]/95 backdrop-blur-xl p-8 rounded-3xl border border-white/10 w-full max-w-[420px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
+            <div className="bg-app-panel/95 backdrop-blur-xl p-8 rounded-3xl border border-muted-line w-full max-w-[420px] text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden">
               
               {/* Ligne LED et lueur orange */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-red-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full pointer-events-none opacity-20 bg-orange-500"></div>
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-secondary to-danger shadow-[0_0_15px_rgba(249,115,22,0.4)]"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] rounded-full pointer-events-none opacity-20 bg-secondary"></div>
               
-              <h3 className="mt-2 mb-6 text-orange-400 text-2xl font-black tracking-wide drop-shadow-md">👑 Léguer le Brassard</h3>
+              <h3 className="mt-2 mb-6 text-secondary text-2xl font-black tracking-wide drop-shadow-md">👑 Léguer le Brassard</h3>
               
               <div className="text-left mb-8 relative z-10">
-                <label className="block mb-2 text-[#aaa] text-[10px] font-black uppercase tracking-widest ml-1">Sélectionner le joueur :</label>
+                <label className="block mb-2 text-muted-light text-[10px] font-black uppercase tracking-widest ml-1">Sélectionner le joueur :</label>
                 <select
                   value={selectedNewCaptainId}
                   onChange={(e) => setSelectedNewCaptainId(e.target.value)}
-                  className="w-full p-4 rounded-xl bg-black/40 text-white font-bold border border-white/10 focus:outline-none focus:border-orange-500 focus:bg-black/60 transition-all shadow-inner appearance-none cursor-pointer text-sm"
+                  className="w-full p-4 rounded-xl bg-app-input text-white font-bold border border-muted-line focus:outline-none focus:border-secondary focus:bg-app-bg transition-all shadow-inner appearance-none cursor-pointer text-sm"
                 >
                   <option value="">-- Choisir dans l'effectif --</option>
                   {roster.filter(p => p.status === 'accepted' && p.player_id !== session.user.id && !p.isGhost).map(p => (
@@ -517,13 +517,13 @@ export default function PlayerDashboard() {
               <div className="flex gap-4 justify-center relative z-10">
                 <button 
                   onClick={() => { setTransferModalOpen(false); setSelectedNewCaptainId(""); }} 
-                  className="px-5 py-3.5 bg-black/40 text-[#888] border border-white/5 rounded-xl cursor-pointer font-black text-xs tracking-widest uppercase flex-1 hover:bg-white/10 hover:text-white transition-all shadow-inner"
+                  className="px-5 py-3.5 bg-app-input text-muted border border-muted-line rounded-xl cursor-pointer font-black text-xs tracking-widest uppercase flex-1 hover:bg-white/10 hover:text-white transition-all shadow-inner"
                 >
                   Annuler
                 </button>
                 <button 
                   onClick={handleTransferCaptaincy} 
-                  className="px-5 py-3.5 border-none rounded-xl cursor-pointer font-black tracking-widest uppercase text-xs flex-1 text-white shadow-lg transition-all hover:-translate-y-0.5 bg-gradient-to-r from-orange-500 to-red-500 hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)]"
+                  className="px-5 py-3.5 border-none rounded-xl cursor-pointer font-black tracking-widest uppercase text-xs flex-1 text-white shadow-lg transition-all hover:-translate-y-0.5 bg-gradient-to-r from-secondary to-danger hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)]"
                 >
                   Valider
                 </button>

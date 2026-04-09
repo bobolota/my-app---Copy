@@ -52,21 +52,49 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
 
   // --- SOUS-COMPOSANTS VISUELS COMPACTS ---
   const MenuCategory = ({ title }) => (
-    <div className={`menu-category text-[10px] font-bold uppercase tracking-[0.1em] text-[#444] mt-8 mb-3 flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-5'}`}>
+    <div className={`menu-category text-[10px] font-bold uppercase tracking-[0.1em] text-muted-dark mt-8 mb-3 flex items-center ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-5'}`}>
       {isSidebarCollapsed ? (
-        <span className="w-6 h-px bg-white/5 rounded-full"></span>
+        <span className="w-6 h-px bg-muted-line rounded-full"></span>
       ) : (
         <>
-          <span className="w-3 h-px bg-white/10 rounded-full"></span> 
+          <span className="w-3 h-px bg-muted-line rounded-full"></span> 
           {title}
         </>
       )}
     </div>
   );
 
-  const MenuItem = ({ id, icon, label, isActive, colorClass }) => {
-    const hoverColorClass = colorClass.split(' ')[0].replace('from-', 'text-');
-    const hoverBgClass = colorClass.split(' ')[0].replace('from-', 'bg-').replace('-600', '-500/10').replace('-500', '-400/10');
+  const MenuItem = ({ id, icon, label, isActive, theme }) => {
+    // Dictionnaire statique pour les classes de survol
+    const themeClasses = {
+      primary: {
+        gradient: 'from-primary to-primary-dark',
+        hoverIcon: 'group-hover:text-primary group-hover:bg-primary/10',
+        hoverText: 'group-hover:text-primary'
+      },
+      action: {
+        gradient: 'from-action to-action-dark',
+        hoverIcon: 'group-hover:text-action group-hover:bg-action/10',
+        hoverText: 'group-hover:text-action'
+      },
+      secondary: {
+        gradient: 'from-secondary to-secondary-dark',
+        hoverIcon: 'group-hover:text-secondary group-hover:bg-secondary/10',
+        hoverText: 'group-hover:text-secondary'
+      },
+      danger: {
+        gradient: 'from-danger to-danger-dark',
+        hoverIcon: 'group-hover:text-danger group-hover:bg-danger/10',
+        hoverText: 'group-hover:text-danger'
+      },
+      muted: {
+        gradient: 'from-muted-dark to-muted',
+        hoverIcon: 'group-hover:text-white group-hover:bg-white/5',
+        hoverText: 'group-hover:text-white'
+      }
+    };
+
+    const currentTheme = themeClasses[theme] || themeClasses.primary;
 
     return (
       <button 
@@ -74,23 +102,23 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
           ${isSidebarCollapsed 
             ? 'justify-center h-12' 
             : 'gap-3 p-2.5 px-5 rounded-xl'} 
-          ${isActive && !isSidebarCollapsed ? 'text-white' : 'text-[#666] bg-transparent'}`} 
+          ${isActive && !isSidebarCollapsed ? 'text-white' : 'text-muted bg-transparent'}`} 
         onClick={() => handleMenuClick(id)}
       >
         {isActive && !isSidebarCollapsed && (
-          <div className={`absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-full bg-gradient-to-b ${colorClass}`}></div>
+          <div className={`absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-full bg-gradient-to-b ${currentTheme.gradient}`}></div>
         )}
         
         <div className={`menu-icon flex items-center justify-center transition-all duration-200 shrink-0
           ${isSidebarCollapsed ? 'w-10 h-10 text-xl' : 'w-9 h-9 text-lg'} 
           ${isActive 
-            ? `bg-gradient-to-br ${colorClass} text-white rounded-lg shadow-md` 
-            : `bg-transparent text-[#555] rounded-lg group-hover:${hoverColorClass} group-hover:${hoverBgClass}`}`}>
+            ? `bg-gradient-to-br ${currentTheme.gradient} text-white rounded-lg shadow-md` 
+            : `bg-transparent text-muted-dark rounded-lg ${currentTheme.hoverIcon}`}`}>
           {icon}
         </div>
         
         {!isSidebarCollapsed && (
-          <span className={`sidebar-text font-semibold text-[15px] whitespace-nowrap animate-fadeIn transition-colors ${isActive ? 'text-white' : `group-hover:${hoverColorClass}`}`}>
+          <span className={`sidebar-text font-semibold text-[15px] whitespace-nowrap animate-fadeIn transition-colors ${isActive ? 'text-white' : currentTheme.hoverText}`}>
             {label}
           </span>
         )}
@@ -100,20 +128,21 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
 
   return (
     <aside 
-      className={`app-sidebar bg-[#08080a] border-r border-white/5 group transition-all duration-300 ease-in-out
+      /* 👇 C'est ici que j'ai retiré le 'group' qui posait problème 👇 */
+      className={`app-sidebar bg-app-panel border-r border-muted-line transition-all duration-300 ease-in-out
         ${isSidebarCollapsed ? 'w-[80px] collapsed' : 'w-[280px]'} 
         ${isSidebarOpen ? 'mobile-open' : ''}`}
     >
       
       {/* HEADER COMPACT */}
-      <div className={`sidebar-header flex items-center py-8 border-b border-white/5 mb-4 relative z-10 ${isSidebarCollapsed ? 'justify-center px-0' : 'px-6'}`}>
+      <div className={`sidebar-header flex items-center h-16 border-b border-muted-line mb-4 relative z-10 ${isSidebarCollapsed ? 'justify-center px-0' : 'px-6'}`}>
         <div 
           className={`flex items-center cursor-pointer transition-all duration-300 hover:opacity-80 active:scale-95 ${isSidebarCollapsed ? 'justify-center w-full' : 'gap-3'}`}
           onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         >
           <div className="text-2xl shrink-0">🏀</div>
           {!isSidebarCollapsed && (
-            <span className="text-[var(--accent-orange)] font-black tracking-widest text-2xl drop-shadow-sm">
+            <span className="text-secondary font-black tracking-widest text-2xl drop-shadow-sm">
               SWISH
             </span>
           )}
@@ -124,24 +153,24 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
       <div className={`sidebar-menu pb-10 overflow-y-auto custom-scrollbar ${isSidebarCollapsed ? 'px-0 flex flex-col items-center' : 'px-2'}`}>
         
         <MenuCategory title="JOUEUR" />
-        <MenuItem id="vestiaire" icon="👟" label="Mon Vestiaire" isActive={activeMenu === 'vestiaire' && view === 'dashboard'} colorClass="from-emerald-600 to-teal-500" />
-        <MenuItem id="mercato" icon="🤝" label="Le Mercato" isActive={activeMenu === 'mercato' && view === 'dashboard'} colorClass="from-blue-600 to-indigo-500" />
-        <MenuItem id="carriere" icon="📊" label="Ma Carrière" isActive={activeMenu === 'carriere' && view === 'dashboard'} colorClass="from-orange-500 to-rose-500" />
+        <MenuItem id="vestiaire" icon="👟" label="Mon Vestiaire" isActive={activeMenu === 'vestiaire' && view === 'dashboard'} theme="primary" />
+        <MenuItem id="mercato" icon="🤝" label="Le Mercato" isActive={activeMenu === 'mercato' && view === 'dashboard'} theme="action" />
+        <MenuItem id="carriere" icon="📊" label="Ma Carrière" isActive={activeMenu === 'carriere' && view === 'dashboard'} theme="secondary" />
 
         <MenuCategory title="TOURNOIS" />
-        <MenuItem id="explorer" icon="🌍" label="Explorer les tournois" isActive={activeMenu === 'explorer' && view === 'dashboard'} colorClass="from-purple-600 to-pink-500" />
+        <MenuItem id="explorer" icon="🌍" label="Explorer les tournois" isActive={activeMenu === 'explorer' && view === 'dashboard'} theme="primary" />
 
         {isOtm && (
           <>
             <MenuCategory title="TABLE" />
-            <MenuItem id="arbitrage" icon="🖥️" label="Mes Arbitrages" isActive={activeMenu === 'arbitrage' && view === 'dashboard'} colorClass="from-green-600 to-blue-600" />
+            <MenuItem id="arbitrage" icon="🖥️" label="Mes Arbitrages" isActive={activeMenu === 'arbitrage' && view === 'dashboard'} theme="danger" />
           </>
         )}
         
         {userSubscription === 'PRO' && (
           <>
             <MenuCategory title="ADMIN" />
-            <MenuItem id="dashboard_orga" icon="🛰️" label="Centre de Contrôle" isActive={activeMenu === 'dashboard_orga' && view === 'dashboard'} colorClass="from-zinc-700 to-zinc-500" />
+            <MenuItem id="dashboard_orga" icon="🛰️" label="Centre de Contrôle" isActive={activeMenu === 'dashboard_orga' && view === 'dashboard'} theme="muted" />
           </>
         )}
       </div>

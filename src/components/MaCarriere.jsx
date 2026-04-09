@@ -111,15 +111,15 @@ export default function MaCarriere({ userProfile, tournaments }) {
   // 🎨 PETITS COMPOSANTS VISUELS PREMIUM
   // ==========================================
   const StatCard = ({ label, value, color }) => (
-    <div className="bg-[#1e1e2a] p-5 rounded-2xl border border-white/5 flex-1 min-w-[140px] text-center shadow-lg hover:-translate-y-1 hover:shadow-xl transition-all relative overflow-hidden group">
+    <div className="bg-app-card p-5 rounded-2xl border border-muted-line flex-1 min-w-[140px] text-center shadow-lg hover:-translate-y-1 hover:shadow-xl transition-all relative overflow-hidden group">
       <div className="absolute top-0 left-0 right-0 h-1 opacity-80" style={{ backgroundColor: color }}></div>
-      <div className="text-[10px] text-[#888] mb-2 uppercase tracking-widest font-black group-hover:text-[#aaa] transition-colors">{label}</div>
+      <div className="text-[10px] text-muted mb-2 uppercase tracking-widest font-black group-hover:text-muted-light transition-colors">{label}</div>
       <div className="text-4xl font-black text-white drop-shadow-md">{value}</div>
     </div>
   );
 
   const SectionHeader = ({ title, icon }) => (
-    <h3 className="text-white border-b border-white/10 pb-3 mt-12 mb-6 text-lg font-black flex items-center gap-3 uppercase tracking-widest">
+    <h3 className="text-white border-b border-muted-line pb-3 mt-12 mb-6 text-lg font-black flex items-center gap-3 uppercase tracking-widest">
       <span className="text-2xl drop-shadow-md">{icon}</span> {title}
     </h3>
   );
@@ -131,29 +131,29 @@ export default function MaCarriere({ userProfile, tournaments }) {
     <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1400px] mx-auto relative">
       
       {/* EN-TÊTE PREMIUM */}
-      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+      <div className="mb-8 border-b border-muted-line pb-5 w-full text-left">
         <h1 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
           <span className="text-4xl drop-shadow-lg">📊</span>
           Ma Carrière
         </h1>
-        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+        <p className="mt-2 text-muted font-medium text-sm text-left">
           Retrouve l'intégralité de tes statistiques, tes records personnels et ton historique de matchs.
         </p>
       </div>
       
-      <div className="bg-[#15151e]/80 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden flex-1 flex flex-col">
+      <div className="bg-app-panel/80 backdrop-blur-md p-6 sm:p-8 rounded-3xl border border-muted-line shadow-2xl relative overflow-hidden flex-1 flex flex-col">
         
         {/* Un petit fond stylé */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 opacity-50 blur-[100px] rounded-full pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-secondary/10 opacity-50 blur-[100px] rounded-full pointer-events-none"></div>
 
         <div className="relative z-10 flex-1 flex flex-col">
             
           {/* L'en-tête du profil PREMIUM (VERSION COMPACTE) */}
-          <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6 bg-[#1e1e2a]/80 backdrop-blur-sm p-4 sm:p-5 rounded-2xl border border-white/5 shadow-xl relative overflow-hidden mb-6">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 rounded-full blur-[60px] pointer-events-none"></div>
+          <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6 bg-app-card/80 backdrop-blur-sm p-4 sm:p-5 rounded-2xl border border-muted-line shadow-xl relative overflow-hidden mb-6">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/20 rounded-full blur-[60px] pointer-events-none"></div>
               
               {/* L'initiale plus petite (w-16 h-16 au lieu de w-24 h-24) */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-orange-600 to-yellow-500 flex items-center justify-center text-3xl font-black text-white shadow-[0_0_20px_rgba(249,115,22,0.3)] border-2 border-white/10 shrink-0 z-10">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-secondary-dark to-warning flex items-center justify-center text-3xl font-black text-white shadow-[0_0_20px_rgba(249,115,22,0.3)] border-2 border-muted-line shrink-0 z-10">
                   {currentUserName.charAt(0).toUpperCase()}
               </div>
               
@@ -161,13 +161,13 @@ export default function MaCarriere({ userProfile, tournaments }) {
                   {/* Le nom et le badge alignés pour gagner en hauteur */}
                   <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 mb-3">
                     <h2 className="text-2xl sm:text-3xl font-black text-white m-0 tracking-wide">{currentUserName}</h2>
-                    <span className="text-orange-400 font-black tracking-widest text-[9px] uppercase bg-orange-500/10 px-2 py-0.5 rounded border border-orange-500/20">
+                    <span className="text-secondary font-black tracking-widest text-[9px] uppercase bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20">
                       PROFIL OFFICIEL
                     </span>
                   </div>
                   
                   {/* LE SÉLECTEUR D'ONGLETS INTÉGRÉ AU PROFIL */}
-                  <div className="flex bg-black/40 border border-white/10 rounded-xl overflow-hidden shadow-inner w-full sm:w-fit mx-auto sm:mx-0">
+                  <div className="flex bg-app-input border border-muted-line rounded-xl overflow-hidden shadow-inner w-full sm:w-fit mx-auto sm:mx-0">
                     {[
                       { val: 5, label: "5x5 CLASSIC" },
                       { val: 3, label: "3x3 STREET" },
@@ -178,8 +178,8 @@ export default function MaCarriere({ userProfile, tournaments }) {
                         onClick={() => setActiveFormat(tab.val)}
                         className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 sm:py-2.5 font-black text-[10px] sm:text-xs tracking-widest transition-all ${
                           activeFormat === tab.val
-                            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]'
-                            : 'text-[#888] hover:bg-white/5 hover:text-white'
+                            ? 'bg-gradient-to-r from-secondary to-danger text-white shadow-[0_0_15px_rgba(249,115,22,0.5)]'
+                            : 'text-muted hover:bg-white/5 hover:text-white'
                         }`}
                       >
                         {tab.label}
@@ -194,7 +194,7 @@ export default function MaCarriere({ userProfile, tournaments }) {
             <div className="flex flex-col items-center justify-center p-10 py-24 relative z-10 text-center flex-1">
               <span className="text-6xl mb-6 drop-shadow-2xl">👟</span>
               <h3 className="text-white text-2xl font-black mb-3 tracking-wide">Aucune statistique en {activeFormat}x{activeFormat}</h3>
-              <p className="text-[#888] text-sm font-medium max-w-md leading-relaxed m-0">
+              <p className="text-muted text-sm font-medium max-w-md leading-relaxed m-0">
                 Joue ton premier match dans ce format et assure-toi que la table de marque enregistre les stats pour les voir ici !
               </p>
             </div>
@@ -202,11 +202,11 @@ export default function MaCarriere({ userProfile, tournaments }) {
             <>
               {/* Le petit résumé des totaux rapides */}
               <div className="flex flex-wrap gap-3 justify-center sm:justify-start mt-6">
-                  <span className="bg-black/40 border border-white/10 px-4 py-2 rounded-xl text-xs font-black tracking-widest text-[#888] shadow-inner">
+                  <span className="bg-app-input border border-muted-line px-4 py-2 rounded-xl text-xs font-black tracking-widest text-muted shadow-inner">
                     <span className="text-white text-sm mr-1">{careerStats.gp}</span> MATCHS JOUÉS
                   </span>
-                  <span className="bg-black/40 border border-white/10 px-4 py-2 rounded-xl text-xs font-black tracking-widest text-[#888] shadow-inner">
-                    <span className="text-emerald-400 text-sm mr-1">{matchHistory.filter(m=>m.isWin).length}</span> VICTOIRES
+                  <span className="bg-app-input border border-muted-line px-4 py-2 rounded-xl text-xs font-black tracking-widest text-muted shadow-inner">
+                    <span className="text-primary text-sm mr-1">{matchHistory.filter(m=>m.isWin).length}</span> VICTOIRES
                   </span>
               </div>
 
@@ -236,38 +236,38 @@ export default function MaCarriere({ userProfile, tournaments }) {
               <SectionHeader title={`Derniers matchs joués (${activeFormat}x${activeFormat})`} icon="📅" />
               <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
                   {matchHistory.map((m, i) => (
-                      <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-[#1e1e2a] border border-white/5 p-4 sm:p-5 rounded-2xl hover:border-white/20 transition-all gap-4 group hover:-translate-y-0.5 shadow-lg">
+                      <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-app-card border border-muted-line p-4 sm:p-5 rounded-2xl hover:border-muted transition-all gap-4 group hover:-translate-y-0.5 shadow-lg">
                           
                           <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-md border border-white/10 shrink-0 ${m.isWin ? 'bg-gradient-to-tr from-emerald-500 to-green-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-tr from-red-500 to-rose-600 shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-md border border-muted-line shrink-0 ${m.isWin ? 'bg-gradient-to-tr from-primary to-primary-dark shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-tr from-danger to-danger-dark shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
                                   {m.isWin ? 'W' : 'L'}
                               </div>
                               <div className="flex flex-col">
-                                  <div className="text-white font-black text-lg tracking-wide group-hover:text-orange-300 transition-colors">{m.teamName}</div>
-                                  <div className="text-[#888] text-[10px] font-bold tracking-widest uppercase mt-1 flex flex-wrap items-center gap-2">
+                                  <div className="text-white font-black text-lg tracking-wide group-hover:text-secondary-light transition-colors">{m.teamName}</div>
+                                  <div className="text-muted text-[10px] font-bold tracking-widest uppercase mt-1 flex flex-wrap items-center gap-2">
                                       <span>🏆 {m.tourneyName}</span>
-                                      <span className="w-1 h-1 rounded-full bg-[#555] hidden sm:block"></span>
-                                      <span className="bg-black/40 px-2 py-0.5 rounded border border-white/5">Score: <b className="text-[#ccc]">{m.finalScore}</b></span>
+                                      <span className="w-1 h-1 rounded-full bg-muted-dark hidden sm:block"></span>
+                                      <span className="bg-app-input px-2 py-0.5 rounded border border-muted-line">Score: <b className="text-muted-light">{m.finalScore}</b></span>
                                   </div>
                               </div>
                           </div>
                           
-                          <div className="flex gap-2 sm:gap-4 bg-black/40 px-4 py-2.5 rounded-xl border border-white/5 w-full sm:w-auto justify-between sm:justify-start shadow-inner">
+                          <div className="flex gap-2 sm:gap-4 bg-app-input px-4 py-2.5 rounded-xl border border-muted-line w-full sm:w-auto justify-between sm:justify-start shadow-inner">
                               <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-[#666] font-black tracking-widest">PTS</span>
+                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">PTS</span>
                                   <span className="text-white font-black text-sm">{m.pts}</span>
                               </div>
                               <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-[#666] font-black tracking-widest">REB</span>
+                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">REB</span>
                                   <span className="text-white font-black text-sm">{m.reb}</span>
                               </div>
                               <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-[#666] font-black tracking-widest">AST</span>
+                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">AST</span>
                                   <span className="text-white font-black text-sm">{m.ast}</span>
                               </div>
-                              <div className="flex flex-col items-center min-w-[40px] pl-2 sm:pl-4 border-l border-white/10">
-                                  <span className="text-[10px] text-orange-400 font-black tracking-widest">ÉVAL</span>
-                                  <span className="text-orange-400 font-black text-sm drop-shadow-md">{m.eff}</span>
+                              <div className="flex flex-col items-center min-w-[40px] pl-2 sm:pl-4 border-l border-muted-line">
+                                  <span className="text-[10px] text-secondary font-black tracking-widest">ÉVAL</span>
+                                  <span className="text-secondary font-black text-sm drop-shadow-md">{m.eff}</span>
                               </div>
                           </div>
 

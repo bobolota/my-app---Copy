@@ -59,14 +59,23 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-[#111] text-white p-5">
-      <div className="bg-[#222] p-8 sm:p-10 rounded-xl w-full max-w-[450px] shadow-[0_4px_20px_rgba(0,0,0,0.6)] border border-[#333]">
-        <h2 className="text-center mb-6 text-[var(--accent-orange,#ff6b00)] text-2xl font-black tracking-wide">
+    // 👇 bg-app-bg remplace #111
+    <div className="flex justify-center items-center min-h-screen bg-app-bg text-white p-5 font-sans">
+      {/* 👇 bg-app-panel remplace #222 et border-muted-line remplace #333 */}
+      <div className="bg-app-panel p-8 sm:p-10 rounded-2xl w-full max-w-[450px] shadow-[0_10px_40px_rgba(0,0,0,0.7)] border border-muted-line">
+        
+        {/* 👇 text-secondary remplace var(--accent-orange) */}
+        <h2 className="text-center mb-6 text-secondary text-2xl font-black tracking-wide uppercase">
           {isLogin ? 'Connexion' : 'Créer un compte'}
         </h2>
         
         {message.text && (
-          <div className={`p-3 mb-5 rounded-lg text-center text-sm font-bold ${message.type === 'error' ? 'bg-[rgba(255,0,0,0.1)] text-[#ff4444] border border-[#ff4444]' : 'bg-[rgba(0,255,0,0.1)] text-[#44ff44] border border-[#44ff44]'}`}>
+          // 👇 danger remplace #ff4444 et success remplace #44ff44
+          <div className={`p-4 mb-5 rounded-xl text-center text-xs font-black uppercase tracking-widest border ${
+            message.type === 'error' 
+              ? 'bg-danger/10 text-danger border-danger/30' 
+              : 'bg-success/10 text-success border-success/30'
+          }`}>
             {message.text}
           </div>
         )}
@@ -75,26 +84,26 @@ export default function Auth() {
           
           {!isLogin && (
             <>
-              {/* flex-col sur mobile, flex-row sur écran plus large */}
               <div className="flex flex-col sm:flex-row gap-3">
+                {/* 👇 bg-app-input remplace #333 et border-muted-dark remplace #444 */}
                 <input 
                   type="text" placeholder="Prénom" value={firstName} onChange={(e) => setFirstName(e.target.value)} required
-                  className="flex-1 p-3 rounded-lg border border-[#444] bg-[#333] text-white w-full focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
+                  className="flex-1 p-3.5 rounded-xl border border-muted-dark bg-app-input text-white w-full focus:outline-none focus:border-secondary transition-all shadow-inner"
                 />
                 <input 
                   type="text" placeholder="Nom" value={lastName} onChange={(e) => setLastName(e.target.value)} required
-                  className="flex-1 p-3 rounded-lg border border-[#444] bg-[#333] text-white w-full focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
+                  className="flex-1 p-3.5 rounded-xl border border-muted-dark bg-app-input text-white w-full focus:outline-none focus:border-secondary transition-all shadow-inner"
                 />
               </div>
 
               <input 
                 type="text" placeholder="Ville" value={city} onChange={(e) => setCity(e.target.value)} required
-                className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
+                className="p-3.5 rounded-xl border border-muted-dark bg-app-input text-white focus:outline-none focus:border-secondary transition-all shadow-inner"
               />
 
-              {/* ZONE DES POSTES MODIFIÉE */}
               <div className="my-2 w-full">
-                <p className="m-0 mb-3 text-xs text-[#aaa] text-center uppercase tracking-widest font-bold">
+                {/* 👇 text-muted remplace #aaa */}
+                <p className="m-0 mb-3 text-[10px] text-muted text-center uppercase tracking-widest font-black">
                   Votre Poste
                 </p>
                 <div className="flex flex-wrap gap-2 justify-center pb-1">
@@ -105,10 +114,11 @@ export default function Auth() {
                         key={pos}
                         type="button"
                         onClick={() => setPosition(pos)}
-                        className={`px-4 py-2 rounded-full text-[0.85rem] cursor-pointer transition-all outline-none border ${
+                        // 👇 secondary remplace accent-orange et muted-dark remplace #444
+                        className={`px-4 py-2 rounded-full text-[0.75rem] uppercase tracking-wider cursor-pointer transition-all outline-none border font-black ${
                           isSelected 
-                            ? 'border-[var(--accent-orange,#ff6b00)] bg-[rgba(255,107,0,0.15)] text-[var(--accent-orange,#ff6b00)] font-bold shadow-[0_0_10px_rgba(255,107,0,0.2)]' 
-                            : 'border-[#444] bg-[#2a2a2a] text-[#ccc] font-normal hover:bg-[#444] hover:border-[#666] hover:text-white'
+                            ? 'border-secondary bg-secondary/15 text-secondary shadow-[0_0_15px_rgba(249,115,22,0.2)]' 
+                            : 'border-muted-dark bg-app-card text-muted hover:bg-muted-dark hover:text-white'
                         }`}
                       >
                         {pos}
@@ -122,28 +132,31 @@ export default function Auth() {
 
           <input 
             type="email" placeholder="Votre adresse email" value={email} onChange={(e) => setEmail(e.target.value)} required
-            className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
+            className="p-3.5 rounded-xl border border-muted-dark bg-app-input text-white focus:outline-none focus:border-secondary transition-all shadow-inner"
           />
           <input 
-            type="password" placeholder="Votre mot de passe (6 carac. min)" value={password} onChange={(e) => setPassword(e.target.value)} required
-            className="p-3 rounded-lg border border-[#444] bg-[#333] text-white focus:outline-none focus:border-[var(--accent-orange)] transition-colors"
+            type="password" placeholder="Mot de passe (6 carac. min)" value={password} onChange={(e) => setPassword(e.target.value)} required
+            className="p-3.5 rounded-xl border border-muted-dark bg-app-input text-white focus:outline-none focus:border-secondary transition-all shadow-inner"
           />
+          
           <button 
             type="submit" 
             disabled={loading}
-            className={`p-3.5 rounded-lg border-none bg-[var(--accent-orange,#ff6b00)] text-white font-bold mt-2 text-base tracking-wide transition-all ${
-              loading ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-orange-600 hover:shadow-[0_0_15px_rgba(255,107,0,0.4)] hover:-translate-y-0.5'
+            // 👇 bg-secondary remplace accent-orange
+            className={`p-4 rounded-xl border-none bg-secondary text-white font-black mt-2 text-sm tracking-widest uppercase transition-all shadow-lg ${
+              loading ? 'cursor-wait opacity-70' : 'cursor-pointer hover:bg-secondary-dark hover:shadow-[0_5px_20px_rgba(249,115,22,0.4)] hover:-translate-y-0.5'
             }`}
           >
             {loading ? 'Chargement...' : (isLogin ? 'SE CONNECTER' : "S'INSCRIRE")}
           </button>
         </form>
 
-        <p className="text-center mt-6 text-sm text-[#888]">
-          {isLogin ? "Pas encore de compte ?" : "Vous avez déjà un compte ?"}
+        {/* 👇 text-muted remplace #888 */}
+        <p className="text-center mt-8 text-xs text-muted font-bold tracking-wide">
+          {isLogin ? "PAS ENCORE DE COMPTE ?" : "VOUS AVEZ DÉJÀ UN COMPTE ?"}
           <button 
             onClick={() => { setIsLogin(!isLogin); setMessage({text:'', type:''}); }} 
-            className="bg-transparent border-none text-white font-bold cursor-pointer underline ml-2 hover:text-[var(--accent-orange)] transition-colors"
+            className="bg-transparent border-none text-white font-black cursor-pointer underline ml-2 hover:text-secondary transition-colors uppercase"
           >
             {isLogin ? "S'inscrire" : "Se connecter"}
           </button>

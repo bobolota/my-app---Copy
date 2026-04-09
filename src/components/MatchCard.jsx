@@ -32,11 +32,11 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   const canViewStats = isFinished;
   const isLockedForUser = isCanceled || isForfeit || (isSpectator && !canSpectateLive && !canViewStats);
 
-  let statusBadgeClass = 'bg-[#333] text-[#888]';
-  if (isLive) statusBadgeClass = 'bg-[rgba(255,107,0,0.15)] text-[var(--accent-orange)] border border-[rgba(255,107,0,0.3)] shadow-[0_0_10px_rgba(255,107,0,0.2)]';
-  else if (isFinished) statusBadgeClass = 'bg-[rgba(46,204,113,0.15)] text-[var(--success)]';
-  else if (isCanceled) statusBadgeClass = 'bg-[#333] text-[#888] line-through';
-  else if (isForfeit) statusBadgeClass = 'bg-[rgba(231,76,60,0.15)] text-[var(--danger)]';
+  let statusBadgeClass = 'bg-muted-dark text-muted-light';
+  if (isLive) statusBadgeClass = 'bg-secondary/15 text-secondary border border-secondary/30 shadow-[0_0_10px_rgba(249,115,22,0.2)]';
+  else if (isFinished) statusBadgeClass = 'bg-primary/15 text-primary border border-primary/20';
+  else if (isCanceled) statusBadgeClass = 'bg-muted-dark text-muted-light line-through border border-transparent';
+  else if (isForfeit) statusBadgeClass = 'bg-danger/15 text-danger border border-danger/20';
 
   let statusText = isLive ? '🔥 EN DIRECT' : (isFinished ? '🏁 TERMINÉ' : (isCanceled ? '❌ ANNULÉ' : (isForfeit ? '🏳️ FORFAIT' : 'À VENIR')));
 
@@ -76,28 +76,28 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
         
         handleLaunchMatch(match.id, canLaunchThisMatch);
       }}
-      className={`bg-[#1a1a1a] rounded-xl p-5 border transition-all duration-200 flex flex-col gap-4 relative overflow-hidden
-          ${isLive && !isLockedForUser ? 'border-[var(--accent-orange)] shadow-[0_5px_15px_rgba(255,107,0,0.15)] cursor-pointer hover:scale-[1.02]' : ''}
-          ${canClick && !isCanceled && !isForfeit && !isLockedForUser ? 'border-[#333] hover:border-[var(--accent-blue)] cursor-pointer hover:scale-[1.02]' : ''}
-          ${isLockedForUser ? 'border-[#222] opacity-80 cursor-default' : ''}
+      className={`bg-app-card rounded-xl p-5 border transition-all duration-200 flex flex-col gap-4 relative overflow-hidden
+          ${isLive && !isLockedForUser ? 'border-secondary shadow-[0_5px_15px_rgba(249,115,22,0.15)] cursor-pointer hover:scale-[1.02]' : ''}
+          ${canClick && !isCanceled && !isForfeit && !isLockedForUser ? 'border-muted-line hover:border-action cursor-pointer hover:scale-[1.02]' : ''}
+          ${isLockedForUser ? 'border-muted-dark opacity-80 cursor-default' : ''}
       `}
     >
       
       {/* 📅 GESTION DE LA DATE ET L'HEURE (NOUVEAU BLOC) */}
-      <div className="flex justify-between items-start pb-3 border-b border-white/5">
+      <div className="flex justify-between items-start pb-3 border-b border-muted-line">
         {/* Affichage pour les joueurs / spectateurs */}
         {match.datetime ? (
-          <div className="flex items-center gap-2 bg-orange-500/10 border border-orange-500/20 w-fit px-3 py-1.5 rounded-lg shadow-sm">
+          <div className="flex items-center gap-2 bg-secondary/10 border border-secondary/20 w-fit px-3 py-1.5 rounded-lg shadow-sm">
             <span className="text-[10px]">📅</span>
-            <span className="text-orange-400 text-[10px] font-black uppercase tracking-widest">
+            <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
               {new Date(match.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
             </span>
-            <span className="text-white text-[10px] font-black bg-orange-500 px-1.5 py-0.5 rounded ml-1">
+            <span className="text-white text-[10px] font-black bg-secondary px-1.5 py-0.5 rounded ml-1">
               {new Date(match.datetime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
             </span>
           </div>
         ) : (
-          <div className="text-[#555] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-md border border-white/5">
+          <div className="text-muted-dark text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 bg-black/20 px-2.5 py-1 rounded-md border border-muted-line">
             🕒 Horaire à définir
           </div>
         )}
@@ -106,10 +106,10 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
 
       <div className="flex justify-between items-start text-xs font-bold">
         <div className="flex flex-col gap-1.5">
-          <span className={`tracking-widest ${match.group ? 'text-[var(--accent-purple)]' : 'text-[var(--accent-blue)]'}`}>
+          <span className={`tracking-widest ${match.group ? 'text-purple-400' : 'text-action'}`}>
             🏆 {phaseLabel}
           </span>
-          <span className="text-gray-400 truncate max-w-[120px]" title={match.court || 'Terrain à définir'}>
+          <span className="text-muted truncate max-w-[120px]" title={match.court || 'Terrain à définir'}>
             📍 {match.court || 'Terrain à définir'}
           </span>
         </div>
@@ -122,7 +122,7 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
         <div className="flex-1 text-right text-base sm:text-lg font-black text-white truncate px-2" title={match.teamA?.name || 'TBD'}>
           {match.teamA?.name || 'TBD'}
         </div>
-        <div className={`px-2 text-2xl font-black ${isUpcoming ? 'text-[#555]' : 'text-white'}`}>
+        <div className={`px-2 text-2xl font-black ${isUpcoming ? 'text-muted-dark' : 'text-white'}`}>
           {isUpcoming ? 'VS' : `${match.scoreA || 0} - ${match.scoreB || 0}`}
         </div>
         <div className="flex-1 text-left text-base sm:text-lg font-black text-white truncate px-2" title={match.teamB?.name || 'TBD'}>
@@ -130,10 +130,10 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
         </div>
       </div>
 
-      <div className="text-center text-sm text-[#888] border-t border-dashed border-[#333] pt-3 font-bold tracking-widest mt-auto flex flex-col gap-1">
-         {isLive && canSpectateLive && <span className="text-[var(--accent-orange)] text-[10px]">Cliquer pour suivre le direct</span>}
-         {isFinished && <span className="text-[#aaa] text-[10px]">Cliquer pour voir les stats</span>}
-         {isUpcoming && !canEdit && <span className="text-[#555] text-[10px]">Préparez-vous pour le match</span>}
+      <div className="text-center text-sm text-muted border-t border-dashed border-muted-dark pt-3 font-bold tracking-widest mt-auto flex flex-col gap-1">
+         {isLive && canSpectateLive && <span className="text-secondary text-[10px]">Cliquer pour suivre le direct</span>}
+         {isFinished && <span className="text-muted-light text-[10px]">Cliquer pour voir les stats</span>}
+         {isUpcoming && !canEdit && <span className="text-muted-dark text-[10px]">Préparez-vous pour le match</span>}
       </div>
     </div>
   );

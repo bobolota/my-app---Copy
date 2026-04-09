@@ -78,7 +78,7 @@ export default function TournamentStats({ tourney }) {
     const top5 = [...players].sort((a, b) => b[sortKey] - a[sortKey]).slice(0, 5);
     
     return (
-      <div className="bg-[#15151e]/80 backdrop-blur-md rounded-2xl p-6 border border-white/5 shadow-xl relative overflow-hidden flex flex-col group hover:-translate-y-1 hover:border-white/10 transition-all duration-300">
+      <div className="bg-app-panel/80 backdrop-blur-md rounded-2xl p-6 border border-muted-line shadow-xl relative overflow-hidden flex flex-col group hover:-translate-y-1 hover:border-muted transition-all duration-300">
         {/* Ligne lumineuse décorative utilisant la couleur passée en paramètre */}
         <div className="absolute top-0 left-0 right-0 h-1 opacity-90 shadow-sm" style={{ backgroundColor: color }}></div>
         
@@ -89,29 +89,29 @@ export default function TournamentStats({ tourney }) {
         {top5.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 opacity-50 flex-1">
             <span className="text-3xl mb-3">📭</span>
-            <p className="text-center text-[#666] font-bold text-xs uppercase tracking-wider m-0">Aucune donnée</p>
+            <p className="text-center text-muted font-bold text-xs uppercase tracking-wider m-0">Aucune donnée</p>
           </div>
         ) : (
           <div className="flex flex-col flex-1">
             {top5.map((p, i) => (
-              <div key={p.id} className="flex justify-between items-center py-3 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors -mx-2 px-2 rounded-lg">
+              <div key={p.id} className="flex justify-between items-center py-3 border-b border-muted-line last:border-0 hover:bg-white/5 transition-colors -mx-2 px-2 rounded-lg">
                 <div className="flex items-center gap-3 overflow-hidden">
-                  <span className="font-black text-lg w-5 text-right shrink-0" style={{ color: i === 0 ? color : '#666' }}>
+                  <span className="font-black text-lg w-5 text-right shrink-0" style={{ color: i === 0 ? color : '#888888' }}>
                     {i + 1}.
                   </span>
                   <div className="flex flex-col truncate">
-                    <span className={`font-bold text-sm truncate ${i === 0 ? 'text-white' : 'text-[#ccc]'}`}>
+                    <span className={`font-bold text-sm truncate ${i === 0 ? 'text-white' : 'text-muted-light'}`}>
                       {p.name}
                     </span>
-                    <span className="text-[10px] text-[#888] font-bold tracking-wider uppercase truncate">
+                    <span className="text-[10px] text-muted font-bold tracking-wider uppercase truncate">
                       {p.teamName} • {p.gamesPlayed} match{p.gamesPlayed > 1 ? 's' : ''}
                     </span>
                   </div>
                 </div>
                 
-                <div className="flex items-end bg-black/40 px-3 py-1.5 rounded-lg border border-white/5 shadow-inner shrink-0 ml-3">
+                <div className="flex items-end bg-app-input px-3 py-1.5 rounded-lg border border-muted-line shadow-inner shrink-0 ml-3">
                   <strong className="text-white text-xl leading-none font-black">{p[displayKey]}</strong>
-                  {suffix && <span className="text-[10px] text-[#888] ml-1 mb-0.5 font-bold uppercase tracking-wider">{suffix}</span>}
+                  {suffix && <span className="text-[10px] text-muted ml-1 mb-0.5 font-bold uppercase tracking-wider">{suffix}</span>}
                 </div>
               </div>
             ))}
@@ -125,24 +125,25 @@ export default function TournamentStats({ tourney }) {
     <div className="py-4 w-full flex-1 flex flex-col box-border">
       
       {/* EN-TÊTE PREMIUM */}
-      <div className="mb-8 border-b border-white/10 pb-5 w-full text-left">
+      <div className="mb-8 border-b border-muted-line pb-5 w-full text-left">
         <h2 className="m-0 text-3xl sm:text-4xl font-black text-white tracking-tight flex items-center justify-start gap-3">
           <span className="text-4xl drop-shadow-lg">📈</span> 
           Leaderboards
         </h2>
-        <p className="mt-2 text-[#888] font-medium text-sm text-left">
+        <p className="mt-2 text-muted font-medium text-sm text-left">
           Classement général des meilleurs joueurs basé sur les statistiques des matchs terminés.
         </p>
       </div>
 
       {/* GRILLE DES STATS */}
+      {/* ⚠️ J'ai remplacé les CSS variables par tes nouvelles couleurs du dictionnaire (valeurs HEX directes) car le composant s'attend à recevoir la couleur via un attribut `style` */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {renderTop5("🌟 MVP (Meilleure Éval)", playerStats, "eff", "eff", "var(--accent-orange)")}
-        {renderTop5("🎯 Top Marqueurs", playerStats, "points", "points", "#ef4444", "pts")}
-        {renderTop5("🛡️ Top Rebondeurs", playerStats, "reb", "reb", "var(--accent-blue)", "reb")}
-        {renderTop5("🤝 Top Passeurs", playerStats, "ast", "ast", "var(--success)", "ast")}
-        {renderTop5("🥷 Top Intercepteurs", playerStats, "stl", "stl", "#f59e0b", "stl")}
-        {renderTop5("🧱 Top Contreurs", playerStats, "blk", "blk", "var(--accent-purple)", "blk")}
+        {renderTop5("🌟 MVP (Meilleure Éval)", playerStats, "eff", "eff", "#f97316")} {/* secondary */}
+        {renderTop5("🎯 Top Marqueurs", playerStats, "points", "points", "#ef4444", "pts")} {/* danger */}
+        {renderTop5("🛡️ Top Rebondeurs", playerStats, "reb", "reb", "#3b82f6", "reb")} {/* action */}
+        {renderTop5("🤝 Top Passeurs", playerStats, "ast", "ast", "#10b981", "ast")} {/* primary */}
+        {renderTop5("🥷 Top Intercepteurs", playerStats, "stl", "stl", "#eab308", "stl")} {/* warning */}
+        {renderTop5("🧱 Top Contreurs", playerStats, "blk", "blk", "#a855f7", "blk")} {/* violet neutre */}
         
         {/* Les pourcentages (Seulement si un certain volume de tirs a été pris) */}
         {renderTop5("🔥 Plus Adroit (Général)", playerStats.filter(p => p.fga >= 5), "fgPct", "fgPctDisplay", "#f43f5e")}

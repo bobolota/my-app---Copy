@@ -180,12 +180,12 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     update({ teams: tourney.teams.map(t => t.id === teamId ? { ...t, players: updatedPlayers } : t) });
   };
 
-  const renderPlayerColumn = (title, status, colorHex, colorVar) => {
+  const renderPlayerColumn = (title, status, colorHex) => {
     const filteredPlayers = team.players.filter(p => p.licenseStatus === status || (!p.licenseStatus && status === 'to_check'));
     
     return (
       <div 
-        className="flex flex-col flex-1 min-w-[320px] bg-[#15151e]/80 backdrop-blur-md rounded-3xl border border-white/5 transition-all duration-300 p-5 sm:p-6 shadow-2xl drag-over-column relative overflow-hidden group/col"
+        className="flex flex-col flex-1 min-w-[320px] bg-app-panel/80 backdrop-blur-md rounded-3xl border border-muted-line transition-all duration-300 p-5 sm:p-6 shadow-2xl drag-over-column relative overflow-hidden group/col"
         onDragOver={(e) => { if(canEdit) { e.preventDefault(); e.currentTarget.classList.add('bg-white/10'); } }}
         onDragLeave={(e) => { if(canEdit) e.currentTarget.classList.remove('bg-white/10'); }}
         onDrop={(e) => onDropPlayer(e, status)}
@@ -197,20 +197,20 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
         ></div>
 
         {/* En-tête de la colonne */}
-        <h3 className="flex justify-between items-center m-0 text-white font-black tracking-widest uppercase text-sm mb-6 pb-4 border-b border-white/5 relative z-10">
+        <h3 className="flex justify-between items-center m-0 text-white font-black tracking-widest uppercase text-sm mb-6 pb-4 border-b border-muted-line relative z-10">
           <div className="flex items-center gap-3">
             <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colorHex, boxShadow: `0 0 10px ${colorHex}` }}></span>
             {title}
           </div>
-          <span className="bg-black/40 border border-white/10 text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-inner">
+          <span className="bg-app-input border border-muted-line text-white font-black text-xs px-3 py-1.5 rounded-lg shadow-inner">
             {filteredPlayers.length}
           </span>
         </h3>
         
         <div className="flex flex-col gap-4 overflow-y-auto max-h-[500px] custom-scrollbar pr-2 relative z-10">
           {filteredPlayers.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-10 opacity-40 bg-black/20 rounded-2xl border border-dashed border-white/10">
-               <p className="text-center text-[#888] font-black text-[10px] uppercase tracking-widest m-0">Vide</p>
+             <div className="flex flex-col items-center justify-center py-10 opacity-40 bg-app-input/50 rounded-2xl border border-dashed border-muted-line">
+               <p className="text-center text-muted font-black text-[10px] uppercase tracking-widest m-0">Vide</p>
              </div>
           ) : (
             filteredPlayers.map(p => {
@@ -227,7 +227,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                   draggable={canEdit && !isEditingFinance} 
                   onDragStart={(e) => onDragStartPlayer(e, p.id)}
                   onDragEnd={onDragEndPlayer}
-                  className={`bg-[#1e1e2a] p-4 rounded-xl border-l-[4px] border border-white/5 transition-all duration-300 relative group shadow-lg flex flex-col gap-4 ${draggedPlayerId === p.id ? 'opacity-50 scale-95 shadow-[0_0_20px_rgba(255,255,255,0.15)] border-dashed' : 'opacity-100 hover:-translate-y-1 hover:shadow-xl hover:border-white/10'} ${(canEdit && !isEditingFinance) ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${isEditingFinance ? 'ring-1 ring-blue-500 bg-[#1e1e2a]/90' : ''}`}
+                  className={`bg-app-card p-4 rounded-xl border-l-[4px] border border-muted-line transition-all duration-300 relative group shadow-lg flex flex-col gap-4 ${draggedPlayerId === p.id ? 'opacity-50 scale-95 shadow-[0_0_20px_rgba(255,255,255,0.15)] border-dashed' : 'opacity-100 hover:-translate-y-1 hover:shadow-xl hover:border-muted-dark'} ${(canEdit && !isEditingFinance) ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'} ${isEditingFinance ? 'ring-1 ring-action bg-app-card/90' : ''}`}
                   style={{ borderLeftColor: colorHex }}
                 >
                   <div className="flex justify-between items-start">
@@ -237,7 +237,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                     {canEdit && !isEditingFinance && (
                       <button 
                         onClick={() => deletePlayer(p.id)} 
-                        className="absolute top-3 right-3 text-[#666] bg-black/40 border border-transparent hover:border-red-500/30 hover:bg-red-500/10 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-sm"
+                        className="absolute top-3 right-3 text-muted bg-app-input border border-transparent hover:border-danger/30 hover:bg-danger/10 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 hover:text-danger transition-all text-sm"
                         title="Supprimer"
                       >
                         ✕
@@ -245,7 +245,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                     )}
                   </div>
                   
-                  <div className={`flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-[#888] bg-black/30 p-2.5 rounded-lg border border-white/5 shadow-inner ${isEditingFinance ? 'ring-1 ring-blue-500/30' : ''}`}>
+                  <div className={`flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-muted bg-black/30 p-2.5 rounded-lg border border-muted-line shadow-inner ${isEditingFinance ? 'ring-1 ring-action/30' : ''}`}>
                     <span>Cotisation :</span>
                     <div className="flex gap-1.5 items-center">
                       <input 
@@ -253,15 +253,15 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                         disabled={!canEdit} 
                         value={displayPaid} 
                         onChange={(e) => handleFinanceDraftChange(p, 'paid', e.target.value)} 
-                        className="w-[50px] text-center p-1.5 rounded-md bg-black/40 border border-white/10 text-white font-bold focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-colors shadow-inner" 
+                        className="w-[50px] text-center p-1.5 rounded-md bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-action focus:bg-app-bg transition-colors shadow-inner" 
                       />
-                      <span className="text-[#444] text-lg leading-none">/</span>
+                      <span className="text-muted-dark text-lg leading-none">/</span>
                       <input 
                         type="number" 
                         disabled={!canEdit} 
                         value={displayTotal} 
                         onChange={(e) => handleFinanceDraftChange(p, 'totalDue', e.target.value)} 
-                        className="w-[50px] text-center p-1.5 rounded-md bg-black/40 border border-white/10 text-white font-bold focus:outline-none focus:border-blue-500 focus:bg-black/60 transition-colors shadow-inner" 
+                        className="w-[50px] text-center p-1.5 rounded-md bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-action focus:bg-app-bg transition-colors shadow-inner" 
                       />
                     </div>
                   </div>
@@ -271,13 +271,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                     <div className="flex justify-end gap-2 mt-[-4px] animate-fadeIn">
                       <button 
                         onClick={() => cancelFinanceDraft(p.id)}
-                        className="bg-black/40 border border-white/5 text-[#888] px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:text-white hover:bg-white/10 transition-colors shadow-inner cursor-pointer"
+                        className="bg-app-input border border-muted-line text-muted px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:text-white hover:bg-white/10 transition-colors shadow-inner cursor-pointer"
                       >
                         ✕ Annuler
                       </button>
                       <button 
                         onClick={() => applyFinanceDraft(p.id)}
-                        className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:shadow-[0_2px_10px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-md cursor-pointer"
+                        className="bg-gradient-to-r from-action to-action-light text-white border-none px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest hover:shadow-[0_2px_10px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-md cursor-pointer"
                       >
                         ✅ Valider
                       </button>
@@ -287,14 +287,14 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                   {!isEditingFinance && (
                     <div className="text-right text-[10px] uppercase tracking-widest font-black mt-[-4px]">
                       {remaining <= 0 ? (
-                        <span className="text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">✅ Réglé</span>
+                        <span className="text-primary bg-primary/10 px-2 py-1 rounded-md border border-primary/20">✅ Réglé</span>
                       ) : (
-                        <span className="text-red-400 bg-red-500/10 px-2 py-1 rounded-md border border-red-500/20">⚠️ Reste {remaining} €</span>
+                        <span className="text-danger bg-danger/10 px-2 py-1 rounded-md border border-danger/20">⚠️ Reste {remaining} €</span>
                       )}
                     </div>
                   )}
                   
-                  {canEdit && !isEditingFinance && <div className="absolute bottom-2.5 right-3 text-[#444] text-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" title="Glisser pour déplacer">⠿</div>}
+                  {canEdit && !isEditingFinance && <div className="absolute bottom-2.5 right-3 text-muted-dark text-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" title="Glisser pour déplacer">⠿</div>}
                 </div>
               );
             })
@@ -310,13 +310,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
         {/* BOUTON RETOUR PREMIUM */}
         <button 
           onClick={() => setEditId(null)} 
-          className="w-fit mb-8 bg-black/40 border border-white/10 text-[#aaa] px-5 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase hover:bg-white/10 hover:text-white transition-all flex items-center gap-2 hover:-translate-x-1 cursor-pointer shadow-inner"
+          className="w-fit mb-8 bg-app-input border border-muted-line text-muted px-5 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase hover:bg-muted-dark hover:text-white transition-all flex items-center gap-2 hover:-translate-x-1 cursor-pointer shadow-inner"
         >
           ⬅ RETOUR AU ROSTER
         </button>
         
         {/* EN-TÊTE ÉQUIPE ET AJOUT RAPIDE */}
-        <div className="flex flex-col lg:flex-row justify-between items-start gap-8 border-b border-white/10 pb-8">
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-8 border-b border-muted-line pb-8">
             
             <div className="flex flex-col gap-4">
                 <h2 className="m-0 text-3xl sm:text-4xl font-black text-white flex items-center gap-4 tracking-tight drop-shadow-md">
@@ -325,7 +325,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                 {canEdit && (
                   <button 
                     onClick={validateAllPlayers} 
-                    className="w-fit bg-gradient-to-r from-emerald-500 to-green-500 text-white border-none rounded-xl px-6 py-3 font-black tracking-widest text-[10px] uppercase cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition-all shadow-lg mt-2"
+                    className="w-fit bg-gradient-to-r from-primary to-primary-dark text-white border-none rounded-xl px-6 py-3 font-black tracking-widest text-[10px] uppercase cursor-pointer hover:shadow-[0_4px_15px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition-all shadow-lg mt-2"
                   >
                     ✅ TOUT VALIDER D'UN COUP
                   </button>
@@ -333,11 +333,11 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
             </div>
             
             {canEdit && (
-              <div className="bg-[#15151e]/80 backdrop-blur-md p-6 rounded-3xl border border-white/5 w-full lg:max-w-[500px] shadow-2xl relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none"></div>
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400 opacity-50"></div>
+              <div className="bg-app-panel/80 backdrop-blur-md p-6 rounded-3xl border border-muted-line w-full lg:max-w-[500px] shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-action/10 blur-[50px] rounded-full pointer-events-none"></div>
+                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-action to-action-light opacity-50"></div>
                 
-                <h4 className="mt-0 mb-6 text-blue-400 text-xs font-black uppercase tracking-widest flex items-center gap-2 relative z-10">
+                <h4 className="mt-0 mb-6 text-action-light text-xs font-black uppercase tracking-widest flex items-center gap-2 relative z-10">
                   <span className="text-lg">➕</span> Ajout rapide (Multiple)
                 </h4>
                 
@@ -345,13 +345,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                   {playersDraft.map((draft, index) => (
                     <div key={index} className="flex gap-2">
                       <input 
-                        className="flex-1 p-3 rounded-xl border border-white/10 bg-black/40 text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-all shadow-inner text-sm font-medium" 
+                        className="flex-1 p-3 rounded-xl border border-muted-line bg-app-input text-white placeholder:text-muted focus:outline-none focus:border-action transition-all shadow-inner text-sm font-medium" 
                         placeholder="Nom complet du joueur..." 
                         value={draft.name} 
                         onChange={e => handleDraftChange(index, 'name', e.target.value)} 
                       />
                       <input 
-                        className="w-[70px] p-3 rounded-xl border border-white/10 bg-black/40 text-white placeholder-[#666] focus:outline-none focus:border-blue-500 transition-all shadow-inner text-center text-sm font-black" 
+                        className="w-[70px] p-3 rounded-xl border border-muted-line bg-app-input text-white placeholder:text-muted focus:outline-none focus:border-action transition-all shadow-inner text-center text-sm font-black" 
                         type="number" 
                         placeholder="N°" 
                         value={draft.number} 
@@ -360,7 +360,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                       {playersDraft.length > 1 && (
                         <button 
                           onClick={() => removeDraftRow(index)} 
-                          className="bg-red-500/10 border border-red-500/20 text-red-400 w-12 rounded-xl flex items-center justify-center cursor-pointer hover:bg-red-500 hover:text-white transition-colors"
+                          className="bg-danger/10 border border-danger/20 text-danger w-12 rounded-xl flex items-center justify-center cursor-pointer hover:bg-danger hover:text-white transition-colors"
                           title="Supprimer la ligne"
                         >
                           ✕
@@ -373,13 +373,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                 <div className="flex justify-between items-center mt-6 relative z-10">
                   <button 
                     onClick={addDraftRow} 
-                    className="bg-blue-500/10 text-blue-400 border border-blue-500/30 px-4 py-2.5 rounded-xl cursor-pointer text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 hover:text-white transition-all shadow-sm"
+                    className="bg-action/10 text-action border border-action/30 px-4 py-2.5 rounded-xl cursor-pointer text-[10px] font-black uppercase tracking-widest hover:bg-action hover:text-white transition-all shadow-sm"
                   >
                     + Ajouter une ligne
                   </button>
                   <button 
                     onClick={saveMultiplePlayers} 
-                    className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white border-none rounded-xl px-6 py-2.5 font-black tracking-widest text-[10px] uppercase cursor-pointer hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
+                    className="bg-gradient-to-r from-action to-action-light text-white border-none rounded-xl px-6 py-2.5 font-black tracking-widest text-[10px] uppercase cursor-pointer hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
                   >
                     💾 SAUVEGARDER
                   </button>
@@ -391,9 +391,9 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
 
       {/* LES 3 COLONNES DU KANBAN D'ÉQUIPE */}
       <div className="flex flex-col lg:flex-row gap-6 overflow-x-auto pb-6 flex-1 custom-scrollbar">
-        {renderPlayerColumn("À VÉRIFIER", "to_check", "#ef4444", "var(--danger)")}
-        {renderPlayerColumn("EN ATTENTE", "pending", "#f97316", "var(--accent-orange)")}
-        {renderPlayerColumn("VALIDÉ", "validated", "#10b981", "var(--success)")}
+        {renderPlayerColumn("À VÉRIFIER", "to_check", "#ef4444")}
+        {renderPlayerColumn("EN ATTENTE", "pending", "#f97316")}
+        {renderPlayerColumn("VALIDÉ", "validated", "#10b981")}
       </div>
     </div>
   );
