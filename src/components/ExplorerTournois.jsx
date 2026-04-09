@@ -88,33 +88,37 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
                 const formatLabel = `${courtSize}x${courtSize}`;
 
                 return (
-                  <div key={t.id} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-secondary/30 hover:shadow-[0_8px_25px_rgba(249,115,22,0.15)] group">
-                    <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-secondary-light transition-colors">{t.name}</strong>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
-                        📅 {t.date || 'Date non définie'}
-                      </span>
+                  <div key={t.id} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-secondary/30 hover:shadow-[0_8px_25px_rgba(249,115,22,0.15)] group flex flex-col justify-between min-h-[180px]">
+                    <div className="flex flex-col gap-3">
+                      <strong className="text-lg block text-white font-heading truncate group-hover:text-secondary-light transition-colors" title={t.name}>{t.name}</strong>
                       
-                      {/* BADGE TYPE DE TOURNOI (Remplace TeamTagList) */}
-                      <span className="text-[0.65rem] text-secondary flex items-center gap-1.5 font-black bg-secondary/10 px-2 py-1 rounded-md border border-secondary/20 tracking-widest">
-                        🏀 {formatLabel}
-                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
+                          📅 {t.date || 'Date non définie'}
+                        </span>
+                        
+                        {/* BADGE TYPE DE TOURNOI (Remplace TeamTagList) */}
+                        <span className="text-[0.65rem] text-secondary flex items-center gap-1.5 font-black bg-secondary/10 px-2 py-1 rounded-md border border-secondary/20 tracking-widest">
+                          🏀 {formatLabel}
+                        </span>
+                      </div>
                     </div>
                     
                     {/* LOGIQUE D'INSCRIPTION */}
-                    {myCaptainTeams.length === 0 && courtSize !== 1 ? (
-                      <div className="mt-4 bg-danger/10 border border-danger/20 rounded-lg p-3 text-center">
-                        <span className="text-xs text-danger font-bold">⚠️ Fonde une équipe pour t'inscrire.</span>
-                      </div>
-                    ) : (
-                      <button 
-                        onClick={() => setRegisterModalTourney(t)} 
-                        className="w-full mt-4 bg-gradient-to-r from-secondary to-secondary-dark text-white p-3 rounded-xl font-black tracking-widest text-sm shadow-[0_4px_15px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.5)] transition-all hover:-translate-y-0.5 cursor-pointer active:scale-95"
-                      >
-                        {courtSize === 1 ? "REJOINDRE LE TOURNOI 🚀" : "S'INSCRIRE 🚀"}
-                      </button>
-                    )}
+                    <div className="mt-auto w-full">
+                      {myCaptainTeams.length === 0 && courtSize !== 1 ? (
+                        <div className="w-full bg-danger/10 border border-danger/20 rounded-xl p-3 text-center">
+                          <span className="text-[10px] text-danger font-black uppercase tracking-widest">⚠️ Fonde une équipe</span>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setRegisterModalTourney(t)} 
+                          className="w-full bg-gradient-to-r from-secondary to-secondary-dark text-white p-3 rounded-xl font-black tracking-widest text-xs uppercase shadow-[0_4px_15px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.5)] transition-all hover:-translate-y-0.5 cursor-pointer active:scale-95"
+                        >
+                          {courtSize === 1 ? "REJOINDRE 🚀" : "S'INSCRIRE 🚀"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -142,20 +146,24 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
               ongoingOtherTourneys.map(t => {
                 const courtSize = parseInt(t.matchsettings?.courtSize) || 5;
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-action/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.15)] group cursor-pointer">
-                    <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-action-light transition-colors">{t.name}</strong>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
-                        📅 {t.date || 'En cours'}
-                      </span>
-                      <span className="text-[0.65rem] text-action flex items-center gap-1.5 font-black bg-action/10 px-2 py-1 rounded-md border border-action/20 tracking-widest uppercase">
-                        🏀 {courtSize}X{courtSize}
-                      </span>
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-action/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.15)] group cursor-pointer flex flex-col justify-between min-h-[180px]">
+                    <div className="flex flex-col gap-3">
+                      <strong className="text-lg block text-white font-heading truncate group-hover:text-action-light transition-colors" title={t.name}>{t.name}</strong>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
+                          📅 {t.date || 'En cours'}
+                        </span>
+                        <span className="text-[0.65rem] text-action flex items-center gap-1.5 font-black bg-action/10 px-2 py-1 rounded-md border border-action/20 tracking-widest uppercase">
+                          🏀 {courtSize}X{courtSize}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-center gap-2 text-xs text-action font-bold bg-action/10 border border-action/20 p-2.5 rounded-lg group-hover:bg-action group-hover:text-white transition-colors">
-                      <span>👀</span> Suivre les matchs & Stats
+                    <div className="mt-auto w-full">
+                      <div className="w-full flex items-center justify-center gap-2 text-xs text-action font-black bg-action/10 border border-action/20 p-3 rounded-xl group-hover:bg-action group-hover:text-white transition-colors uppercase tracking-widest">
+                        <span>👀</span> Suivre
+                      </div>
                     </div>
                   </div>
                 );
@@ -187,36 +195,41 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
                 const courtSize = parseInt(t.matchsettings?.courtSize) || 5;
 
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_8px_25px_rgba(16,185,129,0.15)] group cursor-pointer relative overflow-hidden">
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card p-5 rounded-xl border border-muted-line shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-[0_8px_25px_rgba(16,185,129,0.15)] group cursor-pointer relative overflow-hidden flex flex-col justify-between min-h-[180px]">
                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/50 group-hover:bg-primary-light transition-colors"></div>
                     
-                    <strong className="text-xl block text-white mb-1 font-black tracking-wide group-hover:text-primary-light transition-colors pl-2">{t.name}</strong>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4 pl-2">
-                      <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
-                        📅 {t.date || 'Engagé'}
-                      </span>
-                      <span className="text-[0.65rem] text-primary flex items-center gap-1.5 font-black bg-primary/10 px-2 py-1 rounded-md border border-primary/20 tracking-widest uppercase">
-                        🏀 {courtSize}X{courtSize}
-                      </span>
+                    <div className="flex flex-col gap-3 pl-2">
+                      <strong className="text-lg block text-white font-heading truncate group-hover:text-primary-light transition-colors" title={t.name}>{t.name}</strong>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-bold bg-black/30 px-2 py-1 rounded-md border border-muted-line">
+                          📅 {t.date || 'Engagé'}
+                        </span>
+                        <span className="text-[0.65rem] text-primary flex items-center gap-1.5 font-black bg-primary/10 px-2 py-1 rounded-md border border-primary/20 tracking-widest uppercase">
+                          🏀 {courtSize}X{courtSize}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className={`mt-4 mx-2 text-center p-2.5 rounded-lg border transition-colors ${t.status === 'ongoing' ? 'bg-secondary/10 border-secondary/20 group-hover:bg-secondary group-hover:text-white' : 'bg-primary/10 border-primary/20 group-hover:bg-primary group-hover:text-white'}`}>
-                      {t.status === 'ongoing' ? (
-                        <span className="text-xs font-bold text-secondary group-hover:text-white">🔥 EN JEU (Suivre l'avancée)</span>
-                      ) : (
-                        <span className="text-xs font-bold text-primary group-hover:text-white">🗓️ Voir les engagés</span>
+                    <div className="mt-auto w-full flex flex-col gap-2">
+                      <div className={`w-full text-center p-2 rounded-xl border transition-colors ${t.status === 'ongoing' ? 'bg-secondary/10 border-secondary/20 group-hover:bg-secondary group-hover:text-white' : 'bg-primary/10 border-primary/20 group-hover:bg-primary group-hover:text-white'}`}>
+                        {t.status === 'ongoing' ? (
+                          <span className="text-xs font-black tracking-widest uppercase text-secondary group-hover:text-white">🔥 EN JEU</span>
+                          
+                        ) : (
+                          <span className="text-xs font-black tracking-widest uppercase text-primary group-hover:text-white">🗓️ VOIR ENGAGÉS</span>
+                        )}
+                      </div>
+
+                      {t.status === 'preparing' && isCaptainOfThisTeam && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleLeaveTournament(t, myRegisteredTeam.global_id); }} 
+                          className="w-full bg-transparent border border-danger/30 text-danger p-2 rounded-xl cursor-pointer font-black text-[10px] tracking-wider transition-all hover:bg-danger hover:text-white hover:border-danger uppercase"
+                        >
+                          DÉSINCRIRE 🚪
+                        </button>
                       )}
                     </div>
-
-                    {t.status === 'preparing' && isCaptainOfThisTeam && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleLeaveTournament(t, myRegisteredTeam.global_id); }} 
-                        className="w-[calc(100%-1rem)] mx-2 mt-3 bg-transparent border border-danger/30 text-danger p-2 rounded-lg cursor-pointer font-bold text-xs tracking-wider transition-all hover:bg-danger hover:text-white hover:border-danger"
-                      >
-                        DÉSINCRIRE L'ÉQUIPE 🚪
-                      </button>
-                    )}
                   </div>
                 );
               })
@@ -250,23 +263,27 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
                 const iParticipated = isRegisteredIn(t);
                 const courtSize = parseInt(t.matchsettings?.courtSize) || 5;
                 return (
-                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card/50 p-5 rounded-xl border border-muted-line cursor-pointer transition-all duration-300 hover:bg-app-card hover:-translate-y-1 hover:border-muted-dark group">
-                    <strong className="text-xl block text-muted-light mb-1 font-black tracking-wide group-hover:text-white transition-colors">{t.name}</strong>
-                    
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="text-[0.65rem] text-muted-dark flex items-center gap-1.5 font-bold bg-black/20 px-2 py-1 rounded-md border border-muted-line">
-                        📅 {t.date || 'Terminé'}
-                      </span>
-                      <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-black bg-white/5 px-2 py-1 rounded-md border border-muted-line tracking-widest uppercase grayscale group-hover:grayscale-0 transition-all">
-                        🏀 {courtSize}X{courtSize}
-                      </span>
+                  <div key={t.id} onClick={() => handleOpenTourney(t.id)} className="bg-app-card/50 p-5 rounded-xl border border-muted-line cursor-pointer transition-all duration-300 hover:bg-app-card hover:-translate-y-1 hover:border-muted-dark group flex flex-col justify-between min-h-[180px]">
+                    <div className="flex flex-col gap-3">
+                      <strong className="text-lg block text-muted-light font-heading truncate group-hover:text-white transition-colors" title={t.name}>{t.name}</strong>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-[0.65rem] text-muted-dark flex items-center gap-1.5 font-bold bg-black/20 px-2 py-1 rounded-md border border-muted-line">
+                          📅 {t.date || 'Terminé'}
+                        </span>
+                        <span className="text-[0.65rem] text-muted flex items-center gap-1.5 font-black bg-white/5 px-2 py-1 rounded-md border border-muted-line tracking-widest uppercase grayscale group-hover:grayscale-0 transition-all">
+                          🏀 {courtSize}X{courtSize}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center bg-black/30 p-3 rounded-lg mt-4 border border-muted-line">
-                      <span className="text-xs text-muted font-bold group-hover:text-muted-light transition-colors">📊 Voir les archives</span>
-                      {iParticipated && (
-                        <span className="text-[9px] bg-primary/20 border border-primary/30 text-primary px-2 py-1.5 rounded font-black uppercase tracking-widest shadow-sm">J'y étais !</span>
-                      )}
+                    <div className="mt-auto w-full">
+                      <div className="w-full flex justify-between items-center bg-black/30 p-3 rounded-xl border border-muted-line group-hover:border-muted transition-colors">
+                        <span className="text-xs text-muted font-black uppercase tracking-widest group-hover:text-white transition-colors">📊 Archives</span>
+                        {iParticipated && (
+                          <span className="text-[9px] bg-primary/20 border border-primary/30 text-primary px-2 py-1.5 rounded font-black uppercase tracking-widest shadow-sm">J'y étais</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

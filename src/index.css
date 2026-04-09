@@ -91,7 +91,9 @@ button:active { transform: scale(0.95) !important; }
   .app-layout, .app-main, .app-content { display: block; height: auto; overflow: visible !important; }
 }
 
-/* --- Masquer les flèches des inputs number --- */
+/* ========================================================= */
+/* 1. MASQUER LES FLÈCHES DES CHAMPS NUMBER                  */
+/* ========================================================= */
 
 /* Pour Chrome, Safari, Edge, Opera */
 input[type="number"]::-webkit-outer-spin-button,
@@ -103,4 +105,31 @@ input[type="number"]::-webkit-inner-spin-button {
 /* Pour Firefox */
 input[type="number"] {
   -moz-appearance: textfield;
+}
+
+/* ========================================================= */
+/* 2. FORCER LE MODE SOMBRE DES CALENDRIERS ET HORLOGES      */
+/* ========================================================= */
+
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark; /* Force le popup en mode sombre */
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+  padding: 5px;
+  border-radius: 4px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.1);
 }

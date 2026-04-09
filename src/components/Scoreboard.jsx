@@ -65,18 +65,31 @@ export default function Scoreboard() {
     } catch (e) { return null; }
   };
 
-  const initPlayers = (team) => {
-    const playersList = team?.players || [];
-    
-    // NOUVEAU : En 1v1, le joueur est placé directement sur le terrain !
+  // 🧠 SYNCHRONISATION INTELLIGENTE : Fusionne la sauvegarde avec les VRAIES équipes actuelles
+  const syncPlayers = (baseTeam, savedList) => {
+    const freshTeam = tourney?.teams?.find(t => t.id === baseTeam?.id) || baseTeam;
+    const freshPlayers = freshTeam?.players || [];
     const initialStatus = courtSize === 1 ? 'court' : 'bench';
 
-    return playersList.map(p => ({
-      ...p, 
-      status: initialStatus, 
-      points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
-      ftm: 0, fta: 0, fg2m: 0, fg2a: 0, fg3m: 0, fg3a: 0, plusMinus: 0
-    }));
+    // On se base STRICTEMENT sur la vraie liste des joueurs. 
+    // Si un joueur a été supprimé de l'équipe, il sera naturellement ignoré ici !
+    return freshPlayers.map(freshP => {
+      // Cherche si ce joueur existait déjà dans la sauvegarde du match
+      const existingStat = (savedList || []).find(sp => sp.id === freshP.id);
+      
+      if (existingStat) {
+        // Le joueur était là : on garde ses stats, mais on met à jour son nom/numéro (au cas où modifiés)
+        return { ...existingStat, name: freshP.name, number: freshP.number };
+      } else {
+        // Nouveau joueur ajouté après la création du match : on l'initialise à zéro
+        return {
+          ...freshP, 
+          status: initialStatus, 
+          points: 0, fouls: 0, ast: 0, oreb: 0, dreb: 0, tov: 0, stl: 0, blk: 0, timePlayed: 0,
+          ftm: 0, fta: 0, fg2m: 0, fg2a: 0, fg3m: 0, fg3a: 0, plusMinus: 0
+        };
+      }
+    });
   };
 
   const safeSave = getSafeSave();
@@ -87,11 +100,14 @@ export default function Scoreboard() {
     (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false) || 
     (matchData?.liveHistory?.length > 0) || 
     cloudHasStarters ||
-    courtSize === 1; // 👈 NOUVEAU : En 1v1, le match est validé et prêt à sauvegarder direct !
+    courtSize === 1;
 
   const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
-  const [playersA, setPlayersA] = useState(() => savedStatsA || (safeSave ? safeSave.playersA : (matchData?.savedStatsA || initPlayers(teamA))));
-  const [playersB, setPlayersB] = useState(() => savedStatsB || (safeSave ? safeSave.playersB : (matchData?.savedStatsB || initPlayers(teamB))));
+  
+  // 🔥 L'état s'initialise désormais avec la fusion intelligente
+  const [playersA, setPlayersA] = useState(() => syncPlayers(teamA, savedStatsA || (safeSave ? safeSave.playersA : matchData?.savedStatsA)));
+  const [playersB, setPlayersB] = useState(() => syncPlayers(teamB, savedStatsB || (safeSave ? safeSave.playersB : matchData?.savedStatsB)));
+  
   const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : (matchData?.liveTime !== undefined ? matchData.liveTime : settings.periodDuration * 60)));
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
@@ -99,22 +115,18 @@ export default function Scoreboard() {
 
   // 🔄 GESTION DU CHARGEMENT ASYNCHRONE (Rafraîchissement F5)
   useEffect(() => {
-    // Si les équipes sont déjà chargées avec des joueurs, on ne touche à rien
-    if (playersA.length > 0 && playersB.length > 0) return;
-
-    const savedData = getSafeSave();
-    
-    // Si on a une sauvegarde dans le navigateur, on force sa restauration
-    if (savedData && savedData.playersA && savedData.playersA.length > 0) {
-      setPlayersA(savedData.playersA);
-      setPlayersB(savedData.playersB);
-      if (savedData.history) setHistory(savedData.history);
-    } 
-    // Sinon, dès que teamA/teamB arrivent du Contexte, on les initialise
-    else {
-      if (teamA?.players && playersA.length === 0) setPlayersA(initPlayers(teamA));
-      if (teamB?.players && playersB.length === 0) setPlayersB(initPlayers(teamB));
+    // On relance la fusion intelligente si l'appli met du temps à charger les données
+    if (teamA?.players && playersA.length === 0) {
+      const savedDataA = getSafeSave()?.playersA || matchData?.savedStatsA;
+      setPlayersA(syncPlayers(teamA, savedDataA));
     }
+    if (teamB?.players && playersB.length === 0) {
+      const savedDataB = getSafeSave()?.playersB || matchData?.savedStatsB;
+      setPlayersB(syncPlayers(teamB, savedDataB));
+    }
+    
+    const savedData = getSafeSave();
+    if (savedData && savedData.history && history.length === 0) setHistory(savedData.history);
   }, [teamA, teamB, matchId]);
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
