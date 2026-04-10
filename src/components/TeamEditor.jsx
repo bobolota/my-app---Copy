@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
+import { supabase } from '../supabaseClient';
 
 export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update }) {
   const { setConfirmData } = useAppContext();
@@ -13,9 +14,46 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
   // 👇 NOUVEAU : Brouillon pour les paiements en cours d'édition
   const [financeDrafts, setFinanceDrafts] = useState({});
 
+  // NOUVEAU : État pour le modal de liaison Joueur -> Profil Global (Phase 1)
+  const [linkModal, setLinkModal] = useState({ isOpen: false, targetId: null, targetName: '' });
+  const [linkSearchQuery, setLinkSearchQuery] = useState('');
+  const [linkSearchResults, setLinkSearchResults] = useState([]);
+  const [isSearchingLink, setIsSearchingLink] = useState(false);
+
   useEffect(() => {
     setPlayersDraft([{ name: "", number: "" }]);
   }, [teamId]);
+
+  // 🚀 PHASE 2 : Moteur de recherche Supabase avec temporisation (Debounce)
+  useEffect(() => {
+    if (!linkModal.isOpen || linkSearchQuery.length < 2) {
+      setLinkSearchResults([]);
+      return;
+    }
+
+    // On attend 400ms après la dernière frappe avant de lancer la recherche
+    const delayDebounceFn = setTimeout(async () => {
+      setIsSearchingLink(true);
+      try {
+        // Recherche dans la table 'profiles' (car on est dans l'éditeur de joueurs)
+        // Modifie 'pseudo' par le nom de ta colonne si elle s'appelle autrement (ex: 'username', 'name')
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name')
+          .ilike('first_name', `%${linkSearchQuery}%`)
+          .limit(10);
+          
+        if (error) throw error;
+        setLinkSearchResults(data || []);
+      } catch (err) {
+        console.error("Erreur de recherche Supabase :", err);
+      } finally {
+        setIsSearchingLink(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [linkSearchQuery, linkModal.isOpen]);
 
   if (!team) return null;
 
@@ -154,6 +192,98 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     });
   };
 
+  // 🚀 PHASE 3 & 4 : Lier le joueur et l'enregistrer globalement
+  const handleLinkPlayer = async (realProfileId, realProfileName) => {
+    if (!canEdit) return;
+
+    // --- PHASE 4 : Enregistrement Officiel dans Supabase (team_members) ---
+    // On vérifie d'abord si l'équipe actuelle est une VRAIE équipe (liée au réseau)
+    if (team.global_id) {
+      try {
+        // 1. On vérifie si le joueur n'est pas déjà dans cette équipe (pour éviter les doublons)
+        const { data: existingMember } = await supabase
+          .from('team_members')
+          .select('id')
+          .eq('profile_id', realProfileId)
+          .eq('team_id', team.global_id)
+          .single();
+
+        // 2. S'il n'y est pas, on l'ajoute officiellement !
+        if (!existingMember) {
+          const { error } = await supabase
+            .from('team_members')
+            .insert([{ 
+              profile_id: realProfileId, 
+              team_id: team.global_id, 
+              joined_at: new Date().toISOString() 
+            }]);
+            
+          if (error) console.error("Erreur lors de l'ajout global :", error);
+        }
+      } catch (err) {
+        // On ignore silencieusement si la requête plante (ex: pas internet ou RLS)
+        console.error("Info réseau Supabase :", err);
+      }
+    }
+
+    // --- PHASE 3 : Mise à jour locale du tournoi ---
+    const updatedTeams = tourney.teams.map(t => {
+      if (t.id !== teamId) return t; 
+
+      return {
+        ...t,
+        players: t.players.map(p => {
+          if (p.id !== linkModal.targetId) return p; 
+          return { ...p, profile_id: realProfileId };
+        })
+      };
+    });
+
+    // On sauvegarde le tournoi avec la mise à jour
+    update({ teams: updatedTeams });
+
+    // On referme et on nettoie le modal
+    setLinkModal({ isOpen: false, targetId: null, targetName: '' });
+    setLinkSearchQuery('');
+    setLinkSearchResults([]);
+    toast.success(`Joueur lié avec succès ! 🔗`);
+  };
+
+  // 💔 Délier un joueur (Retirer le vrai compte du joueur fantôme)
+  const handleUnlinkPlayer = (playerId, profileId) => {
+    if (!canEdit) return;
+    setConfirmData({
+      isOpen: true,
+      title: "Délier le joueur ?",
+      message: "Voulez-vous vraiment détacher ce vrai profil ? (L'historique des transferts sera également annulé).",
+      isDanger: true,
+      onConfirm: async () => {
+        // 1. On annule l'enregistrement dans la table globale (s'il avait été fait)
+        if (team.global_id && profileId) {
+          try {
+            await supabase.from('team_members').delete().match({ profile_id: profileId, team_id: team.global_id });
+          } catch (err) { console.error("Erreur annulation transfert :", err); }
+        }
+
+        // 2. On met à jour le tournoi en supprimant le "profile_id"
+        const updatedTeams = tourney.teams.map(t => {
+          if (t.id !== teamId) return t;
+          return {
+            ...t,
+            players: t.players.map(p => {
+              if (p.id !== playerId) return p;
+              const { profile_id, ...rest } = p; // On recrée le joueur SANS le profile_id
+              return rest; 
+            })
+          };
+        });
+
+        update({ teams: updatedTeams });
+        toast.success("Joueur délié avec succès !");
+      }
+    });
+  };
+
   // --- DRAG & DROP (KANBAN) ---
   const onDragStartPlayer = (e, playerId) => {
     if (!canEdit) { e.preventDefault(); return; }
@@ -235,13 +365,40 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                       <span className="text-white/50 text-xs mr-1">#</span>{p.number} {p.name}
                     </strong>
                     {canEdit && !isEditingFinance && (
-                      <button 
-                        onClick={() => deletePlayer(p.id)} 
-                        className="absolute top-3 right-3 text-muted bg-app-input border border-transparent hover:border-danger/30 hover:bg-danger/10 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 hover:text-danger transition-all text-sm"
-                        title="Supprimer"
-                      >
-                        ✕
-                      </button>
+                      <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        {/* NOUVEAU BOUTON : Affiché uniquement si le joueur n'est pas encore lié */}
+                        {!p.profile_id ? (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setLinkModal({ isOpen: true, targetId: p.id, targetName: p.name }); 
+                              setLinkSearchQuery('');
+                            }}
+                            className="text-muted bg-app-input border border-transparent hover:border-action/30 hover:bg-action/10 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:text-action transition-all text-sm"
+                            title="Lier à un vrai compte joueur"
+                          >
+                            🔗
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleUnlinkPlayer(p.id, p.profile_id);
+                            }}
+                            className="text-action bg-action/10 border border-action/30 hover:border-danger/50 hover:bg-danger/20 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:text-danger transition-all text-sm"
+                            title="Délier le joueur"
+                          >
+                            ✂️
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => deletePlayer(p.id)} 
+                          className="text-muted bg-app-input border border-transparent hover:border-danger/30 hover:bg-danger/10 w-7 h-7 rounded-lg flex items-center justify-center cursor-pointer hover:text-danger transition-all text-sm"
+                          title="Supprimer"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     )}
                   </div>
                   
@@ -395,6 +552,77 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
         {renderPlayerColumn("EN ATTENTE", "pending", "#f97316")}
         {renderPlayerColumn("VALIDÉ", "validated", "#10b981")}
       </div>
+
+      {/* 🔗 MODAL DE LIAISON JOUEUR (PHASE 1) */}
+      {linkModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4" onClick={() => setLinkModal({ isOpen: false, targetId: null, targetName: '' })}>
+          <div className="bg-app-panel border border-muted-line rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-white font-black tracking-widest uppercase m-0 flex items-center gap-2">
+                🔗 Lier le joueur
+              </h3>
+              <button onClick={() => setLinkModal({ isOpen: false, targetId: null, targetName: '' })} className="bg-transparent border-none text-muted-dark hover:text-white cursor-pointer text-xl">✕</button>
+            </div>
+
+            <p className="text-sm text-muted-light m-0">
+              Recherchez un profil global pour l'associer à <b className="text-white">{linkModal.targetName}</b>.
+            </p>
+
+            <input 
+              type="text"
+              autoFocus
+              className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white placeholder:text-muted-dark focus:outline-none focus:border-action transition-colors shadow-inner"
+              placeholder="🔍 Rechercher un pseudo de joueur..."
+              value={linkSearchQuery}
+              onChange={(e) => setLinkSearchQuery(e.target.value)}
+            />
+
+            {/* 🚀 PHASE 2 : Affichage des résultats */}
+            <div className="bg-app-card border border-muted-line rounded-xl min-h-[150px] max-h-[250px] overflow-y-auto p-2 shadow-inner custom-scrollbar flex flex-col">
+              {isSearchingLink ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-sm text-action font-bold animate-pulse">Recherche en cours... ⏳</span>
+                </div>
+              ) : linkSearchResults.length > 0 ? (
+                linkSearchResults.map(res => (
+                  <div 
+                    key={res.id} 
+                    className="flex items-center justify-between p-3 border-b border-muted-line hover:bg-white/5 cursor-default transition-colors rounded-lg group"
+                  >
+                    <div className="flex items-center gap-3">
+                      {res.avatar_url ? (
+                        <img src={res.avatar_url} alt="avatar" className="w-8 h-8 rounded-full border border-muted-line object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-muted-dark flex items-center justify-center text-xs">👤</div>
+                      )}
+                      <span className="font-bold text-white text-sm">{res.first_name || res.name}</span>
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleLinkPlayer(res.id, res.first_name);
+                      }} 
+                      className="bg-action/20 text-action border border-transparent group-hover:border-action/50 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all cursor-pointer hover:bg-action hover:text-white"
+                    >
+                      Sélectionner
+                    </button>
+                  </div>
+                ))
+              ) : linkSearchQuery.length >= 2 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-sm text-muted-dark">Aucun profil trouvé. 🤷‍♂️</span>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-xs text-muted-dark italic tracking-wider">Tapez au moins 2 lettres...</span>
+                </div>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
     </div>
   );
 }

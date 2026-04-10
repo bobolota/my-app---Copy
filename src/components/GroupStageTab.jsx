@@ -194,6 +194,52 @@ export default function GroupStageTab({
   // ==========================================
   // 🛠️ VUE ORGANISATEUR (Avec Drag & Drop !)
   // ==========================================
+  
+  // NOUVEAU : État pour le modal de liaison "Ghost to Global" (Phase 1)
+  const [linkModal, setLinkModal] = useState({ isOpen: false, type: null, targetId: null, targetName: '' });
+  const [linkSearchQuery, setLinkSearchQuery] = useState('');
+  // 🚀 Lier une équipe manuelle (fantôme) à une vraie équipe réseau
+  const handleLinkTeam = (globalTeam) => {
+    if (!canEdit) return;
+
+    // 🛡️ BOUCLIER : On vérifie si l'équipe globale est déjà dans le tournoi
+    const isAlreadyInTournament = tourney.teams.some(t => t.global_id === globalTeam.id);
+    if (isAlreadyInTournament) {
+      toast.error(`Action impossible : L'équipe "${globalTeam.name}" est déjà inscrite ou liée dans ce tournoi ! ❌`);
+      return;
+    }
+
+    update({ 
+      teams: tourney.teams.map(t => {
+        if (t.id === linkModal.targetId) {
+          return { ...t, global_id: globalTeam.id }; 
+        }
+        return t;
+      })
+    });
+
+    setLinkModal({ isOpen: false, type: null, targetId: null, targetName: '' });
+    setLinkSearchQuery('');
+    toast.success(`Équipe liée avec succès à ${globalTeam.name} ! 🌐`);
+  };
+
+  // 💔 Délier une équipe manuelle
+  const handleUnlinkTeam = (teamId) => {
+    if (!canEdit) return;
+    if (window.confirm("Voulez-vous vraiment délier cette équipe du réseau global ?")) {
+      update({ 
+        teams: tourney.teams.map(t => {
+          if (t.id === teamId) {
+            const { global_id, ...rest } = t; // On supprime le global_id
+            return rest;
+          }
+          return t;
+        })
+      });
+      toast.success("Équipe déliée avec succès !");
+    }
+  };
+  
   return (
     <div className="flex flex-col xl:flex-row gap-8 items-start w-full mt-4">
       
@@ -268,7 +314,34 @@ export default function GroupStageTab({
                       </span>
                     </div>
                     {canEdit && (
-                      <button onClick={(e) => { e.stopPropagation(); deleteTeam(t.id); }} className="bg-transparent border-none text-muted-dark cursor-pointer text-lg opacity-0 group-hover:opacity-100 hover:text-danger transition-all">✕</button>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        {/* NOUVEAU BOUTON : Uniquement si ce n'est pas déjà une équipe globale */}
+                        {!t.global_id ? (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              setLinkModal({ isOpen: true, type: 'team', targetId: t.id, targetName: t.name }); 
+                              setLinkSearchQuery('');
+                            }} 
+                            className="bg-transparent border-none text-muted hover:text-action cursor-pointer text-sm transition-colors"
+                            title="Lier à une vraie équipe"
+                          >
+                            🔗
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={(e) => { 
+                              e.stopPropagation(); 
+                              handleUnlinkTeam(t.id);
+                            }} 
+                            className="bg-transparent border-none text-action hover:text-danger cursor-pointer text-sm transition-colors"
+                            title="Délier l'équipe"
+                          >
+                            ✂️
+                          </button>
+                        )}
+                        <button onClick={(e) => { e.stopPropagation(); deleteTeam(t.id); }} className="bg-transparent border-none text-muted-dark cursor-pointer text-lg hover:text-danger transition-colors">✕</button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -284,6 +357,75 @@ export default function GroupStageTab({
               </div>
             )}
           </div>
+
+          {/* 🔗 MODAL DE LIAISON (PHASE 1) */}
+      {linkModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4" onClick={() => setLinkModal({ isOpen: false, type: null, targetId: null, targetName: '' })}>
+          <div className="bg-app-panel border border-muted-line rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-4" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="text-white font-black tracking-widest uppercase m-0 flex items-center gap-2">
+                🔗 Lier {linkModal.type === 'team' ? "l'équipe" : "le joueur"}
+              </h3>
+              <button onClick={() => setLinkModal({ isOpen: false, type: null, targetId: null, targetName: '' })} className="bg-transparent border-none text-muted-dark hover:text-white cursor-pointer text-xl">✕</button>
+            </div>
+
+            <p className="text-sm text-muted-light m-0">
+              Recherchez un profil global pour l'associer à <b className="text-white">{linkModal.targetName}</b>.
+            </p>
+
+            <input 
+              type="text"
+              autoFocus
+              className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white placeholder:text-muted-dark focus:outline-none focus:border-action transition-colors shadow-inner"
+              placeholder={`🔍 Rechercher un ${linkModal.type === 'team' ? 'nom d\'équipe' : 'joueur'}...`}
+              value={linkSearchQuery}
+              onChange={(e) => setLinkSearchQuery(e.target.value)}
+            />
+
+            {/* La zone des résultats (Filtre direct sur globalTeams) */}
+            <div className="bg-app-card border border-muted-line rounded-xl min-h-[150px] max-h-[250px] overflow-y-auto p-2 shadow-inner custom-scrollbar flex flex-col">
+              {linkSearchQuery.length >= 2 ? (
+                globalTeams.filter(t => t.name.toLowerCase().includes(linkSearchQuery.toLowerCase())).length > 0 ? (
+                  globalTeams.filter(t => t.name.toLowerCase().includes(linkSearchQuery.toLowerCase())).map(gt => (
+                    <div 
+                      key={gt.id} 
+                      className="flex items-center justify-between p-3 border-b border-muted-line hover:bg-white/5 cursor-default transition-colors rounded-lg group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl">🏀</span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-white text-sm">{gt.name}</span>
+                          {gt.city && <span className="text-xs text-muted-light">{gt.city}</span>}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLinkTeam(gt);
+                        }}
+                        className="bg-action/20 text-action border border-transparent group-hover:border-action/50 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all cursor-pointer hover:bg-action hover:text-white"
+                      >
+                        Sélectionner
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-sm text-muted-dark">Aucune équipe trouvée. 🤷‍♂️</span>
+                  </div>
+                )
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <span className="text-xs text-muted-dark italic tracking-wider">Tapez au moins 2 lettres...</span>
+                </div>
+              )}
+            </div>
+            
+          </div>
+        </div>
+      )}
+
         </div>
 
         

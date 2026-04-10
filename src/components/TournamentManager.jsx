@@ -597,6 +597,7 @@ export default function TournamentManager() {
     });
   };
 
+  
   const handleUnlockOtm = () => {
     setPromptData({
       isOpen: true,
