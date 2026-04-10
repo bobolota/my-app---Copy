@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import toast from 'react-hot-toast';
 
 export default function MatchCard({ match, tourney, currentUserName, canEdit, handleLaunchMatch, isPublicScoreboard, update }) {
@@ -18,18 +18,11 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   const isUpcoming = !isFinished && !isCanceled && !isForfeit && !hasStarted;
 
   const canLaunchThisMatch = canEdit || (currentUserName && match.otm && match.otm.includes(currentUserName));
-  
-  // NOUVEAU : On récupère l'équipe "fraîche" depuis le tournoi pour avoir les derniers joueurs ajoutés
-  const teamA = tourney?.teams?.find(t => t.id === match.teamA?.id) || match.teamA;
-  const teamB = tourney?.teams?.find(t => t.id === match.teamB?.id) || match.teamB;
-
   // 1. On récupère la taille de l'équipe attendue pour ce tournoi
   const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
   
- // 2. On vérifie la taille avec les équipes FRAÎCHES (teamA et teamB) au lieu de match.teamA
-  const isReady = teamA?.players?.length >= courtSize && teamB?.players?.length >= courtSize;
-  
-  // NOUVEAU : La carte est strictement bloquée pour TOUT LE MONDE si l'effectif est insuffisant
+  // 2. On vérifie si les équipes ont au moins le nombre de joueurs requis (1 pour 1v1, 3 pour 3x3, etc.)
+  const isReady = match.teamA?.players?.length >= courtSize && match.teamB?.players?.length >= courtSize;
   const canClick = isReady || isFinished;
   const phaseLabel = match.group ? `POULE ${match.group}` : (match.label ? match.label.toUpperCase() : 'PHASE FINALE');
 
@@ -47,46 +40,8 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
 
   let statusText = isLive ? '🔥 EN DIRECT' : (isFinished ? '🏁 TERMINÉ' : (isCanceled ? '❌ ANNULÉ' : (isForfeit ? '🏳️ FORFAIT' : 'À VENIR')));
 
-  // --- GESTION MANUELLE DU SCORE ---
-  const [isEditingScore, setIsEditingScore] = useState(false);
-  const [tempScoreA, setTempScoreA] = useState(match.scoreA || 0);
-  const [tempScoreB, setTempScoreB] = useState(match.scoreB || 0);
-
-  const handleSaveScore = (e) => {
-    e.stopPropagation();
-    const newScoreA = parseInt(tempScoreA) || 0;
-    const newScoreB = parseInt(tempScoreB) || 0;
-
-    if (match.group) {
-      const newSchedule = tourney.schedule.map(m => 
-        m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
-      );
-      update({ schedule: newSchedule });
-    } 
-    else if (tourney.playoffs) {
-      const newMatches = tourney.playoffs.matches.map(m => 
-        m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
-      );
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-    }
-    setIsEditingScore(false);
-    toast.success("Score validé manuellement ! ✅");
-  };
-
-  const currentDt = match.datetime ? match.datetime.replace(' ', 'T') : '';
-  const [currentDateStr, currentTimeStr] = currentDt.split('T');
-  const dateVal = currentDateStr || '';
-  const timeVal = currentTimeStr ? currentTimeStr.substring(0, 5) : '';
-
-  const handleDateTimeChange = (field, value) => {
-    let d = dateVal;
-    let t = timeVal;
-    
-    if (field === 'date') d = value;
-    if (field === 'time') t = value;
-
-    // On recombine en un seul datetime (ajoute minuit par défaut si on met juste la date)
-    const newDatetime = d ? `${d}T${t || '00:00'}` : '';
+  const handleDateChange = (e) => {
+    const newDatetime = e.target.value;
     
     if (match.group) {
       const newSchedule = tourney.schedule.map(m => 
@@ -105,8 +60,6 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   return (
     <div 
       onClick={() => {
-        if (isEditingScore) return; // 👈 NOUVEAU: Bloque le clic global si on est en train d'éditer
-        
         if (isLockedForUser) {
            if (isSpectator && isLive && !canSpectateLive) {
                toast.error("La diffusion en direct n'est pas activée par l'organisateur.", { id: 'live-locked' });
@@ -125,31 +78,15 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
       }}
       className={`bg-app-card rounded-xl p-5 border transition-all duration-200 flex flex-col gap-4 relative overflow-hidden
           ${isLive && !isLockedForUser ? 'border-secondary shadow-[0_5px_15px_rgba(249,115,22,0.15)] cursor-pointer hover:scale-[1.02]' : ''}
-          ${canClick && !isCanceled && !isForfeit && !isLockedForUser && !isEditingScore ? 'border-muted-line hover:border-action cursor-pointer hover:scale-[1.02]' : ''}
-          ${isLockedForUser || isEditingScore ? 'border-muted-dark opacity-80 cursor-default' : ''}
+          ${canClick && !isCanceled && !isForfeit && !isLockedForUser ? 'border-muted-line hover:border-action cursor-pointer hover:scale-[1.02]' : ''}
+          ${isLockedForUser ? 'border-muted-dark opacity-80 cursor-default' : ''}
       `}
     >
       
-      {/* 📅 GESTION DE LA DATE ET L'HEURE */}
+      {/* 📅 GESTION DE LA DATE ET L'HEURE (NOUVEAU BLOC) */}
       <div className="flex justify-between items-start pb-3 border-b border-muted-line">
-        {canEdit && !isFinished && !isCanceled && !isForfeit ? (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-            <input 
-              type="date" 
-              value={dateVal}
-              onChange={(e) => handleDateTimeChange('date', e.target.value)}
-              className="bg-app-input border border-muted-line text-secondary text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[145px]"
-              title="Date du match"
-            />
-            <input 
-              type="time" 
-              value={timeVal}
-              onChange={(e) => handleDateTimeChange('time', e.target.value)}
-              className="bg-app-input border border-muted-line text-white text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[70px]"
-              title="Heure du match"
-            />
-          </div>
-        ) : match.datetime ? (
+        {/* Affichage pour les joueurs / spectateurs */}
+        {match.datetime ? (
           <div className="flex items-center gap-2 bg-secondary/10 border border-secondary/20 w-fit px-3 py-1.5 rounded-lg shadow-sm">
             <span className="text-[10px]">📅</span>
             <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
@@ -164,6 +101,7 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
             🕒 Horaire à définir
           </div>
         )}
+        
       </div>
 
       <div className="flex justify-between items-start text-xs font-bold">
@@ -180,104 +118,17 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
         </span>
       </div>
 
-      {/* AFFICHAGE ET ÉDITION DU SCORE */}
-      {isEditingScore ? (
-        <div className="flex flex-col gap-3 my-2 bg-app-input p-4 rounded-xl border border-muted-line shadow-inner relative z-10" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-between items-center gap-2">
-            
-            {/* Équipe A */}
-            <div className="flex flex-col items-center flex-1 min-w-0">
-              <span className="text-[10px] text-muted-light font-black uppercase tracking-widest truncate w-full text-center mb-2 px-1">
-                {match.teamA?.name || 'Équipe A'}
-              </span>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(parseInt(e.target.value) || 0)} className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" />
-              </div>
-            </div>
-            
-            <span className="text-muted-dark font-black text-xs px-2">VS</span>
-
-            {/* Équipe B */}
-            <div className="flex flex-col items-center flex-1 min-w-0">
-              <span className="text-[10px] text-muted-light font-black uppercase tracking-widest truncate w-full text-center mb-2 px-1">
-                {match.teamB?.name || 'Équipe B'}
-              </span>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(parseInt(e.target.value) || 0)} className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" />
-              </div>
-            </div>
-
-          </div>
-
-          <div className="flex gap-2 mt-2 pt-3 border-t border-muted-line">
-            <button onClick={(e) => { e.stopPropagation(); setIsEditingScore(false); }} className="flex-1 text-[10px] font-bold text-muted hover:text-white py-2.5 transition-colors uppercase tracking-widest cursor-pointer border border-transparent bg-transparent">Annuler</button>
-            <button onClick={handleSaveScore} className="flex-1 text-[10px] font-black bg-secondary/20 text-secondary hover:bg-secondary hover:text-white rounded-lg py-2.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-secondary/30">Valider</button>
-          </div>
+      <div className="flex justify-between items-center my-2">
+        <div className="flex-1 text-right text-base sm:text-lg font-black text-white truncate px-2" title={match.teamA?.name || 'TBD'}>
+          {match.teamA?.name || 'TBD'}
         </div>
-      ) : (
-        <div className="flex justify-between items-center my-2 gap-1 relative">
-          
-          {/* ÉQUIPE A ET SON SCORE */}
-          <div className="flex-1 flex items-center justify-end gap-3 pr-2 min-w-0">
-            <span 
-              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && match.scoreA > match.scoreB ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
-              title={match.teamA?.name || 'TBD'}
-            >
-              {match.teamA?.name || 'TBD'}
-            </span>
-            {!isUpcoming && (
-              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && match.scoreA > match.scoreB ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
-                {match.scoreA || 0}
-              </span>
-            )}
-          </div>
-
-          {/* CENTRE : CRAYON (ORGA) OU VS/TIRET (USERS) */}
-          <div className="flex items-center justify-center shrink-0 w-10 relative h-10">
-            {(canEdit && !['canceled', 'forfeit'].includes(match.status)) ? (
-              <div 
-                onClick={(e) => { 
-                  e.preventDefault();
-                  e.stopPropagation(); 
-                  setIsEditingScore(true); 
-                  setTempScoreA(match.scoreA || 0); 
-                  setTempScoreB(match.scoreB || 0); 
-                }}
-                className="p-3 sm:p-4 cursor-pointer z-20 group/btn absolute"
-                title="Modifier le score manuellement"
-              >
-                <button 
-                  type="button"
-                  className="w-8 h-8 rounded-full bg-app-panel border border-muted-line text-muted-light flex items-center justify-center transition-all shadow-md group-hover/btn:scale-110 group-hover/btn:bg-secondary group-hover/btn:text-white group-hover/btn:border-secondary text-xs"
-                >
-                  ✏️
-                </button>
-              </div>
-            ) : (
-              <span className={`font-black ${isUpcoming ? 'text-muted-dark text-lg' : 'text-white text-2xl'} ${isCanceled ? 'opacity-50' : ''}`}>
-                {isUpcoming ? 'VS' : '-'}
-              </span>
-            )}
-          </div>
-
-          {/* SCORE ÉQUIPE B ET SON NOM */}
-          <div className="flex-1 flex items-center justify-start gap-3 pl-2 min-w-0">
-            {!isUpcoming && (
-              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && match.scoreB > match.scoreA ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
-                {match.scoreB || 0}
-              </span>
-            )}
-            <span 
-              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && match.scoreB > match.scoreA ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
-              title={match.teamB?.name || 'TBD'}
-            >
-              {match.teamB?.name || 'TBD'}
-            </span>
-          </div>
+        <div className={`px-2 text-2xl font-black ${isUpcoming ? 'text-muted-dark' : 'text-white'}`}>
+          {isUpcoming ? 'VS' : `${match.scoreA || 0} - ${match.scoreB || 0}`}
         </div>
-      )}
-      
-       {/* 👈 L'ACCOLADE ET LA BALISE MANQUANTES ÉTAIENT LÀ */}
+        <div className="flex-1 text-left text-base sm:text-lg font-black text-white truncate px-2" title={match.teamB?.name || 'TBD'}>
+          {match.teamB?.name || 'TBD'}
+        </div>
+      </div>
 
       <div className="text-center text-sm text-muted border-t border-dashed border-muted-dark pt-3 font-bold tracking-widest mt-auto flex flex-col gap-1">
          {isLive && canSpectateLive && <span className="text-secondary text-[10px]">Cliquer pour suivre le direct</span>}

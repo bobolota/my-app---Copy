@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import MatchCard from './MatchCard'; 
+import MatchCard from './MatchCard'; // 👈 On importe notre nouveau composant !
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName, update }) {
   const groupMatches = tourney?.schedule || [];
@@ -15,28 +15,22 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
   });
 
   const [filter, setFilter] = useState((myMatches.length > 0 && !canEdit) ? 'mine' : 'all');
-  const [selectedTeamFilter, setSelectedTeamFilter] = useState('all'); 
   
   const sortFunction = (a, b) => {
+    // 1. Les matchs AVEC une date/heure s'affichent en premier
     if (a.datetime && !b.datetime) return -1;
     if (!a.datetime && b.datetime) return 1;
-    if (a.datetime && b.datetime) return new Date(a.datetime) - new Date(b.datetime);
+    
+    // 2. Si les deux ont une date, on trie par ordre chronologique
+    if (a.datetime && b.datetime) {
+      return new Date(a.datetime) - new Date(b.datetime);
+    }
+    
+    // 3. Fallback (ordre de création)
     return 0;
   };
 
-  const baseMatches = allMatches.filter(m => {
-    if (filter === 'mine') {
-      const inTeamA = m.teamA?.players?.some(p => p.name === currentUserName);
-      const inTeamB = m.teamB?.players?.some(p => p.name === currentUserName);
-      return inTeamA || inTeamB;
-    }
-    if (selectedTeamFilter !== 'all') {
-      return m.teamA?.id === selectedTeamFilter || m.teamB?.id === selectedTeamFilter;
-    }
-    return true;
-  });
-
-  const uniqueTeams = [...(tourney?.teams || [])].sort((a, b) => a.name.localeCompare(b.name));
+  const baseMatches = filter === 'mine' ? myMatches : allMatches;
   
   const finishedGroupMatches = baseMatches
     .filter(m => m.group && ['finished', 'canceled', 'forfeit'].includes(m.status))
@@ -61,40 +55,24 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
           </p>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3 items-end sm:items-center">
-          
-          <select 
-            value={selectedTeamFilter}
-            onChange={(e) => {
-              setSelectedTeamFilter(e.target.value);
-              if (e.target.value !== 'all') setFilter('all');
-            }}
-            className="bg-app-input border border-muted-line text-white text-xs font-bold p-2.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer shadow-inner w-full sm:w-auto"
-          >
-            <option value="all">Toutes les équipes</option>
-            {uniqueTeams.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-
-          {myMatches.length > 0 && (
-            <div className="flex bg-app-input rounded-lg p-1 border border-muted-line shadow-inner shrink-0 w-full sm:w-auto">
-              <button 
-                onClick={() => { setFilter('all'); setSelectedTeamFilter('all'); }} 
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'all' && selectedTeamFilter === 'all' ? 'bg-muted-dark text-white shadow-md' : 'text-muted-dark hover:text-muted-light'}`}
-              >
-                Tous
-              </button>
-              <button 
-                onClick={() => { setFilter('mine'); setSelectedTeamFilter('all'); }} 
-                className={`flex-1 sm:flex-none px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'mine' ? 'bg-primary/20 text-primary border border-primary/30 shadow-md' : 'text-muted-dark hover:text-muted-light'}`}
-              >
-                Mes matchs
-              </button>
-            </div>
-          )}
-        </div>
-      </div> {/* 👈 LA MODIFICATION EST ICI : Fermeture de l'en-tête premium */}
+        {/* Toggle Filtre Pro */}
+        {myMatches.length > 0 && (
+          <div className="flex bg-app-input rounded-lg p-1 border border-muted-line shadow-inner shrink-0">
+            <button 
+              onClick={() => setFilter('all')} 
+              className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'all' ? 'bg-muted-dark text-white shadow-md' : 'text-muted-dark hover:text-muted-light'}`}
+            >
+              Tous les matchs
+            </button>
+            <button 
+              onClick={() => setFilter('mine')} 
+              className={`px-4 py-2 rounded-md text-xs font-bold transition-all ${filter === 'mine' ? 'bg-primary/20 text-primary border border-primary/30 shadow-md' : 'text-muted-dark hover:text-muted-light'}`}
+            >
+              Mes matchs
+            </button>
+          </div>
+        )}
+      </div>
       
       {allMatches.length === 0 ? (
         <div className="bg-app-panel/60 backdrop-blur-md border border-muted-line rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
@@ -129,6 +107,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
               
               {showFinishedGroups && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6 border-t border-muted-line bg-black/20">
+                  {/* 👇 Utilisation du composant MatchCard 👇 */}
                   {finishedGroupMatches.map(match => (
                     <MatchCard 
                       key={match.id} 
@@ -148,6 +127,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
 
           {/* GRILLE DES MATCHS ACTIFS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* 👇 Utilisation du composant MatchCard 👇 */}
             {activeMatches.map(match => (
               <MatchCard 
                 key={match.id} 

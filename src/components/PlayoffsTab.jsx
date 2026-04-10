@@ -159,13 +159,8 @@ export default function PlayoffsTab({
 
   // --- LE COMPOSANT D'UN MATCH (Pour ne pas répéter le code) ---
   const renderMatch = (m) => {
-      // NOUVEAU : On récupère l'équipe fraîche pour avoir les joueurs à jour
-      const teamA = tourney?.teams?.find(t => t.id === m.teamA?.id) || m.teamA;
-      const teamB = tourney?.teams?.find(t => t.id === m.teamB?.id) || m.teamB;
-
       const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
-      // On utilise teamA et teamB au lieu de m.teamA et m.teamB
-      const isReady = teamA?.players?.length >= courtSize && teamB?.players?.length >= courtSize;
+      const isReady = m.teamA?.players?.length >= courtSize && m.teamB?.players?.length >= courtSize;
       const isFinished = m.status === 'finished';
       const isCanceled = m.status === 'canceled';
       const isForfeit = m.status === 'forfeit';
@@ -288,39 +283,19 @@ export default function PlayoffsTab({
               
               {/* SAISIE HORAIRE ET TERRAIN */}
                           {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
-                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-muted-line" onClick={(e) => e.stopPropagation()}>
-                              
-                              {/* SÉLECTEUR DE DATE ET HEURE (SÉPARÉS) */}
-                              <div className="flex gap-2 flex-[3]">
-                                <input
-                                  type="date"
-                                  value={m.datetime ? m.datetime.split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const d = e.target.value;
-                                    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
-                                    const newMatches = tourney.playoffs.matches.map(x => 
-                                      x.id === m.id ? { ...x, datetime: d ? `${d}T${t}` : '' } : x
-                                    );
-                                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Date du match"
-                                />
-                                <input
-                                  type="time"
-                                  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
-                                  onChange={(e) => {
-                                    const t = e.target.value;
-                                    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
-                                    const newMatches = tourney.playoffs.matches.map(x => 
-                                      x.id === m.id ? { ...x, datetime: `${d}T${t}` } : x
-                                    );
-                                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Heure du match"
-                                />
-                              </div>
+                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-muted-line">
+                              {/* SÉLECTEUR DE DATE ET HEURE */}
+                              <input
+                                type="datetime-local"
+                                value={m.datetime || ''}
+                                onChange={(e) => {
+                                  const newMatches = tourney.playoffs.matches.map(x => 
+                                    x.id === m.id ? { ...x, datetime: e.target.value } : x
+                                  );
+                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
+                                }}
+                                className="flex-[3] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner"
+                              />
                               
                               {/* SÉLECTEUR DE TERRAIN */}
                               <input
@@ -333,7 +308,7 @@ export default function PlayoffsTab({
                                   );
                                   update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
                                 }}
-                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
+                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner"
                               />
                             </div>
                           )}

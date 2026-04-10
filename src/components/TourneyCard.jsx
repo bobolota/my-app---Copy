@@ -13,9 +13,6 @@ export default function TourneyCard({
 }) {
   // 👇 Détection automatique du format du tournoi (5 par défaut)
   const courtSize = parseInt(tourney?.matchsettings?.courtSize) || 5;
-  const tourneyDate = tourney?.date 
-    ? new Date(tourney.date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-    : null;
 
   return (
     <div 
@@ -27,15 +24,7 @@ export default function TourneyCard({
       style={{ borderLeftColor: accentHex }}
     >
       <div className="flex justify-between items-start mb-2 pr-6">
-        <div className="flex flex-col truncate">
-          <strong className="text-lg font-heading text-white truncate">{tourney.name}</strong>
-          {/* 👇 Affiche la date UNIQUEMENT si elle a été renseignée 👇 */}
-          {tourneyDate && (
-            <span className="text-[10px] text-primary font-bold uppercase tracking-widest mt-0.5">
-              📅 Prévu le {tourneyDate}
-            </span>
-          )}
-        </div>
+        <strong className="text-lg font-heading text-white truncate">{tourney.name}</strong>
         {isOwnerOrAdmin && (
           <button 
             onClick={(e) => { e.stopPropagation(); deleteTourney(e, tourney.id); }} 

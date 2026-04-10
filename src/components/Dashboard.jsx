@@ -9,7 +9,6 @@ import KanbanColumn from './KanbanColumn';
 
 export default function Dashboard() {
   const [name, setName] = useState("");
-  const [tourneyDate, setTourneyDate] = useState("");
   const [draggedId, setDraggedId] = useState(null);
   const [pinCode, setPinCode] = useState("");
   const { session } = useAuth();
@@ -94,7 +93,7 @@ export default function Dashboard() {
     
     const newT = { 
       id: validUuid, name, teams: [], schedule: [], status: 'preparing', 
-      date: tourneyDate || null, organizer_id: session.user.id,
+      date: new Date().toLocaleDateString(), organizer_id: session.user.id,
       pin_code: generatedPin, otm_ids: [],
       matchsettings: { 
           courtSize: parseInt(courtSize) || 5, 
@@ -110,7 +109,7 @@ export default function Dashboard() {
     };
     
     setTournaments([...tournaments, newT]);
-    setName(""); setTourneyDate(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3); setCourtSize(5); setMaxFouls(5); setBonusFouls(4);
+    setName(""); setPeriodCount(4); setPeriodDuration(10); setTimeoutsHalf1(2); setTimeoutsHalf2(3); setCourtSize(5); setMaxFouls(5); setBonusFouls(4);
 
     const { error } = await supabase.from('tournaments').insert([newT]);
     if (error) toast.error(`Erreur Cloud : ${error.message}`); 
@@ -190,21 +189,12 @@ export default function Dashboard() {
                 Créer un nouveau tournoi
               </strong>
               
-              <div className="flex flex-col sm:flex-row gap-4 mb-5">
-                <input 
-                  className="flex-1 p-4 rounded-xl border border-muted-line bg-app-input text-white placeholder:text-muted-dark focus:outline-none focus:border-action focus:bg-app-bg focus:ring-1 focus:ring-action transition-all shadow-inner font-medium"
-                  placeholder="Nom de l'événement (ex: Summer League 2026)..." 
-                  value={name} 
-                  onChange={e => setName(e.target.value)} 
-                />
-                <input 
-                  type="date" 
-                  className="w-full sm:w-[200px] p-4 rounded-xl border border-muted-line bg-app-input text-muted-light focus:outline-none focus:border-action focus:bg-app-bg focus:ring-1 focus:ring-action transition-all shadow-inner font-medium"
-                  value={tourneyDate} 
-                  onChange={e => setTourneyDate(e.target.value)} 
-                  title="Date de l'événement"
-                />
-              </div>
+              <input 
+                className="w-full p-4 rounded-xl border border-muted-line bg-app-input text-white placeholder:text-muted-dark focus:outline-none focus:border-action focus:bg-app-bg focus:ring-1 focus:ring-action transition-all shadow-inner mb-5 font-medium"
+                placeholder="Nom de l'événement (ex: Summer League 2026)..." 
+                value={name} 
+                onChange={e => setName(e.target.value)} 
+              />
 
               {/* FORMAT DE JEU */}
               <div className="flex flex-col gap-1.5 mb-5">
