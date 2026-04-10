@@ -27,10 +27,10 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
     // 1. Est-ce que c'est une de mes équipes officielles ? (Cas du 5x5 / 3x3)
     const isMyOfficialTeam = myAcceptedTeamIds.includes(team.global_id);
     
-    // 2. Est-ce que c'est une équipe fantôme (1v1) dans laquelle je suis le joueur ?
-    // On fouille dans la liste des joueurs de l'équipe pour voir si mon ID s'y trouve.
+    // 2. Est-ce que c'est une équipe fantôme dans laquelle je suis le joueur lié ?
+    // On fouille dans la liste des joueurs pour voir si mon ID ou mon profile_id s'y trouve.
     const amIInPhantomTeam = team.players && team.players.some(p => 
-      p.user_id === session?.user?.id || p.id === session?.user?.id
+      p.user_id === session?.user?.id || p.id === session?.user?.id || p.profile_id === session?.user?.id
     );
 
     return isMyOfficialTeam || amIInPhantomTeam;

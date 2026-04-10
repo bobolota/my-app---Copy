@@ -125,8 +125,13 @@ export function useDashboardData(session) {
     fetchData();
   }, [session]);
 
-  // 🚀 Filtre intelligent de "Mes Engagements"
+  // 🚀 Filtre intelligent de "Mes Engagements" (Joueurs + Organisateurs + OTM)
   const myTournaments = allTournaments.filter(tourney => {
+    // Cas 0 : Je suis le créateur du tournoi OU j'ai été invité à la Table de Marque (OTM)
+    if (tourney.organizer_id === session?.user?.id) return true;
+    if (tourney.otm_ids && tourney.otm_ids.includes(session?.user?.id)) return true;
+
+    // Sinon, on cherche si je suis joueur dans l'une des équipes...
     if (!tourney.teams) return false;
     return tourney.teams.some(t => 
       myTeams.some(myT => myT.global_teams?.id === t.global_id) || 

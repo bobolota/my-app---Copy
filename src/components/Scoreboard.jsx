@@ -19,7 +19,7 @@ export default function Scoreboard() {
     activeMatch, setActiveMatch, setView, 
     finishMatch: onMatchFinished, syncLiveScore: onLiveUpdate, 
     userRole, currentTourney: tourney, 
-    setConfirmData, setPromptData 
+    setConfirmData, setPromptData, update 
     
   } = useAppContext();
 
@@ -221,10 +221,19 @@ export default function Scoreboard() {
     }
   }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
+  // 🛡️ NOUVEAU : On utilise une réf pour ne pas spammer la base de données au chargement de la page
+  const isInitialMount = useRef(true);
+
   useEffect(() => {
-    if (!canEdit || isMatchOver || history.length === 0) return;
-    if (!startersValidated && history.length === 0) return;
+    if (!canEdit || isMatchOver) return;
     
+    // On ignore juste la toute première lecture automatique
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      if (!startersValidated && history.length === 0) return;
+    }
+    
+       
     const timeoutId = setTimeout(async () => {
         const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
         const matchArray = isPlayoff ? tourney?.playoffs?.matches : tourney?.schedule;
@@ -267,6 +276,12 @@ export default function Scoreboard() {
     if (e) e.stopPropagation();
     if (onExit) onExit();
     
+    // 🧹 NETTOYAGE : Si le match n'a pas vraiment commencé, on déchire le "ticket" de l'organisateur !
+    if (!startersValidated && history.length === 0) {
+        localStorage.removeItem(`canEdit_match_${matchId}`);
+        localStorage.removeItem(`basketMatchSave_${matchId}`);
+    }
+    
     if (canEdit && !isMatchOver) {
         try {
             const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
@@ -274,16 +289,21 @@ export default function Scoreboard() {
             
             if (matchArray) {
                 const matchIndex = matchArray.findIndex(m => m.id === matchId);
-                if (matchIndex > -1) {
-                    const updatedMatch = {
-                        ...matchArray[matchIndex],
-                        savedStatsA: playersA,
-                        savedStatsB: playersB,
-                        liveTime: time,
-                        livePeriod: period,
-                        liveHistory: history,
-                        livePossession: possession,
-                        scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
+        if (matchIndex > -1) {
+            // 👇 NOUVEAU : On repasse le statut en "pending" si le 5 majeur est annulé
+            const newStatus = isMatchOver ? 'finished' : ((startersValidated || history.length > 0) ? 'ongoing' : 'pending');
+
+            const updatedMatch = {
+                ...matchArray[matchIndex],
+                savedStatsA: playersA,
+                savedStatsB: playersB,
+                liveTime: time,
+                livePeriod: period,
+                liveHistory: history,
+                livePossession: possession,
+                startersValidated: startersValidated,
+                status: newStatus, // 👈 ON INJECTE LE VRAI STATUT ICI
+                scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
                         scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
                     };
                     
@@ -298,7 +318,13 @@ export default function Scoreboard() {
                         payload = { schedule: newSchedule };
                     }
                     
-                    supabase.from('tournaments').update(payload).eq('id', tourney?.id).then();
+                    // 🚀 NOUVEAU : On utilise "update()" au lieu de "supabase.from..."
+                    // Cela met à jour le cloud ET rafraîchit l'interface instantanément !
+                    if (update) {
+                        update(payload);
+                    } else {
+                        supabase.from('tournaments').update(payload).eq('id', tourney?.id).then();
+                    }
                 }
             }
         } catch (err) { console.error("Erreur silencieuse lors de la sauvegarde :", err); }
