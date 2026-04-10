@@ -249,13 +249,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     toast.success(`Joueur lié avec succès ! 🔗`);
   };
 
-  // 💔 Délier un joueur (Retirer le vrai compte du joueur fantôme)
+ // 💔 Délier un joueur (Retirer le vrai compte du joueur fantôme)
   const handleUnlinkPlayer = (playerId, profileId) => {
     if (!canEdit) return;
     setConfirmData({
       isOpen: true,
       title: "Délier le joueur ?",
-      message: "Voulez-vous vraiment détacher ce vrai profil ? (L'historique des transferts sera également annulé).",
+      message: "Voulez-vous vraiment détacher ce vrai profil ? (L'historique des stats sera également nettoyé).",
       isDanger: true,
       onConfirm: async () => {
         // 1. On annule l'enregistrement dans la table globale (s'il avait été fait)
@@ -265,7 +265,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
           } catch (err) { console.error("Erreur annulation transfert :", err); }
         }
 
-        // 2. On met à jour le tournoi en supprimant le "profile_id"
+        // 2. On met à jour le tournoi en supprimant le "profile_id" de l'équipe
         const updatedTeams = tourney.teams.map(t => {
           if (t.id !== teamId) return t;
           return {
@@ -278,8 +278,26 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
           };
         });
 
-        update({ teams: updatedTeams });
-        toast.success("Joueur délié avec succès !");
+        // 🧹 3. NOUVEAU : On "gomme" le lien sur toutes les anciennes feuilles de matchs !
+        const cleanMatches = (matches) => {
+          if (!matches) return matches;
+          return matches.map(m => ({
+            ...m,
+            savedStatsA: m.savedStatsA?.map(p => p.id === playerId ? { ...p, profile_id: null, user_id: null, player_id: null } : p),
+            savedStatsB: m.savedStatsB?.map(p => p.id === playerId ? { ...p, profile_id: null, user_id: null, player_id: null } : p)
+          }));
+        };
+
+        const updatedSchedule = cleanMatches(tourney.schedule);
+        const updatedPlayoffs = tourney.playoffs ? { ...tourney.playoffs, matches: cleanMatches(tourney.playoffs.matches) } : null;
+
+        // 4. On sauvegarde l'équipe ET le nettoyage des matchs
+        let payload = { teams: updatedTeams };
+        if (updatedSchedule) payload.schedule = updatedSchedule;
+        if (updatedPlayoffs) payload.playoffs = updatedPlayoffs;
+
+        update(payload);
+        toast.success("Joueur délié et historique nettoyé !");
       }
     });
   };

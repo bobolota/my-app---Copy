@@ -33,6 +33,17 @@ export default function TournamentManager() {
 
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem('tm_active_tab') || "poules");
 
+  // À mettre dans TournamentManager.jsx
+  useEffect(() => {
+    const matchIdToOpen = localStorage.getItem('redirectMatchId');
+    if (matchIdToOpen) {
+      // Ouvre le match ! (Utilise ta fonction habituelle handleLaunchMatch ou setScoringMatch)
+      handleLaunchMatch(matchIdToOpen, false); 
+      // On nettoie pour ne pas le rouvrir à chaque fois
+      localStorage.removeItem('redirectMatchId'); 
+    }
+  }, []);
+  
   useEffect(() => {
     if (!tourney?.id) return;
     const realtimeChannel = supabase
@@ -112,18 +123,13 @@ export default function TournamentManager() {
   const update = async (data) => {
     if (!canEdit) return; 
 
+    // 1. Mise à jour instantanée de l'interface visuelle
     setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...data } : t));
 
-    const safePayload = {
-      ...data,
-      teams: data.teams !== undefined ? data.teams : tourney.teams,
-      schedule: data.schedule !== undefined ? data.schedule : tourney.schedule,
-      playoffs: data.playoffs !== undefined ? data.playoffs : tourney.playoffs
-    };
-
+    // 2. Mise à jour CHIRURGICALE dans le cloud (Fini le safePayload !)
     const { data: updatedRows, error } = await supabase
       .from('tournaments')
-      .update(safePayload)
+      .update(data) // 👈 LA MAGIE EST LÀ : On n'envoie QUE ce qui a changé.
       .eq('id', tourney.id)
       .select();
 

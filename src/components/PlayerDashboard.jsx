@@ -574,7 +574,24 @@ export default function PlayerDashboard() {
         />
       )}
 
-      {currentTab === 'carriere' && <MaCarriere userProfile={userProfile} tournaments={allTournaments} />}
+      {currentTab === 'carriere' && (
+  <MaCarriere 
+    userProfile={userProfile} 
+    tournaments={allTournaments} 
+    onMatchClick={(match, tourneyId) => {
+      // 1. On dit à l'appli d'ouvrir ce tournoi spécifique
+      setActiveTourneyId(tourneyId);
+
+      // 2. On change la vue pour afficher le gestionnaire de tournoi
+      // (Remplace 'tournament' par le nom exact de ta vue si c'est différent, ex: 'tournoi', 'manager')
+      setView('tournament');
+
+      // 3. ASTUCE : Pour ouvrir directement le match dans le tournoi,
+      // on peut utiliser le localStorage comme tu le fais déjà pour "managingTeamId" !
+      localStorage.setItem('redirectMatchId', match.id);
+    }} 
+  />
+)}
 
       {currentTab === 'explorer' && (
         <ExplorerTournois          

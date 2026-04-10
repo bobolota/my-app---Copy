@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 
-// Notre Hook prend la "session" en paramètre pour savoir qui est connecté
 export function useDashboardData(session) {
   const [myTeams, setMyTeams] = useState([]);
   const [allTeams, setAllTeams] = useState([]);
@@ -11,33 +10,44 @@ export function useDashboardData(session) {
   const [careerStats, setCareerStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🧠 FONCTION DE CALCUL INTELLIGENTE (Résout le problème du Snapshot)
   const calculateStats = (playerId, tourneys) => {
     let stats = { gp: 0, pts: 0, reb: 0, ast: 0, blk: 0, stl: 0, tov: 0, fgm: 0, fga: 0, ftm: 0, fta: 0, maxPts: 0, maxReb: 0, maxAst: 0, maxStl: 0, maxBlk: 0, maxEff: 0 };
     
+    console.log(`\n🔍 DÉBUT DU CALCUL POUR LE JOUEUR : ${playerId}`);
+
     tourneys.forEach(tourney => {
-      // 1. On liste tous les ID locaux de ce joueur dans ce tournoi
-      const myLocalIds = [playerId]; // On inclut toujours le vrai ID de base
+      const myLocalIds = [playerId]; 
       
       if (tourney.teams) {
         tourney.teams.forEach(t => {
           t.players?.forEach(p => {
-            // Si le fantôme est lié à ce vrai profil, on retient son ID local (ex: p_12345)
-            if (p.profile_id === playerId) {
-              myLocalIds.push(p.id);
+            // On cherche si un fantôme appartient à ce vrai compte
+            if (p.profile_id === playerId || p.user_id === playerId || p.player_id === playerId || p.id === playerId) {
+              if (p.id && !myLocalIds.includes(p.id)) {
+                myLocalIds.push(p.id);
+                console.log(`🕵️‍♂️ [SUCCÈS] Fantôme trouvé dans le tournoi "${tourney.name}" ! L'ID local du joueur est : ${p.id}`);
+              }
             }
           });
         });
       }
 
-      // 2. On scanne les matchs avec cette liste d'IDs
       const matches = [...(tourney.schedule || []), ...(tourney.playoffs?.matches || [])];
       matches.forEach(m => {
         if (m.status === 'finished' && m.savedStatsA && m.savedStatsB) {
           
-          // On cherche si l'un de nos IDs (vrai ou fantôme) a joué ce match
-          const pStat = [...m.savedStatsA, ...m.savedStatsB].find(p => myLocalIds.includes(p.id));
+          const pStat = [...(m.savedStatsA || []), ...(m.savedStatsB || [])].find(p => 
+            myLocalIds.includes(p.id) || 
+            p.profile_id === playerId || 
+            p.user_id === playerId || 
+            p.player_id === playerId ||
+            p.id === playerId
+          );
           
+          if (pStat) {
+             console.log(`🏀 [BINGO] Stats trouvées pour ce joueur dans le match ${m.id} : ${pStat.points} points marqués.`);
+          }
+
           if (pStat && (pStat.timePlayed > 0 || pStat.points > 0 || pStat.fouls > 0)) {
             stats.gp += 1;
             stats.pts += (pStat.points || 0);
@@ -84,6 +94,7 @@ export function useDashboardData(session) {
     } else {
       stats.ptsAvg = "0.0"; stats.rebAvg = "0.0"; stats.astAvg = "0.0"; stats.stlAvg = "0.0"; stats.blkAvg = "0.0"; stats.effAvg = "0.0";
     }
+    console.log(`🏁 FIN DU CALCUL : Total de ${stats.pts} points trouvés.`);
     return stats;
   };
 
@@ -125,18 +136,15 @@ export function useDashboardData(session) {
     fetchData();
   }, [session]);
 
-  // 🚀 Filtre intelligent de "Mes Engagements" (Joueurs + Organisateurs + OTM)
   const myTournaments = allTournaments.filter(tourney => {
-    // Cas 0 : Je suis le créateur du tournoi OU j'ai été invité à la Table de Marque (OTM)
     if (tourney.organizer_id === session?.user?.id) return true;
     if (tourney.otm_ids && tourney.otm_ids.includes(session?.user?.id)) return true;
 
-    // Sinon, on cherche si je suis joueur dans l'une des équipes...
     if (!tourney.teams) return false;
     return tourney.teams.some(t => 
       myTeams.some(myT => myT.global_teams?.id === t.global_id) || 
       myTeams.some(myT => myT.global_teams?.id === t.id) ||
-      t.players?.some(p => p.id === session?.user?.id || p.profile_id === session?.user?.id)
+      t.players?.some(p => p.id === session?.user?.id || p.profile_id === session?.user?.id || p.user_id === session?.user?.id || p.player_id === session?.user?.id)
     );
   });
 
