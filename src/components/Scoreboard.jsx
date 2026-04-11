@@ -274,14 +274,14 @@ export default function Scoreboard() {
 
   const handleExit = (e) => {
     if (e) e.stopPropagation();
+    if (onExit) onExit();
     
-    // 1. 🧹 NETTOYAGE : Si le match n'a pas vraiment commencé, on déchire le "ticket" de l'organisateur !
+    // 🧹 NETTOYAGE : Si le match n'a pas vraiment commencé, on déchire le "ticket" de l'organisateur !
     if (!startersValidated && history.length === 0) {
         localStorage.removeItem(`canEdit_match_${matchId}`);
         localStorage.removeItem(`basketMatchSave_${matchId}`);
     }
     
-    // 2. ☁️ SAUVEGARDE ET MISE À JOUR DU STATUT
     if (canEdit && !isMatchOver) {
         try {
             const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
@@ -289,21 +289,21 @@ export default function Scoreboard() {
             
             if (matchArray) {
                 const matchIndex = matchArray.findIndex(m => m.id === matchId);
-                if (matchIndex > -1) {
-                    // 👇 On repasse le statut en "pending" si le 5 majeur est annulé
-                    const newStatus = isMatchOver ? 'finished' : ((startersValidated || history.length > 0) ? 'ongoing' : 'pending');
+        if (matchIndex > -1) {
+            // 👇 NOUVEAU : On repasse le statut en "pending" si le 5 majeur est annulé
+            const newStatus = isMatchOver ? 'finished' : ((startersValidated || history.length > 0) ? 'ongoing' : 'pending');
 
-                    const updatedMatch = {
-                        ...matchArray[matchIndex],
-                        savedStatsA: playersA,
-                        savedStatsB: playersB,
-                        liveTime: time,
-                        livePeriod: period,
-                        liveHistory: history,
-                        livePossession: possession,
-                        startersValidated: startersValidated,
-                        status: newStatus,
-                        scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
+            const updatedMatch = {
+                ...matchArray[matchIndex],
+                savedStatsA: playersA,
+                savedStatsB: playersB,
+                liveTime: time,
+                livePeriod: period,
+                liveHistory: history,
+                livePossession: possession,
+                startersValidated: startersValidated,
+                status: newStatus, // 👈 ON INJECTE LE VRAI STATUT ICI
+                scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
                         scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
                     };
                     
@@ -318,7 +318,8 @@ export default function Scoreboard() {
                         payload = { schedule: newSchedule };
                     }
                     
-                    // On met à jour l'application locale ET le cloud
+                    // 🚀 NOUVEAU : On utilise "update()" au lieu de "supabase.from..."
+                    // Cela met à jour le cloud ET rafraîchit l'interface instantanément !
                     if (update) {
                         update(payload);
                     } else {
@@ -328,9 +329,6 @@ export default function Scoreboard() {
             }
         } catch (err) { console.error("Erreur silencieuse lors de la sauvegarde :", err); }
     }
-
-    // 3. 🚪 FERMETURE DE LA FENÊTRE (Maintenant c'est la toute dernière étape !)
-    if (onExit) onExit();
   };
 
   const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });

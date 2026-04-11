@@ -32,18 +32,11 @@ export default function App() {
 
   } = useAppContext();
 
+  // 2. On garde uniquement les états locaux de l'interface (menus, modales, match en cours)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // 🚀 NOUVEAU : On crée la fonction update pour que la tablette puisse rafraîchir l'application entière !
-  const update = (data) => {
-    if (!currentTourney) return;
-    // 1. Mise à jour instantanée de la mémoire locale (Rafraîchit le planning instantanément)
-    setTournaments(prev => prev.map(t => t.id === currentTourney.id ? { ...t, ...data } : t));
-    // 2. Sauvegarde dans le cloud
-    supabase.from('tournaments').update(data).eq('id', currentTourney.id).then();
-  };
-
+    
   if (loading) {
     return <div className="min-h-screen bg-app-bg"></div>;
   }
