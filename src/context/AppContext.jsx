@@ -110,32 +110,41 @@ export const AppProvider = ({ children }) => {
             ));
           }
       })
-      // NOUVEAU : Écoute des modifs sur les MATCHS !
+      // NOUVEAU : Écoute des modifs sur les MATCHS (avec gestion des suppressions !)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
-          if (payload.new) {
-            setTournaments(prev => prev.map(t => {
-              if (t.id === payload.new.tournament_id) {
-                const updatedMatches = [...(t.matches || [])];
-                const matchIndex = updatedMatches.findIndex(m => m.id === payload.new.id);
-                
-                const mappedMatch = {
-  ...(payload.new.metadata || {}), // 👈 LA LIGNE MAGIQUE EST ICI !
-  id: payload.new.id, tourneyId: payload.new.tournament_id,
-  type: payload.new.type, status: payload.new.status,
-  teamA: payload.new.team_a, teamB: payload.new.team_b,
-  scoreA: payload.new.score_a, scoreB: payload.new.score_b,
-  savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
-  liveHistory: payload.new.live_history
-};
+          setTournaments(prev => prev.map(t => {
+            
+            // 🗑️ CAS 1 : SUPPRESSION (DELETE)
+            if (payload.eventType === 'DELETE') {
+              return { 
+                ...t, 
+                matches: (t.matches || []).filter(m => m.id !== payload.old.id) 
+              };
+            }
+            
+            // ➕ CAS 2 : AJOUT OU MISE À JOUR (INSERT / UPDATE)
+            if (payload.new && t.id === payload.new.tournament_id) {
+              const updatedMatches = [...(t.matches || [])];
+              const matchIndex = updatedMatches.findIndex(m => m.id === payload.new.id);
+              
+              const mappedMatch = {
+                ...(payload.new.metadata || {}), // 👈 LA LIGNE MAGIQUE
+                id: payload.new.id, tourneyId: payload.new.tournament_id,
+                type: payload.new.type, status: payload.new.status,
+                teamA: payload.new.team_a, teamB: payload.new.team_b,
+                scoreA: payload.new.score_a, scoreB: payload.new.score_b,
+                savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
+                liveHistory: payload.new.live_history
+              };
 
-                if (matchIndex > -1) updatedMatches[matchIndex] = mappedMatch;
-                else updatedMatches.push(mappedMatch); // Si un match est créé
+              if (matchIndex > -1) updatedMatches[matchIndex] = mappedMatch;
+              else updatedMatches.push(mappedMatch);
 
-                return { ...t, matches: updatedMatches };
-              }
-              return t;
-            }));
-          }
+              return { ...t, matches: updatedMatches };
+            }
+            
+            return t;
+          }));
       }).subscribe();
 
     return () => supabase.removeChannel(channel);

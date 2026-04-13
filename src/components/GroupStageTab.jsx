@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '../supabaseClient'; // 👈 AJOUT
 
 export default function GroupStageTab({
   tourney, canEdit, savedGroupIds, generateMatches, currentUserName,
@@ -28,24 +29,20 @@ export default function GroupStageTab({
   const [tempScoreA, setTempScoreA] = useState(0);
   const [tempScoreB, setTempScoreB] = useState(0);
 
-  // NOUVEAU : Fonction de sauvegarde manuelle
-  const saveManualScore = (matchId) => {
-    const newSchedule = tourney.schedule.map(x => {
-      if (x.id === matchId) {
-        return {
-          ...x,
-          scoreA: parseInt(tempScoreA) || 0,
-          scoreB: parseInt(tempScoreB) || 0,
-          status: 'finished', // On force le statut à "terminé"
-          startersValidated: true // On force la validation pour éviter les blocages
-        };
-      }
-      return x;
-    });
+  // V2 : Sauvegarde manuelle directe en BDD
+  const saveManualScore = async (matchId) => {
+    const { error } = await supabase.from('matches').update({
+      score_a: parseInt(tempScoreA) || 0,
+      score_b: parseInt(tempScoreB) || 0,
+      status: 'finished',
+    }).eq('id', matchId);
     
-    update({ schedule: newSchedule });
-    setEditingScoreId(null);
-    toast.success("Score validé manuellement ! ✅");
+    if (error) {
+      toast.error("Erreur de sauvegarde");
+    } else {
+      setEditingScoreId(null);
+      toast.success("Score validé manuellement ! ✅");
+    }
   };
 
   // ==========================================
@@ -73,11 +70,12 @@ export default function GroupStageTab({
               const standings = getGroupStandings(gNum);
               const limit = getGroupLimit(tourney, gNum);
               
-              // NOUVEAU FILTRE : On prend les matchs terminés ET les matchs en cours
-              const groupMatches = (tourney.schedule || []).filter(m => 
-                m.group === gNum && 
-                (['finished', 'canceled', 'forfeit'].includes(m.status) || m.startersValidated || m.liveHistory?.length > 0)
-              ).sort(sortMatchesByDate);
+              // V2 : On filtre sur tourney.matches et on s'assure que c'est un match de poule
+  const groupMatches = (tourney.matches || []).filter(m => 
+    m.type === 'pool' && 
+    m.group === gNum && 
+    (['finished', 'canceled', 'forfeit'].includes(m.status) || m.startersValidated || m.liveHistory?.length > 0)
+  ).sort(sortMatchesByDate);
 
               return (
                 <div key={gNum} className="bg-app-panel/80 backdrop-blur-md rounded-2xl p-6 border border-muted-line flex flex-col shadow-2xl relative overflow-hidden group">
@@ -523,7 +521,8 @@ export default function GroupStageTab({
                 </table>
 
                 <div className="flex flex-col gap-3 mt-auto">
-                  {(tourney.schedule || []).filter(m => m.group === gNum).sort(sortMatchesByDate).map(m => {
+                  {/* V2 : Affichage des matchs de poule de l'organisateur */}
+                  {(tourney.matches || []).filter(m => m.type === 'pool' && m.group === gNum).sort(sortMatchesByDate).map(m => {
                     // NOUVEAU : On récupère l'équipe fraîche pour avoir les joueurs à jour
                     const teamA = tourney?.teams?.find(t => t.id === m.teamA?.id) || m.teamA;
                     const teamB = tourney?.teams?.find(t => t.id === m.teamB?.id) || m.teamB;
@@ -626,49 +625,47 @@ export default function GroupStageTab({
                               
                               {/* SÉLECTEUR DE DATE ET HEURE (SÉPARÉS) */}
                               <div className="flex gap-2 flex-[3]">
-                                <input
-                                  type="date"
-                                  value={m.datetime ? m.datetime.split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const d = e.target.value;
-                                    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
-                                    const newSchedule = tourney.schedule.map(x => 
-                                      x.id === m.id ? { ...x, datetime: d ? `${d}T${t}` : '' } : x
-                                    );
-                                    update({ schedule: newSchedule });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Date du match"
-                                />
-                                <input
-                                  type="time"
-                                  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
-                                  onChange={(e) => {
-                                    const t = e.target.value;
-                                    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
-                                    const newSchedule = tourney.schedule.map(x => 
-                                      x.id === m.id ? { ...x, datetime: `${d}T${t}` } : x
-                                    );
-                                    update({ schedule: newSchedule });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Heure du match"
-                                />
-                              </div>
-                              
-                              {/* SÉLECTEUR DE TERRAIN */}
-                              <input
-                                type="text"
-                                placeholder="Court 1..."
-                                value={m.court || ''}
-                                onChange={(e) => {
-                                  const newSchedule = tourney.schedule.map(x => 
-                                    x.id === m.id ? { ...x, court: e.target.value } : x
-                                  );
-                                  update({ schedule: newSchedule });
-                                }}
-                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
-                              />
+                                {/* SÉLECTEUR DE DATE */}
+  <input
+    type="date"
+    value={m.datetime ? m.datetime.split('T')[0] : ''}
+    onChange={async (e) => {
+      const d = e.target.value;
+      const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
+      await supabase.from('matches').update({ 
+        metadata: { ...m, datetime: d ? `${d}T${t}` : '' } 
+      }).eq('id', m.id);
+    }}
+    className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+  />
+
+  {/* SÉLECTEUR D'HEURE */}
+  <input
+    type="time"
+    value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
+    onChange={async (e) => {
+      const t = e.target.value;
+      const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+      await supabase.from('matches').update({ 
+        metadata: { ...m, datetime: `${d}T${t}` } 
+      }).eq('id', m.id);
+    }}
+    className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+  />
+</div>
+
+{/* SÉLECTEUR DE TERRAIN */}
+<input
+  type="text"
+  placeholder="Court 1..."
+  value={m.court || ''}
+  onChange={async (e) => {
+    await supabase.from('matches').update({ 
+      metadata: { ...m, court: e.target.value } 
+    }).eq('id', m.id);
+  }}
+  className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
+/>
                             </div>
                           )}
 

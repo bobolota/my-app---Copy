@@ -353,6 +353,11 @@ export default function TournamentManager() {
       message: "⚠️ Attention, cela va écraser les poules et le planning actuels. Voulez-vous continuer ?",
       isDanger: true,
       onConfirm: async () => {
+        // 🚀 OPTIMISTIC UI : On vide l'écran instantanément pour l'utilisateur
+        setTournaments(prev => prev.map(t => 
+          t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.type !== 'pool') } : t
+        ));
+
         const n = parseInt(groupCount);
         if (isNaN(n) || n < 1) return;
 
@@ -437,6 +442,11 @@ export default function TournamentManager() {
     }
 
     const executeGeneration = async () => {
+      // 🚀 OPTIMISTIC UI : On vide l'arbre instantanément
+      setTournaments(prev => prev.map(t => 
+        t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.type !== 'playoff') } : t
+      ));
+
       const qualifiedTeams = [];
       const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
       
