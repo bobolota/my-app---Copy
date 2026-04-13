@@ -258,28 +258,64 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
       message: "Voulez-vous vraiment détacher ce vrai profil ? (L'historique des transferts sera également annulé).",
       isDanger: true,
       onConfirm: async () => {
-        // 1. On annule l'enregistrement dans la table globale (s'il avait été fait)
+        // 1. On annule l'enregistrement dans la table globale
         if (team.global_id && profileId) {
           try {
             await supabase.from('team_members').delete().match({ profile_id: profileId, team_id: team.global_id });
           } catch (err) { console.error("Erreur annulation transfert :", err); }
         }
 
-        // 2. On met à jour le tournoi en supprimant le "profile_id"
+        // 2. On met à jour l'effectif en FORÇANT profile_id à null
         const updatedTeams = tourney.teams.map(t => {
           if (t.id !== teamId) return t;
           return {
             ...t,
             players: t.players.map(p => {
               if (p.id !== playerId) return p;
-              const { profile_id, ...rest } = p; // On recrée le joueur SANS le profile_id
-              return rest; 
+              return { ...p, profile_id: null }; // 👈 La vraie méthode Supabase
             })
           };
         });
 
-        update({ teams: updatedTeams });
-        toast.success("Joueur délié avec succès !");
+        // 3. 🧹 LE NETTOYEUR EXTRÊME (Poules + Playoffs)
+        const cleanMatches = (matchesArray) => {
+          if (!matchesArray || !Array.isArray(matchesArray)) return matchesArray;
+          return matchesArray.map(m => {
+            const wipeProfileId = (stats) => {
+              if (!stats || !Array.isArray(stats)) return stats;
+              return stats.map(stat => {
+                // Si on trouve le joueur, on FORCE son profile_id à null
+                if (stat.profile_id === profileId) {
+                  return { ...stat, profile_id: null };
+                }
+                return stat;
+              });
+            };
+
+            return {
+              ...m,
+              saved_stats_a: wipeProfileId(m.saved_stats_a),
+              saved_stats_b: wipeProfileId(m.saved_stats_b),
+              savedStatsA: wipeProfileId(m.savedStatsA),
+              savedStatsB: wipeProfileId(m.savedStatsB)
+            };
+          });
+        };
+
+        const updatedPlayoffs = tourney.playoffs ? {
+          ...tourney.playoffs,
+          matches: cleanMatches(tourney.playoffs.matches)
+        } : tourney.playoffs;
+
+        // 4. On écrase TOUT d'un seul coup (Effectifs, Poules, Schedule, Playoffs)
+        update({ 
+          teams: updatedTeams,
+          matches: cleanMatches(tourney.matches),
+          schedule: cleanMatches(tourney.schedule),
+          playoffs: updatedPlayoffs
+        });
+        
+        toast.success("Joueur délié (Historique intégral nettoyé) ! 🧹");
       }
     });
   };

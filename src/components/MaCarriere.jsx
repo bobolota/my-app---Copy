@@ -69,17 +69,27 @@ export default function MaCarriere({ userProfile, tournaments }) {
 
     // 2️⃣ LE CALCUL DES STATS : On filtre par format (5x5, 3x3...)
     tournaments.forEach(t => {
-      // 🛡️ CORRECTION 1 : On force le format en vrai Nombre (Number)
+      // Le filtre du format
       const tFormat = Number(t.matchsettings?.courtSize) || 5; 
-      if (tFormat !== activeFormat) return; // Passe au tournoi suivant si ce n'est pas le bon format
+      if (tFormat !== activeFormat) return;
+
+      // 🛡️ LE BOUCLIER ANTI-FANTÔME 🛡️
+      // On vérifie si ton ID est toujours PRÉSENT dans l'effectif officiel des équipes.
+      // Si tu as été délié, ton ID n'y est plus -> On ignore immédiatement tout le tournoi !
+      const isOfficiallyInTournament = t.teams?.some(team => 
+        team.players?.some(p => p.profile_id === currentUserId)
+      );
+      
+      if (!isOfficiallyInTournament) return; // 👈 LA LIGNE QUI RÈGLE TOUT
 
       // 🛡️ CORRECTION 2 : Le râteau absolu (On prend la V1 ET la V2)
-      // Comme ça, peu importe où sont rangés les matchs, on les trouve !
       const allMatches = [
         ...(t.matches || []), 
         ...(t.schedule || []), 
         ...(t.playoffs?.matches || [])
       ];
+      
+      // ... la suite de ta boucle allMatches.forEach ...
       
       allMatches.forEach(m => {
         if (m.status !== 'finished') return;
