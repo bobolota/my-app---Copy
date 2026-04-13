@@ -87,8 +87,8 @@ export default function App() {
             )}
             
             {view === 'match' && activeMatch && (
-              <Scoreboard key={activeMatch.id} update={update} />
-            )}
+  <Scoreboard key={activeMatch.id} />
+)}
             
           </div>
         </div>
