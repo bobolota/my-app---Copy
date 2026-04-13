@@ -18,20 +18,33 @@ export default function PlayerProfileModal({
 
   const { session } = useAuth();
 
-  // 👇 LE MOTEUR DE CALCUL DES STATS AVEC FILTRE PAR FORMAT 👇
   const computedStats = useMemo(() => {
     let gp = 0, pts = 0, reb = 0, ast = 0, stl = 0, blk = 0;
     let maxPts = 0, maxReb = 0, maxAst = 0, maxStl = 0, maxBlk = 0, maxEff = 0;
-    let totalEff = 0;
+    let totalEff = 0; // 👈 AJOUTE CETTE LIGNE ICI !
+    const history = [];
 
     if (!selectedProfile || !selectedProfile.full_name || !allTournaments) return { gp: 0 };
 
+    // 1️⃣ LE SCANNER GLOBAL POUR LA MODALE
+    const myAliases = [selectedProfile.full_name];
     allTournaments.forEach(t => {
-      // 👇 NOUVEAU : On ignore le tournoi s'il ne correspond pas au format actif
+      if (t.teams) {
+        t.teams.forEach(team => {
+          team.players?.forEach(p => {
+            if (p.profile_id === selectedProfile.id && !myAliases.includes(p.name)) {
+              myAliases.push(p.name);
+            }
+          });
+        });
+      }
+    });
+
+    // 2️⃣ LE CALCUL PAR FORMAT (Onglets)
+    allTournaments.forEach(t => {
       const tFormat = t.matchsettings?.courtSize || 5; 
       if (tFormat !== activeFormat) return;
 
-      // 👇 V2 : Tous les matchs sont unifiés dans t.matches !
       const allMatches = t.matches || [];
       
       allMatches.forEach(m => {
@@ -39,14 +52,18 @@ export default function PlayerProfileModal({
 
         let myStats = null;
         
-        const pInA = m.savedStatsA?.find(p => p.name === selectedProfile.full_name);
+        // 🧠 L'intelligence de recherche
+        const findMe = (p) => p.profile_id === selectedProfile.id || myAliases.includes(p.name);
+        
+        const pInA = m.savedStatsA?.find(findMe) || m.saved_stats_a?.find(findMe);
         if (pInA) myStats = pInA;
         else {
-            const pInB = m.savedStatsB?.find(p => p.name === selectedProfile.full_name);
+            const pInB = m.savedStatsB?.find(findMe) || m.saved_stats_b?.find(findMe);
             if (pInB) myStats = pInB;
         }
 
         if (myStats) {
+          // ... la suite de tes calculs
             gp++;
             pts += myStats.points || 0;
             const matchReb = (myStats.oreb || 0) + (myStats.dreb || 0);

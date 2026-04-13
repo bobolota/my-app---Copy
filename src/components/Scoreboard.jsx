@@ -129,20 +129,37 @@ export default function Scoreboard() {
     }).eq('id', matchId);
   };
 
- // 🔄 GESTION DU CHARGEMENT ASYNCHRONE
+ // 🔄 GESTION DU CHARGEMENT ASYNCHRONE (Fix Absolu : Le Juge de Paix)
   useEffect(() => {
-    if (teamA?.players && playersA.length === 0) {
-      const savedDataA = getSafeSave()?.playersA || matchData?.savedStatsA;
-      setPlayersA(syncPlayers(teamA, savedDataA, startersValidated)); // 👈 ICI
+    if (!matchData) return;
+
+    // 1. On lit les deux sources
+    const dbHistory = matchData?.live_history || matchData?.liveHistory || [];
+    const localSave = getSafeSave() || {};
+    const localHistory = localSave.history || [];
+
+    // 2. QUI EST LE PLUS À JOUR ? (Le juge de paix)
+    const isLocalAhead = localHistory.length > dbHistory.length;
+
+    // 3. On sélectionne les meilleures données
+    const bestA = isLocalAhead ? localSave.playersA : (matchData?.saved_stats_a || matchData?.savedStatsA);
+    const bestB = isLocalAhead ? localSave.playersB : (matchData?.saved_stats_b || matchData?.savedStatsB);
+    const bestHistory = isLocalAhead ? localHistory : dbHistory;
+
+    // 4. On met à jour l'écran avec la source gagnante
+    if (teamA?.players && (playersA.length === 0 || bestHistory.length > history.length)) {
+      if (bestA && bestA.length > 0) setPlayersA(syncPlayers(teamA, bestA, startersValidated));
     }
-    if (teamB?.players && playersB.length === 0) {
-      const savedDataB = getSafeSave()?.playersB || matchData?.savedStatsB;
-      setPlayersB(syncPlayers(teamB, savedDataB, startersValidated)); // 👈 ET ICI
+
+    if (teamB?.players && (playersB.length === 0 || bestHistory.length > history.length)) {
+      if (bestB && bestB.length > 0) setPlayersB(syncPlayers(teamB, bestB, startersValidated));
     }
     
-    const savedData = getSafeSave();
-    if (savedData && savedData.history && history.length === 0) setHistory(savedData.history);
-  }, [teamA, teamB, matchId, startersValidated]);
+    if (bestHistory.length > history.length) {
+      setHistory(bestHistory);
+    }
+    
+  }, [teamA, teamB, matchId, startersValidated, matchData, history.length]);
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
   const [isRunning, setIsRunning] = useState(false);
@@ -168,6 +185,28 @@ export default function Scoreboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editMin, setEditMin] = useState(0);
   const [editSec, setEditSec] = useState(0);
+
+
+  // 💾 SAUVEGARDE LOCALE INSTANTANÉE (Le bouclier anti-F5 absolu)
+  useEffect(() => {
+    // On ne sauvegarde pas si le match est fini, si on n'a pas les droits, ou si l'écran est vide
+    if (!canEdit || isMatchOver) return;
+    if (playersA.length === 0 && playersB.length === 0) return; 
+
+    // On crée une copie de survie de l'écran actuel
+    const emergencyBackup = {
+        playersA,
+        playersB,
+        history,
+        time,
+        period,
+        possession
+    };
+    
+    // On l'écrit dans le disque dur du navigateur instantanément (0 milliseconde de délai)
+    localStorage.setItem(`basketMatchSave_${matchId}`, JSON.stringify(emergencyBackup));
+
+  }, [playersA, playersB, history, time, period, possession, matchId, canEdit, isMatchOver]);
 
   // 1. On calcule les points marqués via la table de marque
   const statScoreA = playersA.reduce((sum, p) => sum + p.points, 0);
@@ -274,28 +313,46 @@ export default function Scoreboard() {
 
   const isInitialMount = useRef(true);
 
-  // 🔄 3. SAUVEGARDE AUTO EN BDD (V2)
+  // 🧠 1. LA MÉMOIRE INTEMPORELLE (Immunisée contre les bugs React)
+  // On stocke toujours la vérité absolue ici, en temps réel.
+  const liveData = useRef({ playersA, playersB, history, time });
+  useEffect(() => {
+      liveData.current = { playersA, playersB, history, time };
+  }, [playersA, playersB, history, time]);
+
+  // 🚀 2. LE MOTEUR DE SAUVEGARDE AUTO (Simplifié et infaillible)
   useEffect(() => {
     if (!canEdit || isMatchOver) return;
-    
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      if (!startersValidated && history.length === 0) return;
-    }
-        
-    const timeoutId = setTimeout(async () => {
-        await supabase.from('matches').update({
-            saved_stats_a: playersA,
-            saved_stats_b: playersB,
-            live_history: history,
-            score_a: playersA.reduce((sum, p) => sum + p.points, 0),
-            score_b: playersB.reduce((sum, p) => sum + p.points, 0),
-            metadata: getCleanMetadata()
-        }).eq('id', matchId);
-    }, 1500); 
+    if (history.length === 0 && !startersValidated) return;
 
-    return () => clearTimeout(timeoutId);
-  }, [history, startersValidated, playersA, playersB, time, period, possession, canEdit, isMatchOver, matchId]); 
+    // Le minuteur de 800ms
+    const timerId = setTimeout(async () => {
+        const current = liveData.current; // 👈 On prend la vérité absolue de l'instant T !
+        
+        try {
+            await supabase.from('matches').update({
+                saved_stats_a: current.playersA,
+                saved_stats_b: current.playersB,
+                live_history: current.history,
+                score_a: current.playersA.reduce((sum, p) => sum + (p.points || 0), 0),
+                score_b: current.playersB.reduce((sum, p) => sum + (p.points || 0), 0),
+                metadata: {
+                    ...getCleanMetadata(),
+                    liveTime: current.time,
+                    startersValidated
+                }
+            }).eq('id', matchId);
+            
+            console.log("💾 Supabase mis à jour avec succès !");
+        } catch (err) { console.error("Erreur save:", err); }
+        
+    }, 800);
+
+    return () => clearTimeout(timerId);
+    
+  // 👇 LE SECRET EST LÀ : On ne déclenche ce moteur QUE quand le nombre d'actions (history)
+  // ou le statut du chrono change. Fini les boucles infinies !
+  }, [history.length, isRunning, canEdit, isMatchOver, startersValidated]);
 
   // 🚪 4. SORTIE DU MATCH (V2)
   const handleExit = async (e) => {

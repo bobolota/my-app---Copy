@@ -105,8 +105,9 @@ export function useDashboardData(session) {
       const { data: playersData, error: playersError } = await supabase.from('profiles').select('id, full_name, position, city').order('full_name');
       if (!playersError) setAllPlayers(playersData || []);
 
+      // 👇 REGARDE LE SELECT : ON A RAJOUTÉ matches(*) À LA FIN !
       const { data: tourneysData, error: tourneysError } = await supabase.from('tournaments')
-        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code, matchsettings')
+        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code, matchsettings, matches(*)')
         .in('status', ['preparing', 'ongoing', 'finished']);
       
       if (tourneysError) throw tourneysError;

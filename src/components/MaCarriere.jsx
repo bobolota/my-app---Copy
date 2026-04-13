@@ -1,63 +1,129 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 
 export default function MaCarriere({ userProfile, tournaments }) {
-  
   const currentUserName = userProfile?.full_name || "";
+  const currentUserId = userProfile?.id;
   
-  // 👇 NOUVEAU : État pour savoir quel onglet on regarde
+  // 👉 ON DÉCLARE LE FORMAT ICI EN PREMIER ! (ET UNE SEULE FOIS)
   const [activeFormat, setActiveFormat] = useState(5); // 5 = 5x5, 3 = 3x3, 1 = 1x1
 
+  // 📡 NOTRE RADAR DE DÉBOGAGE :
+  console.log("🔍 Données reçues par MaCarriere :", { 
+    id: currentUserId, 
+    nom: currentUserName, 
+    nbTournois: tournaments?.length 
+  });
+
+  // 🔬 AUDIT CHIRURGICAL : On regarde exactement pourquoi les matchs sont rejetés
+  useEffect(() => {
+    if (!tournaments || tournaments.length === 0) return;
+    
+    console.log("--- DÉBUT DE L'AUDIT ---");
+    tournaments.forEach((t, index) => {
+      console.log(`🏆 Tournoi ${index + 1} (${t.name || 'Sans nom'}) :`);
+      
+      // Test Piste 1
+      console.log(`  👉 Format en BDD :`, t.matchsettings?.courtSize, `| Attendu :`, activeFormat);
+      
+      const matches = t.matches || t.schedule || [];
+      console.log(`  👉 Nombre de matchs trouvés : ${matches.length}`);
+      
+      matches.forEach((m, mIndex) => {
+        // Test Piste 2
+        console.log(`    🏀 Match ${mIndex + 1} - Statut :`, m.status);
+        
+        // Test Piste 3
+        console.log(`    📊 Structure Stats A :`, Array.isArray(m.saved_stats_a) ? 'Tableau OK' : typeof m.saved_stats_a, m.saved_stats_a);
+      });
+    });
+    console.log("--- FIN DE L'AUDIT ---");
+  }, [tournaments, activeFormat]);
+
   // ==========================================
-  // 🧠 LE MOTEUR DE CALCUL DES STATS (AVEC FILTRE)
+  // 🧠 LE MOTEUR DE CALCUL DES STATS (AVEC FILTRE ET ALIAS)
   // ==========================================
   const { careerStats, matchHistory } = useMemo(() => {
     let gp = 0, pts = 0, reb = 0, ast = 0, stl = 0, blk = 0;
     let maxPts = 0, maxReb = 0, maxAst = 0, maxStl = 0, maxBlk = 0, maxEff = 0;
     let totalEff = 0;
-    let history = [];
+    const history = [];
 
-    if (!currentUserName || !tournaments) return { careerStats: null, matchHistory: [] };
+    // Sécurité : si on n'a pas les données de base, on renvoie du vide
+    if (!tournaments || tournaments.length === 0 || !currentUserId) {
+        return { careerStats: { gp: 0 }, matchHistory: [] };
+    }
 
+    // 1️⃣ LE SCANNER GLOBAL : On dresse la liste de TOUS tes noms, sur TOUS les tournois existants
+    const myAliases = [currentUserName]; 
     tournaments.forEach(t => {
-      // 👇 NOUVEAU : On ignore le tournoi s'il ne correspond pas au format actif
-      const tFormat = t.matchsettings?.courtSize || 5; 
-      if (tFormat !== activeFormat) return;
+        if (t.teams) {
+            t.teams.forEach(team => {
+                team.players?.forEach(p => {
+                    if (p.profile_id === currentUserId && !myAliases.includes(p.name)) {
+                        myAliases.push(p.name);
+                    }
+                });
+            });
+        }
+    });
 
-      // 👇 V2 : Tous les matchs sont unifiés dans t.matches !
-      const allMatches = t.matches || [];
+    // 2️⃣ LE CALCUL DES STATS : On filtre par format (5x5, 3x3...)
+    tournaments.forEach(t => {
+      // 🛡️ CORRECTION 1 : On force le format en vrai Nombre (Number)
+      const tFormat = Number(t.matchsettings?.courtSize) || 5; 
+      if (tFormat !== activeFormat) return; // Passe au tournoi suivant si ce n'est pas le bon format
+
+      // 🛡️ CORRECTION 2 : Le râteau absolu (On prend la V1 ET la V2)
+      // Comme ça, peu importe où sont rangés les matchs, on les trouve !
+      const allMatches = [
+        ...(t.matches || []), 
+        ...(t.schedule || []), 
+        ...(t.playoffs?.matches || [])
+      ];
       
       allMatches.forEach(m => {
-        // On ne regarde QUE les matchs terminés
         if (m.status !== 'finished') return;
 
         let myTeam = null;
+        let opponentTeam = null; // 👈 NOUVEAU : On prépare la place pour l'adversaire
         let myStats = null;
         let isWin = false;
         let finalScore = "";
 
+        // 🧠 LE MOTEUR ULTIME : On cherche par ID ou par Alias
+        const findMe = (p) => p.profile_id === currentUserId || myAliases.includes(p.name);
+
+        // 🛡️ SÉCURITÉ ABSOLUE : On convertit en vrais nombres. 
+        const calcScoreA = (m.saved_stats_a || m.savedStatsA || []).reduce((sum, p) => sum + (p.points || 0), 0);
+        const calcScoreB = (m.saved_stats_b || m.savedStatsB || []).reduce((sum, p) => sum + (p.points || 0), 0);
+        
+        const finalScoreA = Number(m.score_a ?? m.scoreA ?? calcScoreA);
+        const finalScoreB = Number(m.score_b ?? m.scoreB ?? calcScoreB);
+
         // Le joueur est-il dans l'équipe A ?
-        const pInA = m.savedStatsA?.find(p => p.name === currentUserName);
+        const pInA = m.savedStatsA?.find(findMe) || m.saved_stats_a?.find(findMe);
         if (pInA) {
-            myTeam = m.teamA;
+            myTeam = m.teamA || m.team_a; 
+            opponentTeam = m.teamB || m.team_b; // 👈 L'adversaire est la B
             myStats = pInA;
-            isWin = m.scoreA > m.scoreB;
-            finalScore = `${m.scoreA} - ${m.scoreB}`;
+            isWin = finalScoreA > finalScoreB;
+            finalScore = `${finalScoreA} - ${finalScoreB}`;
         } else {
             // Ou dans l'équipe B ?
-            const pInB = m.savedStatsB?.find(p => p.name === currentUserName);
+            const pInB = m.savedStatsB?.find(findMe) || m.saved_stats_b?.find(findMe);
             if (pInB) {
-                myTeam = m.teamB;
+                myTeam = m.teamB || m.team_b;
+                opponentTeam = m.teamA || m.team_a; // 👈 L'adversaire est la A
                 myStats = pInB;
-                isWin = m.scoreB > m.scoreA;
-                finalScore = `${m.scoreB} - ${m.scoreA}`;
+                isWin = finalScoreB > finalScoreA;
+                finalScore = `${finalScoreB} - ${finalScoreA}`;
             }
         }
 
-        // Si le joueur a participé à ce match et a des stats sauvegardées
+        // Si le joueur a participé à ce match
         if (myStats) {
             gp++;
-            
-            // Totaux
+                        
             pts += myStats.points || 0;
             const matchReb = (myStats.oreb || 0) + (myStats.dreb || 0);
             reb += matchReb;
@@ -81,7 +147,7 @@ export default function MaCarriere({ userProfile, tournaments }) {
             history.push({
                 id: m.id,
                 tourneyName: t.name,
-                teamName: myTeam?.name || 'Individuel', // Pratique pour le 1v1 !
+                teamName: opponentTeam?.name || 'Adversaire inconnu', // 👈 ICI on met l'adversaire !
                 isWin,
                 finalScore,
                 pts: myStats.points || 0,
@@ -105,8 +171,8 @@ export default function MaCarriere({ userProfile, tournaments }) {
     } : { gp: 0 };
 
     return { careerStats: stats, matchHistory: history.reverse() }; 
-  }, [tournaments, currentUserName, activeFormat]); // 👈 Ne pas oublier d'ajouter activeFormat ici !
 
+  }, [tournaments, currentUserName, currentUserId, activeFormat]);
 
   // ==========================================
   // 🎨 PETITS COMPOSANTS VISUELS PREMIUM
@@ -153,13 +219,11 @@ export default function MaCarriere({ userProfile, tournaments }) {
           <div className="flex flex-col sm:flex-row items-center sm:items-center gap-4 sm:gap-6 bg-app-card/80 backdrop-blur-sm p-4 sm:p-5 rounded-2xl border border-muted-line shadow-xl relative overflow-hidden mb-6">
               <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/20 rounded-full blur-[60px] pointer-events-none"></div>
               
-              {/* L'initiale plus petite (w-16 h-16 au lieu de w-24 h-24) */}
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-tr from-secondary-dark to-warning flex items-center justify-center text-3xl font-black text-white shadow-[0_0_20px_rgba(249,115,22,0.3)] border-2 border-muted-line shrink-0 z-10">
                   {currentUserName.charAt(0).toUpperCase()}
               </div>
               
               <div className="text-center sm:text-left z-10 flex-1 w-full">
-                  {/* Le nom et le badge alignés pour gagner en hauteur */}
                   <div className="flex flex-col sm:flex-row items-center sm:items-center gap-3 mb-3">
                     <h2 className="text-2xl sm:text-3xl font-black text-white m-0 tracking-wide">{currentUserName}</h2>
                     <span className="text-secondary font-black tracking-widest text-[9px] uppercase bg-secondary/10 px-2 py-0.5 rounded border border-secondary/20">
