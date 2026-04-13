@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { useAppContext } from '../context/AppContext';
+import { supabase } from '../supabaseClient';
 
 export default function PlayoffsTab({
   tourney,
@@ -14,6 +15,9 @@ export default function PlayoffsTab({
   getGroupLimit
 }) {
   
+  // V2 : On isole les matchs de la phase finale
+  const playoffMatches = (tourney.matches || []).filter(m => m.type === 'playoff');
+  
   const [draggedMatchId, setDraggedMatchId] = useState(null);
   const { setConfirmData } = useAppContext();
 
@@ -25,60 +29,43 @@ export default function PlayoffsTab({
   // NOUVEAU : ÉTAT POUR LE MODE "ÉCHANGE D'ÉQUIPES"
   const [swapSource, setSwapSource] = useState(null);
 
-  // NOUVEAU : FONCTION POUR INTERVERTIR DEUX ÉQUIPES
-  const handleSwapClick = (match, slot) => {
+  // V2 : Échange d'équipes direct en BDD
+  const handleSwapClick = async (match, slot) => {
     if (!canEdit || match.status === 'finished') return;
     
     const team = match[slot];
-    if (!team) return; // On ne peut pas échanger une case vide (TBD)
+    if (!team) return;
 
     if (!swapSource) {
-      // Premier clic : On mémorise la première équipe
       setSwapSource({ matchId: match.id, slot, team });
       toast("Sélectionnez l'équipe avec laquelle échanger", { icon: "🔄", duration: 3000 });
     } else {
-      // Deuxième clic
       if (swapSource.matchId === match.id && swapSource.slot === slot) {
-        setSwapSource(null); // Si on reclique sur la même, on annule
+        setSwapSource(null);
         return;
       }
 
-      // On procède à l'échange !
-      const newMatches = [...tourney.playoffs.matches];
-      const m1Idx = newMatches.findIndex(m => m.id === swapSource.matchId);
-      const m2Idx = newMatches.findIndex(m => m.id === match.id);
+      // On map 'teamA' vers 'team_a' pour la base de données
+      const slotKey1 = swapSource.slot === 'teamA' ? 'team_a' : 'team_b';
+      const slotKey2 = slot === 'teamA' ? 'team_a' : 'team_b';
 
-      const m1 = { ...newMatches[m1Idx] };
-      const m2 = { ...newMatches[m2Idx] };
+      // On fait deux petits updates instantanés
+      await supabase.from('matches').update({ [slotKey1]: match[slot] }).eq('id', swapSource.matchId);
+      await supabase.from('matches').update({ [slotKey2]: swapSource.team }).eq('id', match.id);
 
-      m1[swapSource.slot] = match[slot]; // On met l'équipe 2 à la place de la 1
-      m2[slot] = swapSource.team;        // On met l'équipe 1 à la place de la 2
-
-      newMatches[m1Idx] = m1;
-      newMatches[m2Idx] = m2;
-
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
       setSwapSource(null);
       toast.success("Affiches modifiées avec succès ! 🔀");
     }
   };
 
-  // Fonction de sauvegarde manuelle pour les Playoffs
-  const saveManualScore = (matchId) => {
-    const newMatches = tourney.playoffs.matches.map(x => {
-      if (x.id === matchId) {
-        return {
-          ...x,
-          scoreA: parseInt(tempScoreA) || 0,
-          scoreB: parseInt(tempScoreB) || 0,
-          status: 'finished',
-          startersValidated: true 
-        };
-      }
-      return x;
-    });
+  // V2 : Sauvegarde du score direct en BDD
+  const saveManualScore = async (matchId) => {
+    await supabase.from('matches').update({
+      score_a: parseInt(tempScoreA) || 0,
+      score_b: parseInt(tempScoreB) || 0,
+      status: 'finished'
+    }).eq('id', matchId);
     
-    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
     setEditingScoreId(null);
     toast.success("Score validé manuellement ! ✅");
   };
@@ -112,10 +99,10 @@ export default function PlayoffsTab({
   };
 
   const playoffRounds = [];
-  if (tourney.playoffs && tourney.playoffs.matches) {
-      const maxRound = Math.max(1, ...tourney.playoffs.matches.map(m => m.round || 1));
+  if (tourney.playoffs && playoffMatches.length > 0) { // V2
+      const maxRound = Math.max(1, ...playoffMatches.map(m => m.round || 1));
       for (let r = 1; r <= maxRound; r++) {
-          playoffRounds.push(tourney.playoffs.matches.filter(m => (m.round || 1) === r));
+          playoffRounds.push(playoffMatches.filter(m => (m.round || 1) === r));
       }
   }
 
@@ -197,38 +184,7 @@ export default function PlayoffsTab({
       return (
           <div 
             key={m.id} 
-            className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg w-full ${borderClass} ${draggedMatchId === m.id ? 'opacity-50 scale-95 border-dashed border-secondary shadow-[0_0_20px_rgba(249,115,22,0.3)]' : 'opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5'} ${canEdit ? (draggedMatchId === m.id ? 'cursor-grabbing' : 'cursor-grab active:cursor-grabbing') : 'cursor-default'} ${isCanceled ? 'opacity-60' : ''}`}
-            draggable={canEdit}
-            onDragStart={(e) => {
-                if(!canEdit) return;
-                setDraggedMatchId(m.id);
-                e.dataTransfer.setData("matchId", m.id);
-                e.dataTransfer.effectAllowed = "move";
-            }}
-            onDragEnd={() => setDraggedMatchId(null)}
-            onDragOver={(e) => {
-                if(!canEdit) return;
-                e.preventDefault();
-            }}
-            onDrop={(e) => {
-                if(!canEdit) return;
-                e.preventDefault();
-                
-                const sourceMatchId = e.dataTransfer.getData("matchId");
-                if (!sourceMatchId || sourceMatchId === m.id) return;
-                
-                const newMatches = [...tourney.playoffs.matches];
-                const sourceIndex = newMatches.findIndex(x => x.id === sourceMatchId);
-                const targetIndex = newMatches.findIndex(x => x.id === m.id);
-                
-                if (sourceIndex > -1 && targetIndex > -1) {
-                    const temp = newMatches[sourceIndex];
-                    newMatches[sourceIndex] = newMatches[targetIndex];
-                    newMatches[targetIndex] = temp;
-                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                }
-                setDraggedMatchId(null);
-            }}
+            className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg w-full ${borderClass} opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5 ${isCanceled ? 'opacity-60' : ''}`}
           >
               {canEdit && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-grab transition-colors" title="Glisser pour intervertir">⠿</div>}
 
@@ -292,49 +248,49 @@ export default function PlayoffsTab({
                               
                               {/* SÉLECTEUR DE DATE ET HEURE (SÉPARÉS) */}
                               <div className="flex gap-2 flex-[3]">
-                                <input
-                                  type="date"
-                                  value={m.datetime ? m.datetime.split('T')[0] : ''}
-                                  onChange={(e) => {
-                                    const d = e.target.value;
-                                    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
-                                    const newMatches = tourney.playoffs.matches.map(x => 
-                                      x.id === m.id ? { ...x, datetime: d ? `${d}T${t}` : '' } : x
-                                    );
-                                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Date du match"
-                                />
-                                <input
-                                  type="time"
-                                  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
-                                  onChange={(e) => {
-                                    const t = e.target.value;
-                                    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
-                                    const newMatches = tourney.playoffs.matches.map(x => 
-                                      x.id === m.id ? { ...x, datetime: `${d}T${t}` } : x
-                                    );
-                                    update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                  title="Heure du match"
-                                />
-                              </div>
-                              
-                              {/* SÉLECTEUR DE TERRAIN */}
-                              <input
-                                type="text"
-                                placeholder="Court 1..."
-                                value={m.court || ''}
-                                onChange={(e) => {
-                                  const newMatches = tourney.playoffs.matches.map(x => 
-                                    x.id === m.id ? { ...x, court: e.target.value } : x
-                                  );
-                                  update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-                                }}
-                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
-                              />
+                                {/* SÉLECTEUR DE DATE */}
+<input
+  type="date"
+  value={m.datetime ? m.datetime.split('T')[0] : ''}
+  onChange={async (e) => {
+    const d = e.target.value;
+    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
+    await supabase.from('matches').update({ 
+      metadata: { ...m, datetime: d ? `${d}T${t}` : '' } 
+    }).eq('id', m.id);
+  }}
+  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+  title="Date du match"
+/>
+
+{/* SÉLECTEUR D'HEURE */}
+<input
+  type="time"
+  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
+  onChange={async (e) => {
+    const t = e.target.value;
+    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+    await supabase.from('matches').update({ 
+      metadata: { ...m, datetime: `${d}T${t}` } 
+    }).eq('id', m.id);
+  }}
+  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+  title="Heure du match"
+/>
+</div>
+
+{/* SÉLECTEUR DE TERRAIN */}
+<input
+  type="text"
+  placeholder="Court 1..."
+  value={m.court || ''}
+  onChange={async (e) => {
+    await supabase.from('matches').update({ 
+      metadata: { ...m, court: e.target.value } 
+    }).eq('id', m.id);
+  }}
+  className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
+/>
                             </div>
                           )}
 

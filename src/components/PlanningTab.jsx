@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import MatchCard from './MatchCard'; 
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName, update }) {
-  const groupMatches = tourney?.schedule || [];
-  const playoffMatches = tourney?.playoffs?.matches || [];
-  const allMatches = [...groupMatches, ...playoffMatches].filter(m => m && m.teamA && m.teamB);
+  // V2 : Plus besoin de fusionner, tout est déjà dans tourney.matches !
+  const allMatches = (tourney?.matches || []).filter(m => m && m.teamA && m.teamB);
 
   const [showFinishedGroups, setShowFinishedGroups] = useState(false);
 
@@ -38,12 +37,14 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
 
   const uniqueTeams = [...(tourney?.teams || [])].sort((a, b) => a.name.localeCompare(b.name));
   
+  // V2 : On filtre proprement sur le type 'pool' au lieu de chercher si m.group existe
   const finishedGroupMatches = baseMatches
-    .filter(m => m.group && ['finished', 'canceled', 'forfeit'].includes(m.status))
+    .filter(m => m.type === 'pool' && ['finished', 'canceled', 'forfeit'].includes(m.status))
     .sort(sortFunction);
 
+  // V2 : Les matchs actifs sont les matchs de playoff OU les matchs de poule non terminés
   const activeMatches = baseMatches
-    .filter(m => !m.group || !['finished', 'canceled', 'forfeit'].includes(m.status))
+    .filter(m => m.type === 'playoff' || !['finished', 'canceled', 'forfeit'].includes(m.status))
     .sort(sortFunction);
 
   return (
@@ -94,7 +95,7 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
             </div>
           )}
         </div>
-      </div> {/* 👈 LA MODIFICATION EST ICI : Fermeture de l'en-tête premium */}
+      </div> 
       
       {allMatches.length === 0 ? (
         <div className="bg-app-panel/60 backdrop-blur-md border border-muted-line rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
