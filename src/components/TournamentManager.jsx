@@ -121,6 +121,9 @@ export default function TournamentManager() {
       playoffs: data.playoffs !== undefined ? data.playoffs : tourney.playoffs
     };
 
+    // 🛡️ LE BOUCLIER : On empêche Supabase de chercher la colonne "matches"
+    delete safePayload.matches;
+
     const { data: updatedRows, error } = await supabase
       .from('tournaments')
       .update(safePayload)
@@ -625,21 +628,33 @@ export default function TournamentManager() {
       title: "Supprimer l'équipe ?",
       message: "Voulez-vous supprimer définitivement cette équipe du tournoi ?",
       isDanger: true,
-      onConfirm: () => {
+      onConfirm: async () => {
+        // 1. On retire l'équipe de la liste des inscrits
         const newTeams = tourney.teams.filter(t => t.id !== teamId);
-        const newSchedule = (tourney.schedule || []).filter(match => match.teamA?.id !== teamId && match.teamB?.id !== teamId);
+        update({ teams: newTeams }); // On met à jour le JSON des équipes
 
-        let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
-        if (newPlayoffs && newPlayoffs.matches) {
-          newPlayoffs.matches = newPlayoffs.matches.map(m => {
-            if (m.teamA?.id === teamId) m.teamA = null;
-            if (m.teamB?.id === teamId) m.teamB = null;
-            return m;
-          });
+        // 2. 🧹 NETTOYAGE DANS LA NOUVELLE TABLE MATCHES
+        // On récupère tous les matchs du tournoi
+        const { data: allMatches } = await supabase.from('matches').select('id, type, team_a, team_b').eq('tournament_id', tourney.id);
+        
+        if (allMatches) {
+          // A. Poules : On supprime totalement les matchs impliquant cette équipe
+          const poolMatches = allMatches.filter(m => m.type === 'pool' && (m.team_a?.id === teamId || m.team_b?.id === teamId));
+          for (const m of poolMatches) {
+             await supabase.from('matches').delete().eq('id', m.id);
+          }
+
+          // B. Playoffs : On ne supprime pas le match, on vide juste la place (team passe à null)
+          const playoffMatches = allMatches.filter(m => m.type === 'playoff' && (m.team_a?.id === teamId || m.team_b?.id === teamId));
+          for (const m of playoffMatches) {
+             const payload = {};
+             if (m.team_a?.id === teamId) payload.team_a = null;
+             if (m.team_b?.id === teamId) payload.team_b = null;
+             await supabase.from('matches').update(payload).eq('id', m.id);
+          }
         }
 
-        update({ teams: newTeams, schedule: newSchedule, playoffs: newPlayoffs });
-        toast.success("Équipe supprimée");
+        toast.success("Équipe supprimée et matchs mis à jour ! 🧹");
       }
     });
   };

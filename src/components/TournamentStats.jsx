@@ -4,10 +4,12 @@ export default function TournamentStats({ tourney }) {
   // 🚀 OPTIMISATION MAJEURE : On calcule les stats 1 SEULE FOIS pour tout l'onglet !
   const playerStats = useMemo(() => {
     const statsMap = {};
-    const allMatches = [
-      ...(tourney.schedule || []),
-      ...(tourney.playoffs?.matches || [])
-    ].filter(m => m.status === 'finished' && m.savedStatsA && m.savedStatsB);
+    // 🚀 V2 : On utilise le tableau unifié contenant poules ET playoffs
+    const allMatches = (tourney.matches || []).filter(m => 
+      m.status === 'finished' && 
+      (m.saved_stats_a || m.savedStatsA) && 
+      (m.saved_stats_b || m.savedStatsB)
+    );
 
     const processTeam = (players, teamName) => {
       if (!players) return;
@@ -40,8 +42,13 @@ export default function TournamentStats({ tourney }) {
     };
 
     allMatches.forEach(match => {
-      processTeam(match.savedStatsA, match.teamA?.name);
-      processTeam(match.savedStatsB, match.teamB?.name);
+      const statsA = match.saved_stats_a || match.savedStatsA;
+      const statsB = match.saved_stats_b || match.savedStatsB;
+      const teamA = match.team_a || match.teamA;
+      const teamB = match.team_b || match.teamB;
+
+      processTeam(statsA, teamA?.name);
+      processTeam(statsB, teamB?.name);
     });
 
     return Object.values(statsMap).map(s => {

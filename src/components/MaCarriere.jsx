@@ -53,13 +53,14 @@ export default function MaCarriere({ userProfile, tournaments }) {
         return { careerStats: { gp: 0 }, matchHistory: [] };
     }
 
-    // 1️⃣ LE SCANNER GLOBAL : On dresse la liste de TOUS tes noms, sur TOUS les tournois existants
+    // 1️⃣ LE SCANNER GLOBAL : On dresse la liste de TOUS tes noms
     const myAliases = [currentUserName]; 
     tournaments.forEach(t => {
         if (t.teams) {
             t.teams.forEach(team => {
                 team.players?.forEach(p => {
-                    if (p.profile_id === currentUserId && !myAliases.includes(p.name)) {
+                    // 🛡️ CORRECTION 1v1 : On regarde p.profile_id MAIS AUSSI p.id
+                    if ((p.profile_id === currentUserId || p.id === currentUserId) && !myAliases.includes(p.name)) {
                         myAliases.push(p.name);
                     }
                 });
@@ -67,20 +68,17 @@ export default function MaCarriere({ userProfile, tournaments }) {
         }
     });
 
-    // 2️⃣ LE CALCUL DES STATS : On filtre par format (5x5, 3x3...)
+    // 2️⃣ LE CALCUL DES STATS : On filtre par format
     tournaments.forEach(t => {
-      // Le filtre du format
       const tFormat = Number(t.matchsettings?.courtSize) || 5; 
       if (tFormat !== activeFormat) return;
 
-      // 🛡️ LE BOUCLIER ANTI-FANTÔME 🛡️
-      // On vérifie si ton ID est toujours PRÉSENT dans l'effectif officiel des équipes.
-      // Si tu as été délié, ton ID n'y est plus -> On ignore immédiatement tout le tournoi !
+      // 🛡️ LE BOUCLIER ANTI-FANTÔME (Adapté pour le 1v1)
       const isOfficiallyInTournament = t.teams?.some(team => 
-        team.players?.some(p => p.profile_id === currentUserId)
+        team.players?.some(p => p.profile_id === currentUserId || p.id === currentUserId)
       );
       
-      if (!isOfficiallyInTournament) return; // 👈 LA LIGNE QUI RÈGLE TOUT
+      if (!isOfficiallyInTournament) return;
 
       // 🛡️ CORRECTION 2 : Le râteau absolu (On prend la V1 ET la V2)
       const allMatches = [
@@ -101,7 +99,8 @@ export default function MaCarriere({ userProfile, tournaments }) {
         let finalScore = "";
 
         // 🧠 LE MOTEUR ULTIME : On cherche par ID ou par Alias
-        const findMe = (p) => p.profile_id === currentUserId || myAliases.includes(p.name);
+        // 🧠 LE MOTEUR ULTIME : Adapté pour le 1v1
+        const findMe = (p) => p.profile_id === currentUserId || p.id === currentUserId || myAliases.includes(p.name);
 
         // 🛡️ SÉCURITÉ ABSOLUE : On convertit en vrais nombres. 
         const calcScoreA = (m.saved_stats_a || m.savedStatsA || []).reduce((sum, p) => sum + (p.points || 0), 0);

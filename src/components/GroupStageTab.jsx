@@ -556,30 +556,12 @@ export default function GroupStageTab({
                     else if (canClick) borderClass = 'border-l-[4px] border-l-primary';
 
                     return (
-                      <div 
-                        key={m.id} 
-                        className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg ${borderClass} ${draggedMatchId === m.id ? 'opacity-50 scale-95 border-dashed border-secondary' : 'opacity-100 scale-100 hover:border-white/20'} ${canEdit ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
-                        
-                        // LOGIQUE DE GLISSER-DÉPOSER
-                        draggable={canEdit}
-                        onDragStart={() => setDraggedMatchId(m.id)}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          if (!draggedMatchId || draggedMatchId === m.id) return;
-                          
-                          const newSchedule = [...tourney.schedule];
-                          const draggedIdx = newSchedule.findIndex(x => x.id === draggedMatchId);
-                          const targetIdx = newSchedule.findIndex(x => x.id === m.id);
-                          
-                          const [draggedItem] = newSchedule.splice(draggedIdx, 1);
-                          newSchedule.splice(targetIdx, 0, draggedItem);
-                          
-                          update({ schedule: newSchedule });
-                          setDraggedMatchId(null);
-                        }}
-                      >
-                          {canEdit && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-grab transition-colors" title="Glisser pour déplacer">⠿</div>}
+                      // NOUVEAU CODE ÉPURÉ
+<div 
+  key={m.id} 
+  className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg ${borderClass} opacity-100 scale-100 hover:border-white/20`}
+>
+  {/* ON A SUPPRIMÉ LE DRAG AND DROP CAR L'ORDRE SE FAIT PAR L'HEURE MAINTENANT */}
                           
                           {/* RUBANS VISUELS */}
                           {isOngoing && <div className="absolute -top-2 -left-2 bg-action text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">EN COURS</div>}

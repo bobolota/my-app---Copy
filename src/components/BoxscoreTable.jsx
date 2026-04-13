@@ -9,32 +9,35 @@ const BoxscoreTable = React.memo(({ title, players, color, courtSize = 5 }) => {
   if (!players) return null;
 
   return (
-    <div className="bg-app-panel rounded-xl p-6 border border-muted-line shadow-md overflow-x-auto">
-      <h3 className="text-2xl font-bold tracking-wider mb-4" style={{ color: color || 'white' }}>{title}</h3>
+    <div className="bg-app-panel/95 backdrop-blur-xl rounded-2xl p-6 border border-muted-line shadow-xl overflow-x-auto">
+      <h3 className="text-2xl font-bold tracking-wider mb-6 uppercase" style={{ color: color || '#f3f4f6' }}>
+        {title}
+      </h3>
+      
       <table className="w-full text-center font-sans text-sm border-collapse">
         <thead>
-          <tr>
-            <th className="text-left bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">N°</th>
-            <th className="text-left bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">JOUEUR</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">MIN</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">PTS</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">TIRS</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">3PT</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">LF</th>
-            {courtSize === 5 && <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">+/-</th>}
-            {courtSize !== 1 && <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">AST</th>}
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">OREB</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">DREB</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">REB</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">STL</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">BLK</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">TOV</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">FLS</th>
-            <th className="bg-app-bg text-muted-light text-[0.85rem] tracking-widest font-semibold uppercase p-3 border-b border-muted-line">EFF</th>
+          <tr className="bg-black/20">
+            <th className="text-left text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60 rounded-tl-xl">N°</th>
+            <th className="text-left text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">JOUEUR</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">MIN</th>
+            <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">PTS</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">TIRS</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">3PT</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">LF</th>
+            {courtSize === 5 && <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">+/-</th>}
+            {courtSize !== 1 && <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">AST</th>}
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">OREB</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">DREB</th>
+            <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">REB</th>
+            <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">STL</th>
+            <th className="text-gray-200 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">BLK</th>
+            <th className="text-gray-400 text-[0.75rem] tracking-widest font-semibold uppercase p-4 border-b border-muted-line/60">TOV</th>
+            <th className="text-rose-400/90 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60">FLS</th>
+            <th className="text-emerald-400/90 text-[0.75rem] tracking-widest font-bold uppercase p-4 border-b border-muted-line/60 rounded-tr-xl">EFF</th>
           </tr>
         </thead>
         <tbody>
-          {players.map(p => {
+          {players.map((p, idx) => {
             const pts = p.points || 0;
             const fg2m = p.fg2m || 0; const fg2a = p.fg2a || 0;
             const fg3m = p.fg3m || 0; const fg3a = p.fg3a || 0;
@@ -45,32 +48,47 @@ const BoxscoreTable = React.memo(({ title, players, color, courtSize = 5 }) => {
             const tov = p.tov || 0;   const fouls = p.fouls || 0;
             const pm = p.plusMinus || 0;
 
-            const pmColor = pm > 0 ? 'text-primary' : (pm < 0 ? 'text-danger' : 'text-muted-light');
             const isExcluded = fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
             const fgm = fg2m + fg3m; const fga = fg2a + fg3a;
             const reb = oreb + dreb;
             const missedFG = fga - fgm; const missedFT = fta - ftm;
             const eff = (pts + reb + ast + stl + blk) - (missedFG + missedFT + tov);
 
+            // 🎨 Couleurs adoucies
+            const pmColor = pm > 0 ? 'text-emerald-400/90' : (pm < 0 ? 'text-rose-400/90' : 'text-gray-400');
+            const effColor = eff >= 15 ? 'text-emerald-400/90' : (eff < 0 ? 'text-rose-400/90' : 'text-gray-100');
+            
+            // 🦓 Zébrage très subtil
+            const rowBg = idx % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]';
+
             return (
-              <tr key={p.id} className="hover:bg-white/5 transition-colors">
-                <td className="text-left p-3.5 border-b border-muted-line">{p.number}</td>
-                <td className="text-left p-3.5 border-b border-muted-line">{p.name} {p.status === 'court' && <span className="text-secondary font-black ml-1">*</span>}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{formatPlayerTime(p.timePlayed)}</td>
-                <td className="text-center p-3.5 border-b border-muted-line font-bold text-[1.05rem] text-white">{pts}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{fgm}/{fga}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{fg3m}/{fg3a}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{ftm}/{fta}</td>
-                {courtSize === 5 && <td className={`text-center p-3.5 border-b border-muted-line font-bold ${pmColor}`}>{pm > 0 ? `+${pm}` : pm}</td>}
-                {courtSize !== 1 && <td className="text-center p-3.5 border-b border-muted-line">{ast}</td>}
-                <td className="text-center p-3.5 border-b border-muted-line">{oreb}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{dreb}</td>
-                <td className="text-center p-3.5 border-b border-muted-line font-bold text-muted-light">{reb}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{stl}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{blk}</td>
-                <td className="text-center p-3.5 border-b border-muted-line">{tov}</td>
-                <td className={`text-center p-3.5 border-b border-muted-line ${isExcluded ? "text-danger font-bold" : ""}`}>{fouls}</td>
-                <td className={`text-center p-3.5 border-b border-muted-line font-bold text-[1.05rem] ${eff >= 15 ? 'text-primary' : (eff < 0 ? 'text-danger' : 'text-white')}`}>{eff}</td>
+              <tr key={p.id} className={`${rowBg} hover:bg-white/5 transition-colors`}>
+                <td className="text-left p-3.5 border-b border-muted-line/40 text-gray-400 font-semibold">{p.number}</td>
+                <td className="text-left p-3.5 border-b border-muted-line/40 font-bold text-gray-100">
+                  {p.name} {p.status === 'court' && <span className="text-secondary/80 ml-1" title="Sur le terrain">*</span>}
+                </td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-400 font-mono text-xs">{formatPlayerTime(p.timePlayed)}</td>
+                
+                {/* PTS adoucis : text-gray-100 et text-base au lieu d'un gros titre */}
+                <td className="text-center p-3.5 border-b border-muted-line/40 font-bold text-base text-gray-100">{pts}</td>
+                
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-500 text-[0.8rem]">{fgm}/{fga}</td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-500 text-[0.8rem]">{fg3m}/{fg3a}</td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-500 text-[0.8rem]">{ftm}/{fta}</td>
+                
+                {courtSize === 5 && <td className={`text-center p-3.5 border-b border-muted-line/40 font-semibold ${pmColor}`}>{pm > 0 ? `+${pm}` : pm}</td>}
+                {courtSize !== 1 && <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-200 font-semibold">{ast}</td>}
+                
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-500 text-[0.8rem]">{oreb}</td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-500 text-[0.8rem]">{dreb}</td>
+                
+                <td className="text-center p-3.5 border-b border-muted-line/40 font-semibold text-gray-200">{reb}</td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-200 font-semibold">{stl}</td>
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-200 font-semibold">{blk}</td>
+                
+                <td className="text-center p-3.5 border-b border-muted-line/40 text-gray-400">{tov}</td>
+                <td className={`text-center p-3.5 border-b border-muted-line/40 ${isExcluded ? "text-rose-400 font-bold" : "text-gray-400"}`}>{fouls}</td>
+                <td className={`text-center p-3.5 border-b border-muted-line/40 font-bold text-base ${effColor}`}>{eff}</td>
               </tr>
             );
           })}

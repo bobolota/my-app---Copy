@@ -26,7 +26,11 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
 
   // 🚀 PHASE 2 : Moteur de recherche Supabase avec temporisation (Debounce)
   useEffect(() => {
-    if (!linkModal.isOpen || linkSearchQuery.length < 2) {
+    // On sépare ce que l'utilisateur a tapé par les espaces
+    const terms = linkSearchQuery.trim().split(/\s+/);
+
+    // 🛡️ BOUCLIER : On exige au moins 2 mots ! Sinon, on vide les résultats.
+    if (!linkModal.isOpen || terms.length < 2 || terms[1].length === 0) {
       setLinkSearchResults([]);
       return;
     }
@@ -35,14 +39,16 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     const delayDebounceFn = setTimeout(async () => {
       setIsSearchingLink(true);
       try {
-        // Recherche dans la table 'profiles' (car on est dans l'éditeur de joueurs)
-        // Modifie 'pseudo' par le nom de ta colonne si elle s'appelle autrement (ex: 'username', 'name')
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, first_name')
-          .ilike('first_name', `%${linkSearchQuery}%`)
-          .limit(10);
-          
+        // On récupère le full_name complet ET la ville pour différencier les homonymes
+        let query = supabase.from('profiles').select('id, full_name, city');
+
+        // 🧠 RECHERCHE INTELLIGENTE : Chaque mot tapé DOIT être dans le profil
+        terms.forEach(term => {
+          query = query.ilike('full_name', `%${term}%`);
+        });
+
+        const { data, error } = await query.limit(10);
+        
         if (error) throw error;
         setLinkSearchResults(data || []);
       } catch (err) {
@@ -249,73 +255,61 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
     toast.success(`Joueur lié avec succès ! 🔗`);
   };
 
-  // 💔 Délier un joueur (Retirer le vrai compte du joueur fantôme)
+  // 💔 Délier un joueur (Nettoyage SQL V2)
   const handleUnlinkPlayer = (playerId, profileId) => {
     if (!canEdit) return;
     setConfirmData({
       isOpen: true,
       title: "Délier le joueur ?",
-      message: "Voulez-vous vraiment détacher ce vrai profil ? (L'historique des transferts sera également annulé).",
+      message: "Voulez-vous vraiment détacher ce vrai profil ?",
       isDanger: true,
       onConfirm: async () => {
-        // 1. On annule l'enregistrement dans la table globale
+        // 1. On annule l'enregistrement global
         if (team.global_id && profileId) {
-          try {
-            await supabase.from('team_members').delete().match({ profile_id: profileId, team_id: team.global_id });
-          } catch (err) { console.error("Erreur annulation transfert :", err); }
+          try { await supabase.from('team_members').delete().match({ profile_id: profileId, team_id: team.global_id }); } catch(e){}
         }
 
-        // 2. On met à jour l'effectif en FORÇANT profile_id à null
+        // 2. On retire l'ID de l'effectif du tournoi
         const updatedTeams = tourney.teams.map(t => {
           if (t.id !== teamId) return t;
-          return {
-            ...t,
-            players: t.players.map(p => {
-              if (p.id !== playerId) return p;
-              return { ...p, profile_id: null }; // 👈 La vraie méthode Supabase
-            })
-          };
+          return { ...t, players: t.players.map(p => p.id === playerId ? { ...p, profile_id: null } : p) };
         });
+        
+        // On sauvegarde l'effectif
+        update({ teams: updatedTeams }); 
 
-        // 3. 🧹 LE NETTOYEUR EXTRÊME (Poules + Playoffs)
-        const cleanMatches = (matchesArray) => {
-          if (!matchesArray || !Array.isArray(matchesArray)) return matchesArray;
-          return matchesArray.map(m => {
+        // 3. 🧹 NETTOYAGE DANS LA NOUVELLE TABLE SQL "matches"
+        const { data: allMatches } = await supabase.from('matches').select('id, saved_stats_a, saved_stats_b').eq('tournament_id', tourney.id);
+        
+        if (allMatches) {
+          for (const m of allMatches) {
+            let modified = false;
+            
             const wipeProfileId = (stats) => {
               if (!stats || !Array.isArray(stats)) return stats;
               return stats.map(stat => {
-                // Si on trouve le joueur, on FORCE son profile_id à null
                 if (stat.profile_id === profileId) {
+                  modified = true;
                   return { ...stat, profile_id: null };
                 }
                 return stat;
               });
             };
 
-            return {
-              ...m,
-              saved_stats_a: wipeProfileId(m.saved_stats_a),
-              saved_stats_b: wipeProfileId(m.saved_stats_b),
-              savedStatsA: wipeProfileId(m.savedStatsA),
-              savedStatsB: wipeProfileId(m.savedStatsB)
-            };
-          });
-        };
+            const newStatsA = wipeProfileId(m.saved_stats_a);
+            const newStatsB = wipeProfileId(m.saved_stats_b);
 
-        const updatedPlayoffs = tourney.playoffs ? {
-          ...tourney.playoffs,
-          matches: cleanMatches(tourney.playoffs.matches)
-        } : tourney.playoffs;
+            // Si on a trouvé le joueur dans ce match, on met à jour la ligne SQL immédiatement !
+            if (modified) {
+              await supabase.from('matches').update({
+                saved_stats_a: newStatsA,
+                saved_stats_b: newStatsB
+              }).eq('id', m.id);
+            }
+          }
+        }
 
-        // 4. On écrase TOUT d'un seul coup (Effectifs, Poules, Schedule, Playoffs)
-        update({ 
-          teams: updatedTeams,
-          matches: cleanMatches(tourney.matches),
-          schedule: cleanMatches(tourney.schedule),
-          playoffs: updatedPlayoffs
-        });
-        
-        toast.success("Joueur délié (Historique intégral nettoyé) ! 🧹");
+        toast.success("Joueur délié (Historique nettoyé) ! 🧹");
       }
     });
   };
@@ -609,7 +603,7 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
               type="text"
               autoFocus
               className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white placeholder:text-muted-dark focus:outline-none focus:border-action transition-colors shadow-inner"
-              placeholder="🔍 Rechercher un pseudo de joueur..."
+              placeholder="🔍 Prénom ET Nom du joueur..."
               value={linkSearchQuery}
               onChange={(e) => setLinkSearchQuery(e.target.value)}
             />
@@ -632,12 +626,18 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-muted-dark flex items-center justify-center text-xs">👤</div>
                       )}
-                      <span className="font-bold text-white text-sm">{res.first_name || res.name}</span>
+                      <div className="flex flex-col">
+                        {/* On affiche le full_name au lieu du first_name */}
+                        <span className="font-bold text-white text-sm">{res.full_name || res.name}</span>
+                        {/* On affiche la VILLE pour différencier les joueurs */}
+                        {res.city && <span className="text-[10px] text-muted-light font-bold uppercase tracking-widest">📍 {res.city}</span>}
+                      </div>
                     </div>
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleLinkPlayer(res.id, res.first_name);
+                        // On envoie bien le full_name à la fonction de liaison
+                        handleLinkPlayer(res.id, res.full_name || res.name);
                       }} 
                       className="bg-action/20 text-action border border-transparent group-hover:border-action/50 px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all cursor-pointer hover:bg-action hover:text-white"
                     >
@@ -645,13 +645,13 @@ export default function TeamEditor({ teamId, setEditId, tourney, canEdit, update
                     </button>
                   </div>
                 ))
-              ) : linkSearchQuery.length >= 2 ? (
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-sm text-muted-dark">Aucun profil trouvé. 🤷‍♂️</span>
+              ) : linkSearchQuery.trim().split(/\s+/).length >= 2 ? (
+                <div className="flex-1 flex items-center justify-center text-center p-4">
+                  <span className="text-sm text-muted-dark">Aucun profil trouvé pour "{linkSearchQuery}". 🤷‍♂️</span>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center">
-                  <span className="text-xs text-muted-dark italic tracking-wider">Tapez au moins 2 lettres...</span>
+                <div className="flex-1 flex items-center justify-center text-center p-4">
+                  <span className="text-xs text-muted-dark italic tracking-wider">Tapez le <b>Prénom ET le Nom</b><br/>pour lancer la recherche...</span>
                 </div>
               )}
             </div>
