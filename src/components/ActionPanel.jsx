@@ -26,6 +26,10 @@ export default function ActionPanel({
   const hasActiveProcess = activeAction || pendingFoul || pendingAssist || pendingAction || pendingSubs?.length > 0 || isForcedSub;
   const isPlayerExcluded = (p) => p.fouls >= 5 || (p.techFouls || 0) >= 2 || (p.antiFouls || 0) >= 2 || p.isDisqualified;
 
+  const startersCountA = playersA?.filter(p => p.status === 'court').length || 0;
+  const startersCountB = playersB?.filter(p => p.status === 'court').length || 0;
+  const canStartMatch = startersCountA >= courtSize && startersCountB >= courtSize;
+
   let availableBenchCount = 0;
   if (isForcedSub) {
     const forcedA = playersA?.find(p => p.status === 'court' && isPlayerExcluded(p));
@@ -92,8 +96,23 @@ export default function ActionPanel({
         ) : (
           <div className="flex items-center justify-center min-w-[500px]">
              {activeAction?.type === 'STARTERS' && (
-               <button className="bg-primary text-black px-12 py-3 rounded-xl font-black text-sm" onClick={() => { setActiveAction(null); if (setStartersValidated) setStartersValidated(true); }}>VALIDER LES JOUEURS</button>
-             )}
+    <button 
+      disabled={!canStartMatch}
+      className={`px-12 py-3 rounded-xl font-black text-sm transition-all duration-200 ${
+        canStartMatch 
+          ? 'bg-primary text-black hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)] cursor-pointer' 
+          : 'bg-app-input border border-muted-line text-muted-light cursor-not-allowed opacity-60'
+      }`} 
+      onClick={() => { 
+        setActiveAction(null); 
+        if (setStartersValidated) setStartersValidated(true); 
+      }}
+    >
+      {canStartMatch 
+        ? 'VALIDER LES JOUEURS' 
+        : `SÉLECTIONNEZ LES TITULAIRES (${courtSize}v${courtSize})`}
+    </button>
+  )}
              {pendingFoul && (
                <div className="flex gap-2">
                  {['P', 'PO', 'T', 'U', 'D'].map(f => (

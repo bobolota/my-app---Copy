@@ -65,23 +65,23 @@ export default function Scoreboard() {
     } catch (e) { return null; }
   };
 
-  // 🧠 SYNCHRONISATION INTELLIGENTE : Fusionne la sauvegarde avec les VRAIES équipes actuelles
-  const syncPlayers = (baseTeam, savedList) => {
+  // 🧠 SYNCHRONISATION INTELLIGENTE
+  const syncPlayers = (baseTeam, savedList, isMatchValidated) => {
     const freshTeam = tourney?.teams?.find(t => t.id === baseTeam?.id) || baseTeam;
     const freshPlayers = freshTeam?.players || [];
     const initialStatus = courtSize === 1 ? 'court' : 'bench';
 
-    // On se base STRICTEMENT sur la vraie liste des joueurs. 
-    // Si un joueur a été supprimé de l'équipe, il sera naturellement ignoré ici !
     return freshPlayers.map(freshP => {
-      // Cherche si ce joueur existait déjà dans la sauvegarde du match
       const existingStat = (savedList || []).find(sp => sp.id === freshP.id);
       
       if (existingStat) {
-        // Le joueur était là : on garde ses stats, mais on met à jour son nom/numéro (au cas où modifiés)
-        return { ...existingStat, name: freshP.name, number: freshP.number };
+        // 👇 CORRECTION : Si pas encore validé, on annule la sélection et on force le banc
+        let finalStatus = existingStat.status;
+        if (!isMatchValidated && courtSize !== 1) {
+          finalStatus = 'bench';
+        }
+        return { ...existingStat, name: freshP.name, number: freshP.number, status: finalStatus };
       } else {
-        // Nouveau joueur ajouté après la création du match : on l'initialise à zéro
         return {
           ...freshP, 
           status: initialStatus, 
@@ -94,40 +94,41 @@ export default function Scoreboard() {
 
   const safeSave = getSafeSave();
   const matchData = tourney?.schedule?.find(m => m.id === matchId) || tourney?.playoffs?.matches?.find(m => m.id === matchId);
-  const cloudHasStarters = matchData?.savedStatsA?.some(p => p.status === 'court') || matchData?.startersValidated;
+  // DÉTECTION STRICTE : Le match a-t-il été officiellement validé ?
+  const isAlreadyValidated = Boolean(
+    isFinished || 
+    courtSize === 1 ||
+    (safeSave?.startersValidated === true) || 
+    (matchData?.startersValidated === true) || 
+    (safeSave?.history?.length > 0) || 
+    (matchData?.liveHistory?.length > 0)
+  );
 
-  const initialStartersValidated = isFinished || 
-    (safeSave ? (!!safeSave.startersValidated || (safeSave.history && safeSave.history.length > 0)) : false) || 
-    (matchData?.liveHistory?.length > 0) || 
-    cloudHasStarters ||
-    courtSize === 1;
-
-  const [startersValidated, setStartersValidated] = useState(initialStartersValidated);
+  const [startersValidated, setStartersValidated] = useState(isAlreadyValidated);
   
-  // 🔥 L'état s'initialise désormais avec la fusion intelligente
-  const [playersA, setPlayersA] = useState(() => syncPlayers(teamA, savedStatsA || (safeSave ? safeSave.playersA : matchData?.savedStatsA)));
-  const [playersB, setPlayersB] = useState(() => syncPlayers(teamB, savedStatsB || (safeSave ? safeSave.playersB : matchData?.savedStatsB)));
+  // 👇 On passe isAlreadyValidated en 3ème argument
+  const [playersA, setPlayersA] = useState(() => syncPlayers(teamA, savedStatsA || (safeSave ? safeSave.playersA : matchData?.savedStatsA), isAlreadyValidated));
+  const [playersB, setPlayersB] = useState(() => syncPlayers(teamB, savedStatsB || (safeSave ? safeSave.playersB : matchData?.savedStatsB), isAlreadyValidated));
   
   const [time, setTime] = useState(() => isFinished ? 0 : (safeSave ? safeSave.time : (matchData?.liveTime !== undefined ? matchData.liveTime : settings.periodDuration * 60)));
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
   const [history, setHistory] = useState(() => safeSave ? safeSave.history : (matchData?.liveHistory || []));
 
-  // 🔄 GESTION DU CHARGEMENT ASYNCHRONE (Rafraîchissement F5)
+ // 🔄 GESTION DU CHARGEMENT ASYNCHRONE
   useEffect(() => {
-    // On relance la fusion intelligente si l'appli met du temps à charger les données
     if (teamA?.players && playersA.length === 0) {
       const savedDataA = getSafeSave()?.playersA || matchData?.savedStatsA;
-      setPlayersA(syncPlayers(teamA, savedDataA));
+      setPlayersA(syncPlayers(teamA, savedDataA, startersValidated)); // 👈 ICI
     }
     if (teamB?.players && playersB.length === 0) {
       const savedDataB = getSafeSave()?.playersB || matchData?.savedStatsB;
-      setPlayersB(syncPlayers(teamB, savedDataB));
+      setPlayersB(syncPlayers(teamB, savedDataB, startersValidated)); // 👈 ET ICI
     }
     
     const savedData = getSafeSave();
     if (savedData && savedData.history && history.length === 0) setHistory(savedData.history);
-  }, [teamA, teamB, matchId]);
+  }, [teamA, teamB, matchId, startersValidated]);
   
   const [isMatchOver, setIsMatchOver] = useState(isFinished || false);
   const [isRunning, setIsRunning] = useState(false);
@@ -135,8 +136,17 @@ export default function Scoreboard() {
 
   const [activeAction, setActiveAction] = useState(() => {
     if (!canEdit) return null; 
-    return (!initialStartersValidated) ? { type: 'STARTERS' } : null;
+    // 👇 On utilise la nouvelle variable 'isAlreadyValidated' ici
+    return (!isAlreadyValidated) ? { type: 'STARTERS' } : null;
   });
+
+  // 🛡️ BOUCLIER : Maintient le panneau bloqué sur "Valider" si non validé
+  useEffect(() => {
+    if (canEdit && !startersValidated && courtSize !== 1 && !isFinished && activeAction?.type !== 'STARTERS') {
+      setActiveAction({ type: 'STARTERS' });
+    }
+  }, [startersValidated, canEdit, courtSize, isFinished, activeAction?.type]);
+
   const [pendingSubs, setPendingSubs] = useState([]);
   const [pendingAction, setPendingAction] = useState(null);
   const [pendingAssist, setPendingAssist] = useState(null);
