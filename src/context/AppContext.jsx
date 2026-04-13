@@ -75,21 +75,22 @@ export const AppProvider = ({ children }) => {
       if (!error && data) {
         // On convertit le snake_case de la BDD en camelCase pour React
         const mappedData = data.map(t => ({
-          ...t,
-          matches: (t.matches || []).map(m => ({
-            id: m.id,
-            tourneyId: m.tournament_id,
-            type: m.type,
-            status: m.status,
-            teamA: m.team_a,
-            teamB: m.team_b,
-            scoreA: m.score_a,
-            scoreB: m.score_b,
-            savedStatsA: m.saved_stats_a,
-            savedStatsB: m.saved_stats_b,
-            liveHistory: m.live_history
-          }))
-        }));
+  ...t,
+  matches: (t.matches || []).map(m => ({
+    ...(m.metadata || {}), // 👈 LA LIGNE MAGIQUE : déverse group, datetime, etc.
+    id: m.id,
+    tourneyId: m.tournament_id,
+    type: m.type,
+    status: m.status,
+    teamA: m.team_a,
+    teamB: m.team_b,
+    scoreA: m.score_a,
+    scoreB: m.score_b,
+    savedStatsA: m.saved_stats_a,
+    savedStatsB: m.saved_stats_b,
+    liveHistory: m.live_history
+  }))
+}));
         setTournaments(mappedData);
       }
     } catch (error) {
@@ -118,13 +119,14 @@ export const AppProvider = ({ children }) => {
                 const matchIndex = updatedMatches.findIndex(m => m.id === payload.new.id);
                 
                 const mappedMatch = {
-                  id: payload.new.id, tourneyId: payload.new.tournament_id,
-                  type: payload.new.type, status: payload.new.status,
-                  teamA: payload.new.team_a, teamB: payload.new.team_b,
-                  scoreA: payload.new.score_a, scoreB: payload.new.score_b,
-                  savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
-                  liveHistory: payload.new.live_history
-                };
+  ...(payload.new.metadata || {}), // 👈 LA LIGNE MAGIQUE EST ICI !
+  id: payload.new.id, tourneyId: payload.new.tournament_id,
+  type: payload.new.type, status: payload.new.status,
+  teamA: payload.new.team_a, teamB: payload.new.team_b,
+  scoreA: payload.new.score_a, scoreB: payload.new.score_b,
+  savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
+  liveHistory: payload.new.live_history
+};
 
                 if (matchIndex > -1) updatedMatches[matchIndex] = mappedMatch;
                 else updatedMatches.push(mappedMatch); // Si un match est créé

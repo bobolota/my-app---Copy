@@ -148,24 +148,24 @@ export default function TournamentManager() {
     const groupTeams = (tourney.teams || []).filter(t => t.groupId === gNum);
     return groupTeams.map(team => {
       let points = 0, diff = 0;
-      let won = 0, lost = 0; // 👈 NOUVEAU : On prépare les compteurs
+      let won = 0, lost = 0;
 
-      (tourney.schedule || []).filter(m => m.group === gNum && (m.status === 'finished' || m.status === 'forfeit') && (m.teamA?.id === team.id || m.teamB?.id === team.id)).forEach(m => {
+      // 👇 V2 : On utilise tourney.matches et on filtre sur le type 'pool'
+      (tourney.matches || []).filter(m => m.type === 'pool' && m.group === gNum && (m.status === 'finished' || m.status === 'forfeit') && (m.teamA?.id === team.id || m.teamB?.id === team.id)).forEach(m => {
         const isA = m.teamA?.id === team.id;
         const s = isA ? m.scoreA : m.scoreB; 
         const o = isA ? m.scoreB : m.scoreA;
         
         if (m.status === 'forfeit') {
-          if (s > o) { points += 2; won += 1; } // 👈 Victoire par forfait
-          else { points += 0; lost += 1; }      // 👈 Défaite par forfait
+          if (s > o) { points += 2; won += 1; }
+          else { points += 0; lost += 1; }
         } else {
-          if (s > o) { points += 2; won += 1; } // 👈 Victoire normale
-          else { points += 1; lost += 1; }      // 👈 Défaite normale
+          if (s > o) { points += 2; won += 1; }
+          else { points += 1; lost += 1; }
         }
         diff += (s - o);
       });
       
-      // 👈 NOUVEAU : On retourne won et lost
       return { ...team, points, diff, won, lost }; 
     }).sort((a,b) => b.points - a.points || b.diff - a.diff);
   };
@@ -173,7 +173,7 @@ export default function TournamentManager() {
   const getStandings = (groupId) => {
     const groupTeams = (tourney.teams || []).filter(t => t.groupId === groupId);
     const standings = groupTeams.map(team => {
-      const matches = (tourney.schedule || []).filter(m => 
+      const matches = (tourney.matches || []).filter(m => 
         (m.teamA?.id === team.id || m.teamB?.id === team.id) && m.status === 'finished'
       );
       
@@ -266,19 +266,20 @@ export default function TournamentManager() {
   }, [tourney.playoffs]);
 
   const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
-    let match = (tourney.schedule || []).find(m => m.id === matchId);
-    if (!match && tourney.playoffs) {
-      match = tourney.playoffs.matches.find(m => m.id === matchId);
-    }
+    // V2 : Recherche simplifiée
+    const match = (tourney.matches || []).find(m => m.id === matchId);
     if (match) {
       localStorage.setItem(`canEdit_match_${matchId}`, canLaunchThisMatch ? "true" : "false");
       onLaunchMatch(matchId);
     }
   };
 
-  const handleMatchException = (matchId, actionType, isPlayoff = false) => {
+  const handleMatchException = (matchId, actionType) => {
     if (!canEdit) return;
-    const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
+    
+    // V2 : On cherche directement dans la liste unifiée des matchs
+    const match = (tourney.matches || []).find(m => m.id === matchId);
+    if (!match) return;
     
     if (actionType === 'cancel') {
        setConfirmData({
@@ -287,7 +288,7 @@ export default function TournamentManager() {
          message: "Ce match sera considéré comme nul (0-0) et ne rapportera aucun point au classement.",
          isDanger: true,
          onConfirm: () => {
-           updateMatchState(matchId, isPlayoff, 'canceled', 0, 0);
+           updateMatchState(matchId, false, 'canceled', 0, 0); // isPlayoff n'est plus utile, on passe false
            toast.success("Match annulé");
          }
        });
@@ -300,10 +301,10 @@ export default function TournamentManager() {
          optionB: match.teamB?.name || "Équipe B",
          onChoose: (choice) => {
            if (choice === 'A') {
-             updateMatchState(matchId, isPlayoff, 'forfeit', 0, 20);
+             updateMatchState(matchId, false, 'forfeit', 0, 20);
              toast.success(`Forfait de ${match.teamA?.name} enregistré`);
            } else if (choice === 'B') {
-             updateMatchState(matchId, isPlayoff, 'forfeit', 20, 0);
+             updateMatchState(matchId, false, 'forfeit', 20, 0);
              toast.success(`Forfait de ${match.teamB?.name} enregistré`);
            }
          }
@@ -312,41 +313,38 @@ export default function TournamentManager() {
   };
 
 
-  const updateMatchState = (matchId, isPlayoff, status, scoreA, scoreB) => {
-    if (isPlayoff) {
-      const newMatches = tourney.playoffs.matches.map(m => 
-        m.id === matchId ? { ...m, status, scoreA, scoreB } : m
-      );
-      
-      update({ 
-        playoffs: { 
-          ...tourney.playoffs, 
-          matches: newMatches,
-          status: 'updating' 
-        } 
-      });
+  // V2 : Mise à jour directe et légère en BDD
+  const updateMatchState = async (matchId, isPlayoff, status, scoreA, scoreB) => {
+    // 1. Sauvegarde cloud ultra-rapide
+    await supabase.from('matches').update({ 
+      status: status, 
+      score_a: scoreA, 
+      score_b: scoreB 
+    }).eq('id', matchId);
 
-      setTimeout(() => {
-        update({ playoffs: { ...tourney.playoffs, matches: newMatches, status: 'started' } });
-      }, 100);
-
-    } else {
-      const newSchedule = tourney.schedule.map(m => 
-        m.id === matchId ? { ...m, status, scoreA, scoreB } : m
-      );
-      update({ schedule: newSchedule });
-    }
+    // 2. Optimistic UI : Mise à jour immédiate à l'écran sans recharger !
+    setTournaments(prev => prev.map(t => {
+      if (t.id === tourney.id) {
+        return { 
+          ...t, 
+          matches: (t.matches || []).map(m => m.id === matchId ? { ...m, status, scoreA, scoreB } : m) 
+        };
+      }
+      return t;
+    }));
   };
 
   const handleAssignOtm = (matchId, isPlayoff) => {
     if (!canEdit) return;
-    const match = isPlayoff ? tourney.playoffs.matches.find(m => m.id === matchId) : tourney.schedule.find(m => m.id === matchId);
-    // On passe currentOtm à la modale
-    setOtmModal({ matchId, isPlayoff, currentOtm: match.otm || "" });
+    // V2 : Recherche simplifiée
+    const match = (tourney.matches || []).find(m => m.id === matchId);
+    if (match) {
+      setOtmModal({ matchId, isPlayoff, currentOtm: match.otm || "" });
+    }
   };
 
 
-  const generateDrawAndSchedule = (isAllerRetour = false) => {
+  const generateDrawAndSchedule = async (isAllerRetour = false) => {
     if (!canEdit) return;
     
     setConfirmData({
@@ -354,65 +352,83 @@ export default function TournamentManager() {
       title: "Générer le planning ?",
       message: "⚠️ Attention, cela va écraser les poules et le planning actuels. Voulez-vous continuer ?",
       isDanger: true,
-      onConfirm: () => {
+      onConfirm: async () => {
         const n = parseInt(groupCount);
         if (isNaN(n) || n < 1) return;
 
         const shuffled = [...tourney.teams].sort(() => Math.random() - 0.5);
         const updatedTeams = shuffled.map((t, i) => ({ ...t, groupId: (i % n) + 1 }));
 
-        const newSchedule = [];
+        const newMatchesToInsert = [];
         
-        // 1. GÉNÉRATION DES MATCHS ALLER (Ton code d'origine)
         for (let g = 1; g <= n; g++) {
           const gTeams = updatedTeams.filter(t => t.groupId === g);
           for (let i = 0; i < gTeams.length; i++) {
             for (let j = i + 1; j < gTeams.length; j++) {
-              newSchedule.push({ 
-                id: `m_${Date.now()}_g${g}_${i}${j}_aller`, // Ajout du suffixe _aller pour la sécurité des IDs
-                group: g, 
-                teamA: gTeams[i], teamB: gTeams[j], 
-                status: 'pending', scoreA: 0, scoreB: 0 
+              newMatchesToInsert.push({ 
+                id: `m_${Date.now()}_g${g}_${i}${j}_aller`,
+                tournament_id: tourney.id,
+                type: 'pool',
+                metadata: { group: g }, // 👈 Injection propre des métadonnées !
+                team_a: gTeams[i], 
+                team_b: gTeams[j], 
+                status: 'pending', 
+                score_a: 0, 
+                score_b: 0 
               });
             }
           }
         }
 
-        // 2. GÉNÉRATION DES MATCHS RETOUR (Si l'option est activée)
         if (isAllerRetour) {
-          const returnMatches = newSchedule.map(match => ({
+          const returnMatches = newMatchesToInsert.map(match => ({
             ...match,
-            // On remplace "aller" par "retour" pour avoir un ID unique
             id: match.id.replace('_aller', '_retour'), 
-            teamA: match.teamB, // Inversion domicile
-            teamB: match.teamA, // Inversion extérieur
+            team_a: match.team_b, 
+            team_b: match.team_a, 
           }));
-          
-          // On ajoute les matchs retour à la liste complète
-          newSchedule.push(...returnMatches);
+          newMatchesToInsert.push(...returnMatches);
         }
 
+        // 1. On nettoie le vieux JSON du tournoi (Adieu `schedule` et `playoffs` !)
         update({ 
           teams: updatedTeams, 
-          schedule: newSchedule, 
+          schedule: null, 
+          playoffs: null,
           qualifiedSettings: Object.fromEntries(Array.from({length:n}, (_,i)=>[i+1,2])),
-          playoffs: null 
         });
-        toast.success("Planning généré avec succès !");
+
+        // 2. On supprime les vieux matchs de POULE dans la BDD pour faire place nette
+        await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'pool');
+
+        // 3. BULK INSERT : On insère tous les nouveaux matchs d'un coup !
+        const { error } = await supabase.from('matches').insert(newMatchesToInsert);
+
+        if (error) {
+          console.error("Erreur de génération :", error);
+          toast.error("Erreur d'insertion des matchs dans la base de données.");
+        } else {
+          toast.success("Planning généré avec succès !");
+          // L'interface se mettra à jour automatiquement via Realtime
+        }
       }
     });
   };
 
-  const generatePlayoffs = () => {
+  // 👇 V2 : La fonction devient asynchrone pour interroger la base de données
+  const generatePlayoffs = async () => {
     if (!canEdit) return;
 
-    if (!tourney.schedule || tourney.schedule.length === 0) {
+    // V2 : On récupère uniquement les matchs de poule
+    const poolMatches = (tourney.matches || []).filter(m => m.type === 'pool');
+
+    if (poolMatches.length === 0) {
       toast.error("Impossible : Aucun match de poule n'a été généré. Veuillez d'abord créer le planning des poules.");
       return;
     }
 
-    const resolvedMatches = tourney.schedule.filter(m => ['finished', 'forfeit', 'canceled'].includes(m.status)).length;
-    const totalMatches = tourney.schedule.length;
+    const resolvedMatches = poolMatches.filter(m => ['finished', 'forfeit', 'canceled'].includes(m.status)).length;
+    const totalMatches = poolMatches.length;
 
     if (resolvedMatches < totalMatches) {
       const remaining = totalMatches - resolvedMatches;
@@ -420,7 +436,7 @@ export default function TournamentManager() {
       return;
     }
 
-    const executeGeneration = () => {
+    const executeGeneration = async () => {
       const qualifiedTeams = [];
       const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
       
@@ -459,7 +475,7 @@ export default function TournamentManager() {
         return `MATCH ${matchIdx + 1}`;
       };
 
-      const matches = [];
+      const newMatchesToInsert = [];
       let numMatchesInRound = size / 2;
       let roundNum = 1;
       const ts = Date.now();
@@ -469,15 +485,19 @@ export default function TournamentManager() {
         const tB = seeded[size - 1 - i];
         const hasBye = tA.isBye || tB.isBye;
 
-        matches.push({
+        newMatchesToInsert.push({
           id: `p_${ts}_r${roundNum}_m${i}`,
-          round: roundNum,
-          teamA: tA, teamB: tB, 
-          scoreA: 0, scoreB: 0, 
+          tournament_id: tourney.id,
+          type: 'playoff', // 👈 Type playoff
+          team_a: tA, team_b: tB, 
+          score_a: 0, score_b: 0, 
           status: hasBye ? 'finished' : 'pending',
-          label: getRoundLabel(numMatchesInRound, i),
-          nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-          nextSlot: i % 2 === 0 ? 'teamA' : 'teamB' 
+          metadata: { // 👈 Métadonnées de l'arbre
+            round: roundNum,
+            label: getRoundLabel(numMatchesInRound, i),
+            nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
+            nextSlot: i % 2 === 0 ? 'teamA' : 'teamB' 
+          }
         });
       }
 
@@ -486,26 +506,43 @@ export default function TournamentManager() {
 
       while (numMatchesInRound >= 1) {
         for (let i = 0; i < numMatchesInRound; i++) {
-          matches.push({
+          newMatchesToInsert.push({
             id: `p_${ts}_r${roundNum}_m${i}`,
-            round: roundNum,
-            teamA: null, teamB: null, 
-            scoreA: 0, scoreB: 0, status: 'pending',
-            label: getRoundLabel(numMatchesInRound, i),
-            nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-            nextSlot: i % 2 === 0 ? 'teamA' : 'teamB'
+            tournament_id: tourney.id,
+            type: 'playoff',
+            team_a: null, team_b: null, 
+            score_a: 0, score_b: 0, status: 'pending',
+            metadata: {
+              round: roundNum,
+              label: getRoundLabel(numMatchesInRound, i),
+              nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
+              nextSlot: i % 2 === 0 ? 'teamA' : 'teamB'
+            }
           });
         }
         numMatchesInRound /= 2;
         roundNum++;
       }
 
-      update({ playoffs: { size, matches, status: 'started' } });
+      // 1. Suppression des anciens matchs de playoff
+      await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
+
+      // 2. Insertion des nouveaux matchs
+      const { error } = await supabase.from('matches').insert(newMatchesToInsert);
+
+      if (error) {
+        console.error("Erreur d'insertion des playoffs :", error);
+        toast.error("Erreur de sauvegarde dans la base de données.");
+        return;
+      }
+
+      // 3. Mise à jour de l'objet tournoi (on garde la "size" pour l'affichage visuel du bracket, on vide l'ancien tableau)
+      update({ playoffs: { size, status: 'started' } });
       setActiveTab("finale");
       toast.success("Phase finale générée avec succès !");
     }; 
 
-    if (tourney.playoffs) {
+    if (tourney.playoffs?.status === 'started') {
        setConfirmData({
          isOpen: true,
          title: "Écraser la phase finale ?",
