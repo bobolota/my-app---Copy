@@ -23,7 +23,8 @@ export default function MaCarriere({ userProfile, tournaments }) {
       const tFormat = t.matchsettings?.courtSize || 5; 
       if (tFormat !== activeFormat) return;
 
-      const allMatches = [...(t.schedule || []), ...(t.playoffs?.matches || [])];
+      // 👇 V2 : Tous les matchs sont unifiés dans t.matches !
+      const allMatches = t.matches || [];
       
       allMatches.forEach(m => {
         // On ne regarde QUE les matchs terminés

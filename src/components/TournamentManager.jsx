@@ -353,9 +353,9 @@ export default function TournamentManager() {
       message: "⚠️ Attention, cela va écraser les poules et le planning actuels. Voulez-vous continuer ?",
       isDanger: true,
       onConfirm: async () => {
-        // 🚀 OPTIMISTIC UI : On vide l'écran instantanément pour l'utilisateur
+        // 🚀 OPTIMISTIC UI : On vide TOUS les matchs de l'écran instantanément
         setTournaments(prev => prev.map(t => 
-          t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.type !== 'pool') } : t
+          t.id === tourney.id ? { ...t, matches: [] } : t // 👈 On met un tableau vide au lieu de filtrer
         ));
 
         const n = parseInt(groupCount);
@@ -395,7 +395,7 @@ export default function TournamentManager() {
           newMatchesToInsert.push(...returnMatches);
         }
 
-        // 1. On nettoie le vieux JSON du tournoi (Adieu `schedule` et `playoffs` !)
+        // 1. On nettoie le vieux JSON du tournoi
         update({ 
           teams: updatedTeams, 
           schedule: null, 
@@ -403,10 +403,10 @@ export default function TournamentManager() {
           qualifiedSettings: Object.fromEntries(Array.from({length:n}, (_,i)=>[i+1,2])),
         });
 
-        // 2. On supprime les vieux matchs de POULE dans la BDD pour faire place nette
-        await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'pool');
+        // 👇 2. V2 : On supprime TOUS les vieux matchs (Poules ET Playoffs) de la BDD !
+        await supabase.from('matches').delete().eq('tournament_id', tourney.id);
 
-        // 3. BULK INSERT : On insère tous les nouveaux matchs d'un coup !
+        // 3. BULK INSERT : On insère tous les nouveaux matchs de poule
         const { error } = await supabase.from('matches').insert(newMatchesToInsert);
 
         if (error) {

@@ -93,8 +93,8 @@ export default function Scoreboard() {
   };
 
   const safeSave = getSafeSave();
-  const matchData = tourney?.schedule?.find(m => m.id === matchId) || tourney?.playoffs?.matches?.find(m => m.id === matchId);
-  // DÉTECTION STRICTE : Le match a-t-il été officiellement validé ?
+ // 👇 V2 : On cherche simplement dans la liste unifiée
+  const matchData = (tourney?.matches || []).find(m => m.id === matchId);
   const isAlreadyValidated = Boolean(
     isFinished || 
     courtSize === 1 ||
@@ -114,6 +114,20 @@ export default function Scoreboard() {
   const [period, setPeriod] = useState(() => isFinished ? 'FIN' : (safeSave ? safeSave.period : (matchData?.livePeriod || 'Q1')));
   const [possession, setPossession] = useState(() => isFinished ? null : (safeSave ? safeSave.possession : (matchData?.livePossession || null)));
   const [history, setHistory] = useState(() => safeSave ? safeSave.history : (matchData?.liveHistory || []));
+
+  const triggerManualSave = async (overrides = {}) => {
+    await supabase.from('matches').update({
+        saved_stats_a: overrides.playersA || playersA,
+        saved_stats_b: overrides.playersB || playersB,
+        live_history: overrides.history || history,
+        score_a: (overrides.playersA || playersA).reduce((sum, p) => sum + p.points, 0),
+        score_b: (overrides.playersB || playersB).reduce((sum, p) => sum + p.points, 0),
+        metadata: {
+            ...getCleanMetadata(),
+            startersValidated: overrides.startersValidated !== undefined ? overrides.startersValidated : startersValidated
+        }
+    }).eq('id', matchId);
+  };
 
  // 🔄 GESTION DU CHARGEMENT ASYNCHRONE
   useEffect(() => {
@@ -231,62 +245,62 @@ export default function Scoreboard() {
     }
   }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
-  // 🛡️ NOUVEAU : On utilise une réf pour ne pas spammer la base de données au chargement de la page
+  // 🛡️ 1. LA SÉCURITÉ : On garde toujours une trace "fraîche" du match
+  const matchDataRef = useRef(matchData);
+  useEffect(() => {
+      matchDataRef.current = matchData;
+  }, [matchData]);
+
+  // 🛡️ 2. LE NETTOYEUR : Protège ton 'group', ta 'date', etc.
+  const getCleanMetadata = () => {
+      const currentMatch = matchDataRef.current || {};
+      const safeMetadata = { ...currentMatch };
+      
+      // On supprime les grosses colonnes SQL pour ne garder que la "metadata" pure
+      const nativeColumns = ['id', 'tourneyId', 'tournament_id', 'type', 'status', 'teamA', 'teamB', 'scoreA', 'scoreB', 'savedStatsA', 'savedStatsB', 'liveHistory', 'team_a', 'team_b', 'score_a', 'score_b', 'saved_stats_a', 'saved_stats_b', 'live_history'];
+      nativeColumns.forEach(col => delete safeMetadata[col]);
+
+      // On injecte les infos du direct
+      safeMetadata.liveTime = time;
+      safeMetadata.livePeriod = period;
+      safeMetadata.livePossession = possession;
+      safeMetadata.startersValidated = startersValidated;
+
+      // Nettoyage de sécurité pour Postgres
+      Object.keys(safeMetadata).forEach(key => safeMetadata[key] === undefined && delete safeMetadata[key]);
+
+      return safeMetadata;
+  };
+
   const isInitialMount = useRef(true);
 
+  // 🔄 3. SAUVEGARDE AUTO EN BDD (V2)
   useEffect(() => {
     if (!canEdit || isMatchOver) return;
     
-    // On ignore juste la toute première lecture automatique
     if (isInitialMount.current) {
       isInitialMount.current = false;
       if (!startersValidated && history.length === 0) return;
     }
-    
-       
-    const timeoutId = setTimeout(async () => {
-        const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
-        const matchArray = isPlayoff ? tourney?.playoffs?.matches : tourney?.schedule;
-        if (!matchArray) return;
         
-        const matchIndex = matchArray.findIndex(m => m.id === matchId);
-        if (matchIndex > -1) {
-            const updatedMatch = {
-                ...matchArray[matchIndex],
-                savedStatsA: playersA,
-                savedStatsB: playersB,
-                liveTime: time,
-                livePeriod: period,
-                liveHistory: history,
-                livePossession: possession,
-                startersValidated: startersValidated,
-                scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
-                scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
-            };
-            
-            let payload = {};
-            if (isPlayoff) {
-                const newMatches = [...tourney.playoffs.matches];
-                newMatches[matchIndex] = updatedMatch;
-                payload = { playoffs: { ...tourney.playoffs, matches: newMatches } };
-            } else {
-                const newSchedule = [...tourney.schedule];
-                newSchedule[matchIndex] = updatedMatch;
-                payload = { schedule: newSchedule };
-            }
-            
-            await supabase.from('tournaments').update(payload).eq('id', tourney?.id);
-        }
+    const timeoutId = setTimeout(async () => {
+        await supabase.from('matches').update({
+            saved_stats_a: playersA,
+            saved_stats_b: playersB,
+            live_history: history,
+            score_a: playersA.reduce((sum, p) => sum + p.points, 0),
+            score_b: playersB.reduce((sum, p) => sum + p.points, 0),
+            metadata: getCleanMetadata()
+        }).eq('id', matchId);
     }, 1500); 
 
     return () => clearTimeout(timeoutId);
-  }, [history, startersValidated]); 
+  }, [history, startersValidated, playersA, playersB, time, period, possession, canEdit, isMatchOver, matchId]); 
 
-  const handleExit = (e) => {
+  // 🚪 4. SORTIE DU MATCH (V2)
+  const handleExit = async (e) => {
     if (e) e.stopPropagation();
-    if (onExit) onExit();
     
-    // 🧹 NETTOYAGE : Si le match n'a pas vraiment commencé, on déchire le "ticket" de l'organisateur !
     if (!startersValidated && history.length === 0) {
         localStorage.removeItem(`canEdit_match_${matchId}`);
         localStorage.removeItem(`basketMatchSave_${matchId}`);
@@ -294,51 +308,20 @@ export default function Scoreboard() {
     
     if (canEdit && !isMatchOver) {
         try {
-            const isPlayoff = tourney?.playoffs?.matches?.some(m => m.id === matchId);
-            const matchArray = isPlayoff ? tourney.playoffs.matches : tourney.schedule;
-            
-            if (matchArray) {
-                const matchIndex = matchArray.findIndex(m => m.id === matchId);
-        if (matchIndex > -1) {
-            // 👇 NOUVEAU : On repasse le statut en "pending" si le 5 majeur est annulé
-            const newStatus = isMatchOver ? 'finished' : ((startersValidated || history.length > 0) ? 'ongoing' : 'pending');
-
-            const updatedMatch = {
-                ...matchArray[matchIndex],
-                savedStatsA: playersA,
-                savedStatsB: playersB,
-                liveTime: time,
-                livePeriod: period,
-                liveHistory: history,
-                livePossession: possession,
-                startersValidated: startersValidated,
-                status: newStatus, // 👈 ON INJECTE LE VRAI STATUT ICI
-                scoreA: playersA.reduce((sum, p) => sum + p.points, 0),
-                        scoreB: playersB.reduce((sum, p) => sum + p.points, 0)
-                    };
-                    
-                    let payload = {};
-                    if (isPlayoff) {
-                        const newMatches = [...tourney.playoffs.matches];
-                        newMatches[matchIndex] = updatedMatch;
-                        payload = { playoffs: { ...tourney.playoffs, matches: newMatches } };
-                    } else {
-                        const newSchedule = [...tourney.schedule];
-                        newSchedule[matchIndex] = updatedMatch;
-                        payload = { schedule: newSchedule };
-                    }
-                    
-                    // 🚀 NOUVEAU : On utilise "update()" au lieu de "supabase.from..."
-                    // Cela met à jour le cloud ET rafraîchit l'interface instantanément !
-                    if (update) {
-                        update(payload);
-                    } else {
-                        supabase.from('tournaments').update(payload).eq('id', tourney?.id).then();
-                    }
-                }
-            }
-        } catch (err) { console.error("Erreur silencieuse lors de la sauvegarde :", err); }
+            const newStatus = (startersValidated || history.length > 0) ? 'ongoing' : 'pending';
+            await supabase.from('matches').update({
+                status: newStatus,
+                saved_stats_a: playersA,
+                saved_stats_b: playersB,
+                live_history: history,
+                score_a: playersA.reduce((sum, p) => sum + p.points, 0),
+                score_b: playersB.reduce((sum, p) => sum + p.points, 0),
+                metadata: getCleanMetadata()
+            }).eq('id', matchId);
+        } catch (err) { console.error("Erreur de sauvegarde :", err); }
     }
+    
+    if (onExit) onExit(); 
   };
 
   const stateRef = useRef({ playersA, playersB, time, period, history, isRunning, startersValidated });
@@ -373,7 +356,16 @@ export default function Scoreboard() {
   };
 
   const handleSaveTime = (e) => { e.stopPropagation(); setTime(parseInt(editMin || 0) * 60 + parseInt(editSec || 0)); setIsEditing(false); };
-  const handleResetTime = (e) => { e.stopPropagation(); if(window.confirm("Réinitialiser le chrono à 10:00 ?")) { setTime(600); setIsRunning(false); } };
+  const handleResetTime = (e) => { 
+    e.stopPropagation(); 
+    setConfirmData({
+      isOpen: true,
+      title: "Réinitialiser le chrono ?",
+      message: "Voulez-vous remettre le chronomètre à zéro ?",
+      isDanger: false,
+      onConfirm: () => { setTime(settings.periodDuration * 60); setIsRunning(false); }
+    });
+  };
 
   const nextPeriod = () => {
     if (!canEdit) return; 
@@ -904,6 +896,7 @@ export default function Scoreboard() {
                 setStartersValidated={setStartersValidated}
                 courtSize={courtSize}
                 pointsSystem={settings?.pointsSystem}
+                triggerManualSave={triggerManualSave}
               />
             </div>
           )}

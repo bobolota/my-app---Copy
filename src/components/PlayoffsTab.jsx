@@ -271,8 +271,8 @@ export default function PlayoffsTab({
     const t = e.target.value;
     const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
     await supabase.from('matches').update({ 
-      metadata: { ...m, datetime: `${d}T${t}` } 
-    }).eq('id', m.id);
+  metadata: { round: m.round, label: m.label, nextMatchId: m.nextMatchId, nextSlot: m.nextSlot, court: m.court, datetime: d ? `${d}T${t}` : '' } 
+}).eq('id', m.id);
   }}
   className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
   title="Heure du match"
@@ -286,8 +286,8 @@ export default function PlayoffsTab({
   value={m.court || ''}
   onChange={async (e) => {
     await supabase.from('matches').update({ 
-      metadata: { ...m, court: e.target.value } 
-    }).eq('id', m.id);
+  metadata: { round: m.round, label: m.label, nextMatchId: m.nextMatchId, nextSlot: m.nextSlot, datetime: m.datetime, court: e.target.value } 
+}).eq('id', m.id);
   }}
   className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
 />
@@ -389,7 +389,27 @@ export default function PlayoffsTab({
         
         {(tourney.playoffs && canEdit) && (
           <button 
-            onClick={() => update({playoffs: null})} 
+            onClick={() => {
+              setConfirmData({
+                isOpen: true,
+                title: "Réinitialiser l'arbre ? ⚠️",
+                message: "Voulez-vous vraiment supprimer toute la phase finale ? Les matchs disparaîtront également du planning général.",
+                isDanger: true,
+                onConfirm: async () => {
+                  // 1. On vide visuellement l'arbre instantanément
+                  update({ playoffs: null });
+                  
+                  // 2. V2 : On supprime VRAIMENT les matchs de playoff de la BDD !
+                  const { error } = await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
+                  
+                  if (error) {
+                    toast.error("Erreur lors de la suppression");
+                  } else {
+                    toast.success("Arbre de phase finale réinitialisé !");
+                  }
+                }
+              });
+            }} 
             className="bg-danger/10 border border-danger/30 text-danger px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-danger hover:text-white transition-all shadow-sm shrink-0"
           >
             RESET TABLEAU ⚠️

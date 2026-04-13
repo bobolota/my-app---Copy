@@ -633,8 +633,8 @@ export default function GroupStageTab({
       const d = e.target.value;
       const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
       await supabase.from('matches').update({ 
-        metadata: { ...m, datetime: d ? `${d}T${t}` : '' } 
-      }).eq('id', m.id);
+  metadata: { group: m.group, court: m.court, datetime: d ? `${d}T${t}` : '' } 
+}).eq('id', m.id);
     }}
     className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
   />
@@ -647,8 +647,8 @@ export default function GroupStageTab({
       const t = e.target.value;
       const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
       await supabase.from('matches').update({ 
-        metadata: { ...m, datetime: `${d}T${t}` } 
-      }).eq('id', m.id);
+  metadata: { group: m.group, datetime: m.datetime, court: e.target.value } 
+}).eq('id', m.id);
     }}
     className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
   />

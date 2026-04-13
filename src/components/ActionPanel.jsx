@@ -11,7 +11,7 @@ export default function ActionPanel({
   pendingAction, setPendingAction,
   setPendingSubs,
   playersA, playersB, setStartersValidated,
-  courtSize, pointsSystem 
+  courtSize, pointsSystem, triggerManualSave 
 }) {
   
   const resetAll = () => {
@@ -103,9 +103,15 @@ export default function ActionPanel({
           ? 'bg-primary text-black hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)] cursor-pointer' 
           : 'bg-app-input border border-muted-line text-muted-light cursor-not-allowed opacity-60'
       }`} 
-      onClick={() => { 
+      onClick={async () => { // 👈 NOUVEAU : Rendu asynchrone
         setActiveAction(null); 
         if (setStartersValidated) setStartersValidated(true); 
+        
+        // 🚀 NOUVEAU : On force la sauvegarde instantanée !
+        if (triggerManualSave) {
+            await triggerManualSave({ startersValidated: true });
+            toast.success("Match prêt et sauvegardé ! ✅");
+        }
       }}
     >
       {canStartMatch 
