@@ -117,8 +117,7 @@ export default function TournamentManager() {
     const safePayload = {
       ...data,
       teams: data.teams !== undefined ? data.teams : tourney.teams,
-      schedule: data.schedule !== undefined ? data.schedule : tourney.schedule,
-      playoffs: data.playoffs !== undefined ? data.playoffs : tourney.playoffs
+      
     };
 
     // 🛡️ LE BOUCLIER : On empêche Supabase de chercher la colonne "matches"

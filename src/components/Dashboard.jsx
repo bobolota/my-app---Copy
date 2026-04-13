@@ -60,7 +60,12 @@ export default function Dashboard() {
       // On ignore les tournois terminés ou supprimés
       if (t.status === 'finished' || t.status === 'delete' || t.status === 'deleted') return;
       
-      const matches = [...(t.schedule || []), ...(t.playoffs?.matches || [])];
+      // 🚀 V2 : On lit en priorité la nouvelle table "matches"
+      const matches = [
+        ...(t.matches || []),
+        ...(t.matches ? [] : (t.schedule || [])),
+        ...(t.matches ? [] : (t.playoffs?.matches || []))
+      ];
       
       matches.forEach(m => {
         // On ignore les matchs terminés ou annulés
@@ -93,12 +98,13 @@ export default function Dashboard() {
     const validUuid = crypto.randomUUID(); 
     
     const newT = { 
-      id: validUuid, name, teams: [], schedule: [], status: 'preparing', 
+      id: validUuid, name, teams: [], status: 'preparing', // 👈 On a retiré schedule: [] ici !
       date: tourneyDate || null, organizer_id: session.user.id,
       pin_code: generatedPin, otm_ids: [],
       matchsettings: { 
           courtSize: parseInt(courtSize) || 5, 
           periodCount: parseInt(courtSize) === 5 ? (parseInt(periodCount) || 4) : 1, 
+          // ... le reste de tes paramètres 
           periodDuration: parseInt(periodDuration) || 10, 
           timeoutsHalf1: parseInt(timeoutsHalf1) || 2, 
           timeoutsHalf2: parseInt(courtSize) === 5 ? (parseInt(timeoutsHalf2) || 3) : 0, 

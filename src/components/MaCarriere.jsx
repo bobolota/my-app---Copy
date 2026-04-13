@@ -83,8 +83,8 @@ export default function MaCarriere({ userProfile, tournaments }) {
       // 🛡️ CORRECTION 2 : Le râteau absolu (On prend la V1 ET la V2)
       const allMatches = [
         ...(t.matches || []), 
-        ...(t.schedule || []), 
-        ...(t.playoffs?.matches || [])
+        ...(t.matches ? [] : (t.schedule || [])), // Si 'matches' existe, on ignore l'ancien 'schedule'
+        ...(t.matches ? [] : (t.playoffs?.matches || []))
       ];
       
       // ... la suite de ta boucle allMatches.forEach ...

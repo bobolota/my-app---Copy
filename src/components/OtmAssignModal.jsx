@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient'; // 👈 AJOUTE CECI
 
 export default function OtmAssignModal({ 
   otmModal, 
@@ -22,16 +23,29 @@ export default function OtmAssignModal({
 
   if (!otmModal) return null;
 
-  const handleValidate = () => {
+  const handleValidate = async () => {
     const finalVal = [...selectedOtms, customOtm.trim()].filter(Boolean).join(' - ');
     
-    if (otmModal.isPlayoff) {
-      const newMatches = tourney.playoffs.matches.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-    } else {
-      const newSchedule = tourney.schedule.map(m => m.id === otmModal.matchId ? { ...m, otm: finalVal } : m);
-      update({ schedule: newSchedule });
+    // 1. 🚀 V2 : Mise à jour en direct dans la NOUVELLE table SQL "matches"
+    try {
+      await supabase
+        .from('matches')
+        .update({ otm: finalVal })
+        .eq('id', otmModal.matchId);
+    } catch (err) {
+      console.error("Erreur lors de l'assignation OTM :", err);
     }
+
+    // 2. 🔄 Mise à jour de l'affichage local pour que la page se rafraîchisse instantanément
+    // On modifie le tableau unifié "matches" au lieu des anciens "schedule/playoffs"
+    const newMatches = (tourney.matches || []).map(m => 
+      m.id === otmModal.matchId ? { ...m, otm: finalVal } : m
+    );
+    
+    // On envoie le nouveau tableau des matchs à la fonction globale
+    update({ matches: newMatches }); 
+    
+    // On ferme la modale
     setOtmModal(null);
   };
 

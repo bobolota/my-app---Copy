@@ -107,7 +107,7 @@ export function useDashboardData(session) {
 
       // 👇 REGARDE LE SELECT : ON A RAJOUTÉ matches(*) À LA FIN !
       const { data: tourneysData, error: tourneysError } = await supabase.from('tournaments')
-        .select('id, name, status, date, teams, schedule, playoffs, organizer_id, otm_ids, pin_code, matchsettings, matches(*)')
+        .select('id, name, status, date, teams, organizer_id, otm_ids, pin_code, matchsettings, matches(*)')
         .in('status', ['preparing', 'ongoing', 'finished']);
       
       if (tourneysError) throw tourneysError;

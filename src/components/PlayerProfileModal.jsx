@@ -26,13 +26,14 @@ export default function PlayerProfileModal({
 
     if (!selectedProfile || !selectedProfile.full_name || !allTournaments) return { gp: 0 };
 
-    // 1️⃣ LE SCANNER GLOBAL POUR LA MODALE
+    // 1️⃣ LE SCANNER GLOBAL POUR LA MODALE (Adapté pour le 1v1)
     const myAliases = [selectedProfile.full_name];
     allTournaments.forEach(t => {
       if (t.teams) {
         t.teams.forEach(team => {
           team.players?.forEach(p => {
-            if (p.profile_id === selectedProfile.id && !myAliases.includes(p.name)) {
+            // 🛡️ NOUVEAU : On regarde profile_id MAIS AUSSI p.id pour le 1v1
+            if ((p.profile_id === selectedProfile.id || p.id === selectedProfile.id) && !myAliases.includes(p.name)) {
               myAliases.push(p.name);
             }
           });
@@ -42,20 +43,26 @@ export default function PlayerProfileModal({
 
     // 2️⃣ LE CALCUL PAR FORMAT (Onglets)
     allTournaments.forEach(t => {
-      const tFormat = t.matchsettings?.courtSize || 5; 
+      const tFormat = Number(t.matchsettings?.courtSize) || 5; 
       if (tFormat !== activeFormat) return;
 
-      const allMatches = t.matches || [];
+      // 🚀 V2 : On lit la nouvelle table, avec le filet de sécurité pour les anciens
+      const allMatches = [
+        ...(t.matches || []),
+        ...(t.matches ? [] : (t.schedule || [])),
+        ...(t.matches ? [] : (t.playoffs?.matches || []))
+      ];
       
       allMatches.forEach(m => {
         if (m.status !== 'finished') return;
 
         let myStats = null;
         
-        // 🧠 L'intelligence de recherche
-        const findMe = (p) => p.profile_id === selectedProfile.id || myAliases.includes(p.name);
+        // 🧠 L'intelligence de recherche (Adaptée pour le 1v1)
+        const findMe = (p) => p.profile_id === selectedProfile.id || p.id === selectedProfile.id || myAliases.includes(p.name);
         
         const pInA = m.savedStatsA?.find(findMe) || m.saved_stats_a?.find(findMe);
+        // ... la suite reste exactement pareille (if (pInA) myStats = pInA; etc...)
         if (pInA) myStats = pInA;
         else {
             const pInB = m.savedStatsB?.find(findMe) || m.saved_stats_b?.find(findMe);

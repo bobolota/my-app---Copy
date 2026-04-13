@@ -249,48 +249,57 @@ export default function PlayoffsTab({
                               {/* SÉLECTEUR DE DATE ET HEURE (SÉPARÉS) */}
                               <div className="flex gap-2 flex-[3]">
                                 {/* SÉLECTEUR DE DATE */}
-<input
-  type="date"
-  value={m.datetime ? m.datetime.split('T')[0] : ''}
-  onChange={async (e) => {
-    const d = e.target.value;
-    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
-    await supabase.from('matches').update({ 
-      metadata: { ...m, datetime: d ? `${d}T${t}` : '' } 
-    }).eq('id', m.id);
-  }}
-  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-  title="Date du match"
-/>
+                                <input
+                                  type="date"
+                                  value={m.datetime ? m.datetime.split('T')[0] : ''}
+                                  onChange={async (e) => {
+                                    const d = e.target.value;
+                                    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
+                                    const newDatetime = d ? `${d}T${t}` : null;
+                                    
+                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
+                                    
+                                    const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match);
+                                    update({ matches: newMatches });
+                                  }}
+                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+                                  title="Date du match"
+                                />
 
-{/* SÉLECTEUR D'HEURE */}
-<input
-  type="time"
-  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
-  onChange={async (e) => {
-    const t = e.target.value;
-    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
-    await supabase.from('matches').update({ 
-  metadata: { round: m.round, label: m.label, nextMatchId: m.nextMatchId, nextSlot: m.nextSlot, court: m.court, datetime: d ? `${d}T${t}` : '' } 
-}).eq('id', m.id);
-  }}
-  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-  title="Heure du match"
-/>
-</div>
+                                {/* SÉLECTEUR D'HEURE */}
+                                <input
+                                  type="time"
+                                  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
+                                  onChange={async (e) => {
+                                    const t = e.target.value;
+                                    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+                                    const newDatetime = `${d}T${t}`;
+                                    
+                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
+                                    
+                                    const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match);
+                                    update({ matches: newMatches });
+                                  }}
+                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+                                  title="Heure du match"
+                                />
+                              </div>
 
-{/* SÉLECTEUR DE TERRAIN */}
-<input
-  type="text"
-  placeholder="Court 1..."
-  value={m.court || ''}
-  onChange={async (e) => {
-    await supabase.from('matches').update({ 
-  metadata: { round: m.round, label: m.label, nextMatchId: m.nextMatchId, nextSlot: m.nextSlot, datetime: m.datetime, court: e.target.value } 
-}).eq('id', m.id);
-  }}
-  className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
-/>
+                              {/* SÉLECTEUR DE TERRAIN */}
+                              <input
+                                type="text"
+                                placeholder="Court 1..."
+                                value={m.court || ''}
+                                onChange={async (e) => {
+                                  const newCourt = e.target.value;
+                                  
+                                  await supabase.from('matches').update({ court: newCourt }).eq('id', m.id);
+                                  
+                                  const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, court: newCourt } : match);
+                                  update({ matches: newMatches });
+                                }}
+                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
+                              />
                             </div>
                           )}
 
