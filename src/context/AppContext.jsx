@@ -66,20 +66,73 @@ export const AppProvider = ({ children }) => {
 
   const fetchTournaments = async () => {
     try {
-      const { data, error } = await supabase.from('tournaments').select('*').order('created_at', { ascending: false });
-      if (!error && data) setTournaments(data);
+      // V2 : On demande les tournois ET leurs matchs associés
+      const { data, error } = await supabase
+        .from('tournaments')
+        .select('*, matches(*)')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        // On convertit le snake_case de la BDD en camelCase pour React
+        const mappedData = data.map(t => ({
+          ...t,
+          matches: (t.matches || []).map(m => ({
+            id: m.id,
+            tourneyId: m.tournament_id,
+            type: m.type,
+            status: m.status,
+            teamA: m.team_a,
+            teamB: m.team_b,
+            scoreA: m.score_a,
+            scoreB: m.score_b,
+            savedStatsA: m.saved_stats_a,
+            savedStatsB: m.saved_stats_b,
+            liveHistory: m.live_history
+          }))
+        }));
+        setTournaments(mappedData);
+      }
     } catch (error) {
       console.error("Erreur de chargement des tournois:", error);
     }
   };
 
-  // 4. Ton écouteur en temps réel pour les tournois
+  // 4. Ton écouteur en temps réel V2
   useEffect(() => {
     const channel = supabase
       .channel('tournaments_live')
+      // Écoute des modifs du tournoi (nom, paramètres...)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, (payload) => {
           if (payload.new) {
-            setTournaments(prev => prev.map(t => t.id === payload.new.id ? payload.new : t));
+            setTournaments(prev => prev.map(t => 
+              t.id === payload.new.id ? { ...t, ...payload.new, matches: t.matches } : t
+            ));
+          }
+      })
+      // NOUVEAU : Écoute des modifs sur les MATCHS !
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (payload) => {
+          if (payload.new) {
+            setTournaments(prev => prev.map(t => {
+              if (t.id === payload.new.tournament_id) {
+                const updatedMatches = [...(t.matches || [])];
+                const matchIndex = updatedMatches.findIndex(m => m.id === payload.new.id);
+                
+                const mappedMatch = {
+                  id: payload.new.id, tourneyId: payload.new.tournament_id,
+                  type: payload.new.type, status: payload.new.status,
+                  teamA: payload.new.team_a, teamB: payload.new.team_b,
+                  scoreA: payload.new.score_a, scoreB: payload.new.score_b,
+                  savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
+                  liveHistory: payload.new.live_history
+                };
+
+                if (matchIndex > -1) updatedMatches[matchIndex] = mappedMatch;
+                else updatedMatches.push(mappedMatch); // Si un match est créé
+
+                return { ...t, matches: updatedMatches };
+              }
+              return t;
+            }));
           }
       }).subscribe();
 
@@ -96,15 +149,13 @@ export const AppProvider = ({ children }) => {
   }, [activeMatch]);
 
   
-  // --- 🏀 LOGIQUE DE MATCH (Importée depuis App.jsx) ---
+  // --- 🏀 LOGIQUE DE MATCH V2 ---
   const launchMatch = (matchId) => {
     if (!currentTourney) return;
-    setActiveMatch(null); // On vide pour forcer le reset visuel
+    setActiveMatch(null); 
     setTimeout(() => {
-      let match = currentTourney.schedule?.find(m => m.id === matchId);
-      if (!match && currentTourney.playoffs) {
-        match = currentTourney.playoffs.matches?.find(m => m.id === matchId);
-      }
+      // V2 : On cherche tout simplement dans le tableau unifié 'matches'
+      const match = currentTourney.matches?.find(m => m.id === matchId);
       if (match) {
         setActiveMatch({ ...match, tourneyId: activeTourneyId });
         setView('match');
@@ -114,35 +165,36 @@ export const AppProvider = ({ children }) => {
 
   const finishMatch = async (scoreA, scoreB, playersA, playersB) => {
     if (!activeMatch) return;
-    const tourney = tournaments.find(t => t.id === activeMatch.tourneyId);
-    if (!tourney) return;
 
-    const isPoolMatch = tourney.schedule && tourney.schedule.some(m => m.id === activeMatch.id);
-    let newSchedule = tourney.schedule ? [...tourney.schedule] : [];
-    let newPlayoffs = tourney.playoffs ? JSON.parse(JSON.stringify(tourney.playoffs)) : null;
-
-    if (isPoolMatch) {
-      newSchedule = newSchedule.map(m => 
-        m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
-      );
-    } else if (newPlayoffs && newPlayoffs.matches) {
-      newPlayoffs.matches = newPlayoffs.matches.map(m => 
-        m.id === activeMatch.id ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } : m
-      );
-    }
-
-    const updatedTourney = { ...tourney, schedule: newSchedule, playoffs: newPlayoffs };
-    const { error } = await supabase.from('tournaments').update({
-      schedule: newSchedule,
-      playoffs: newPlayoffs
-    }).eq('id', updatedTourney.id);
+    // V2 : On cible l'ID du match dans la table matches !
+    const { error } = await supabase.from('matches').update({
+      status: 'finished',
+      score_a: scoreA,
+      score_b: scoreB,
+      saved_stats_a: playersA,
+      saved_stats_b: playersB
+    }).eq('id', activeMatch.id);
 
     if (error) {
-      toast.error("Erreur réseau lors de la sauvegarde du match !");
+      toast.error("Erreur réseau lors de la sauvegarde !");
       return;
     }
 
-    setTournaments(prev => prev.map(t => t.id === updatedTourney.id ? updatedTourney : t));
+    // Mise à jour de l'UI locale instantanée
+    setTournaments(prev => prev.map(t => {
+      if (t.id === activeMatch.tourneyId) {
+        return {
+          ...t,
+          matches: (t.matches || []).map(m => 
+            m.id === activeMatch.id 
+              ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } 
+              : m
+          )
+        };
+      }
+      return t;
+    }));
+
     localStorage.removeItem(`basketMatchSave_${activeMatch.id}`);
     setActiveMatch(null);
     setView('tournament');
@@ -150,21 +202,12 @@ export const AppProvider = ({ children }) => {
 
   const syncLiveScore = async (newScoreA, newScoreB) => {
     if (!activeMatch) return;
-    const tourney = tournaments.find(t => t.id === activeMatch.tourneyId);
-    if (!tourney) return;
     
-    const isPoolMatch = tourney.schedule && tourney.schedule.some(m => m.id === activeMatch.id);
-    if (isPoolMatch) {
-      const newSchedule = tourney.schedule.map(m => 
-        m.id === activeMatch.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB } : m
-      );
-      await supabase.from('tournaments').update({ schedule: newSchedule }).eq('id', tourney.id);
-    } else if (tourney.playoffs && tourney.playoffs.matches) {
-      const newPlayoffMatches = tourney.playoffs.matches.map(m => 
-        m.id === activeMatch.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB } : m
-      );
-      await supabase.from('tournaments').update({ playoffs: { ...tourney.playoffs, matches: newPlayoffMatches } }).eq('id', tourney.id);
-    }
+    // V2 : Mise à jour super légère en BDD ! Fin du problème TOAST.
+    await supabase.from('matches').update({ 
+      score_a: newScoreA, 
+      score_b: newScoreB 
+    }).eq('id', activeMatch.id);
   };
 
   // --- DISTRIBUTION DU NUAGE ---
