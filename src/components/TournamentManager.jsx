@@ -658,30 +658,7 @@ export default function TournamentManager() {
   };
 
   
-  const handleUnlockOtm = () => {
-    setPromptData({
-      isOpen: true,
-      title: "Accès Table de Marque",
-      message: "Entrez le code PIN fourni par l'organisateur :",
-      placeholder: "Code PIN (ex: 1234)",
-      onConfirm: async (pin) => {
-  if (!pin) return;
-  try {
-    const cleanedPin = pin.trim().toUpperCase();
-    console.log("Tentative d'envoi du PIN :", cleanedPin); // 👈 Vérifie que le code est bon
-
-    const { error } = await supabase.rpc('join_as_otm', { pin: cleanedPin });
-    if (error) throw error;
-    
-    toast.success("Succès ! Vous êtes maintenant OTM sur ce tournoi. 🏀");
-    setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, otm_ids: [...(t.otm_ids || []), session?.user?.id] } : t));
-  } catch (err) { 
-    console.error("Erreur complète Supabase :", err); // 👈 Regarde ta console (F12) !
-    toast.error(`Erreur : ${err.message}`); // 👈 Affichera la vraie raison à l'écran
-  }
-}
-    });
-  };
+  
       
   if (editId) {
     return <TeamEditor teamId={editId} setEditId={setEditId} tourney={tourney} canEdit={canEdit} update={update} />;
@@ -697,7 +674,6 @@ export default function TournamentManager() {
         canEdit={canEdit}
         canManageMatch={canManageMatch}
         session={session}
-        handleUnlockOtm={handleUnlockOtm}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         update={update} // 👈 LA SEULE LIGNE À AJOUTER EST ICI

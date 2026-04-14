@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import TeamTagList from './TeamTagList'; // 👈 L'import magique
 
-export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView, handleLeaveTournament }) {
+export default function ExplorerTournois({ handleJoinAsOtm, allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView, handleLeaveTournament }) {
   const [filterFinished, setFilterFinished] = useState('all');
   const [searchQuery, setSearchQuery] = useState(''); // 👈 NOUVEAU
   const { session } = useAuth();
@@ -79,9 +79,11 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
         </p>
       </div>
 
-      {/* NOUVEAU : BARRE DE RECHERCHE */}
-      <div className="mb-8">
-        <div className="relative max-w-md">
+      {/* NOUVEAU : BARRE DE RECHERCHE ET CODE OTM */}
+      <div className="mb-8 flex flex-col sm:flex-row gap-4 items-center">
+        
+        {/* Barre de recherche (qui prend tout l'espace restant) */}
+        <div className="relative w-full flex-1 max-w-2xl">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl">🔍</span>
           <input 
             type="text" 
@@ -91,9 +93,17 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
             className="w-full bg-app-input border border-muted-line text-white pl-12 pr-4 py-3.5 rounded-xl focus:outline-none focus:border-action transition-all shadow-inner font-bold placeholder:text-muted-dark"
           />
         </div>
+
+        {/* Bouton Code PIN OTM */}
+        <button 
+          onClick={handleJoinAsOtm} 
+          className="w-full sm:w-auto shrink-0 bg-secondary/10 border border-secondary/30 text-secondary px-6 py-3.5 rounded-xl font-black tracking-widest text-sm hover:bg-secondary hover:text-white transition-all shadow-lg flex items-center justify-center gap-2"
+          title="Rejoindre le staff d'un tournoi privé"
+        >
+          🔐 CODE OTM
+        </button>
+
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"></div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         

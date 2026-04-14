@@ -204,7 +204,7 @@ export default function InfoTab({ tourney }) {
               {/* 👇 NOUVEAU : BOUTON TOGGLE PUBLIC/PRIVÉ 👇 */}
               <div className="flex items-center justify-between bg-app-input p-4 rounded-xl border border-muted-line shadow-inner">
                 <div>
-                  <label className="text-xs text-white font-black uppercase tracking-widest">Tournoi Publique 🌍</label>
+                  <label className="text-xs text-white font-black uppercase tracking-widest">Tournoi Public 🌍</label>
                   <p className="text-[10px] text-muted m-0 mt-1">S'il est désactivé, le tournoi disparaît de l'onglet Explorer.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">

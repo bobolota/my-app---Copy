@@ -52,6 +52,56 @@ export default function PlayerDashboard() {
   const count5x5 = activeTeamsList.filter(t => t.global_teams?.format === '5x5' || !t.global_teams?.format).length;
   const count3x3 = activeTeamsList.filter(t => t.global_teams?.format === '3x3').length;
 
+  // ==========================================
+  // ⏱️ REJOINDRE UN TOURNOI EN TANT QU'OTM (Via RPC Sécurisé)
+  // ==========================================
+  const handleJoinAsOtm = () => {
+    setPromptData({
+      isOpen: true,
+      title: "🔐 Accès Table de Marque",
+      message: "Saisis le code PIN secret fourni par l'organisateur :",
+      placeholder: "Ex: A1B2C3",
+      onConfirm: async (enteredPin) => {
+        if (!enteredPin) return;
+        const cleanedPin = enteredPin.trim().toUpperCase();
+
+        try {
+          // 1. Appel sécurisé via ton ancienne fonction RPC Supabase ! 🛡️
+          const { error } = await supabase.rpc('join_as_otm', { pin: cleanedPin });
+          if (error) throw error;
+
+          // 2. On met à jour l'interface en temps réel
+          const targetTourney = tournaments.find(t => t.pin_code === cleanedPin);
+          
+          if (targetTourney) {
+            const currentOtms = targetTourney.otm_ids || [];
+            
+            // Si c'est sa première fois
+            if (!currentOtms.includes(session?.user?.id)) {
+              const newOtms = [...currentOtms, session?.user?.id];
+              setTournaments(tournaments.map(t => t.id === targetTourney.id ? { ...t, otm_ids: newOtms } : t));
+            }
+            
+            import('react-hot-toast').then(m => m.default.success(`Bienvenue dans le staff de ${targetTourney.name} ! ⏱️`));
+            
+            // 3. Téléportation immédiate à l'intérieur du tournoi ! 🚀
+            setActiveTourneyId(targetTourney.id);
+            setView('tournament');
+          } else {
+            // Au cas où le tournoi est privé et n'était pas chargé dans la liste
+            import('react-hot-toast').then(m => m.default.success("Succès ! Tu es OTM sur ce tournoi. 🏀"));
+            // (Il faudra peut-être recharger la page pour voir le tournoi apparaître s'il était totalement caché)
+            window.location.reload(); 
+          }
+
+        } catch (err) {
+          console.error("Erreur complète Supabase :", err);
+          import('react-hot-toast').then(m => m.default.error(`Code PIN invalide ou erreur réseau.`));
+        }
+      }
+    });
+  };
+
   const hasMax5x5 = count5x5 >= 3;
   const hasMax3x3 = count3x3 >= 3;
   const hasTeam = hasMax5x5 && hasMax3x3; // Le compte est "plein" uniquement si les DEUX jauges sont pleines
@@ -601,7 +651,13 @@ export default function PlayerDashboard() {
 
       {currentTab === 'explorer' && (
         <ExplorerTournois          
-          allTournaments={allTournaments} myTeams={myTeams} setRegisterModalTourney={setRegisterModalTourney} setActiveTourneyId={setActiveTourneyId} setView={setView} handleLeaveTournament={handleLeaveTournament}
+          allTournaments={allTournaments} 
+          myTeams={myTeams} 
+          setRegisterModalTourney={setRegisterModalTourney} 
+          setActiveTourneyId={setActiveTourneyId} 
+          setView={setView} 
+          handleLeaveTournament={handleLeaveTournament}
+          handleJoinAsOtm={handleJoinAsOtm} // 👈 LA PETITE NOUVELLE !
         />
       )}
 
