@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import toast from 'react-hot-toast';
 import ConfirmModal from './ConfirmModal';
@@ -156,6 +156,55 @@ export default function Dashboard() {
       }
     });
   };
+
+  // ==========================================
+  // 🪄 LA MAGIE DU LIEN D'INVITATION DIRECT (INTELLIGENT)
+  // ==========================================
+  useEffect(() => {
+    // On vérifie que la liste des tournois est bien chargée
+    if (tournaments && tournaments.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const targetTourneyId = params.get('t');
+
+      if (targetTourneyId) {
+        const tourneyExists = tournaments.find(t => t.id === targetTourneyId);
+        
+        if (tourneyExists) {
+          // 1. On vérifie si l'utilisateur est DÉJÀ inscrit
+          const myAcceptedTeamIds = (myTeams || []).filter(m => m.status === 'accepted').map(m => m.global_teams?.id);
+          const isRegistered = tourneyExists.teams?.some(team => {
+              const isOfficial = myAcceptedTeamIds.includes(team.global_id);
+              const isPhantom = team.players?.some(p => p.id === session?.user?.id || p.profile_id === session?.user?.id);
+              return isOfficial || isPhantom;
+          });
+          
+          const isOrganizer = tourneyExists.organizer_id === session?.user?.id;
+
+          // 2. 🚦 REDIRECTION INTELLIGENTE
+          if (!isRegistered && !isOrganizer && tourneyExists.status === 'preparing') {
+             // 👉 Il n'est pas inscrit : On l'envoie sur l'Explorer (qui chargera PlayerDashboard)
+             setView('explorer');
+             
+             // ⚠️ TRÈS IMPORTANT : On NE NETTOIE PAS l'URL ici ! 
+             // On laisse le "?t=" pour que PlayerDashboard puisse le lire et ouvrir la modale.
+             
+          } else {
+             // 👉 Il est inscrit ou orga : On ouvre directement le tableau de bord du tournoi
+             setActiveTourneyId(targetTourneyId);
+             setView('tournament');
+             
+             // Ici on peut nettoyer l'URL, car on n'a pas besoin d'ouvrir de modale
+             window.history.replaceState({}, document.title, window.location.pathname);
+          }
+          
+        } else {
+           // Si le tournoi n'existe pas ou a été supprimé
+           toast.error("Le tournoi recherché n'existe pas ou est privé.");
+           window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    }
+  }, [tournaments, myTeams, session, setActiveTourneyId, setView]);
 
   // ==========================================
   // 💻 RENDU DE LA PAGE

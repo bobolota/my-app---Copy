@@ -114,14 +114,16 @@ export default function TournamentManager() {
 
     setTournaments(prev => prev.map(t => t.id === tourney.id ? { ...t, ...data } : t));
 
+    // 1. On ne garde que les vraies données du tournoi
     const safePayload = {
       ...data,
-      teams: data.teams !== undefined ? data.teams : tourney.teams,
-      
+      teams: data.teams !== undefined ? data.teams : tourney.teams
     };
 
-    // 🛡️ LE BOUCLIER : On empêche Supabase de chercher la colonne "matches"
+    // 2. 🛡️ LE BOUCLIER ABSOLU : On détruit toute trace des anciens systèmes
     delete safePayload.matches;
+    delete safePayload.schedule;
+    delete safePayload.playoffs;
 
     const { data: updatedRows, error } = await supabase
       .from('tournaments')
@@ -400,12 +402,10 @@ export default function TournamentManager() {
         // 1. On nettoie le vieux JSON du tournoi
         update({ 
           teams: updatedTeams, 
-          schedule: null, 
-          playoffs: null,
           qualifiedSettings: Object.fromEntries(Array.from({length:n}, (_,i)=>[i+1,2])),
         });
 
-        // 👇 2. V2 : On supprime TOUS les vieux matchs (Poules ET Playoffs) de la BDD !
+        // 2. V2 : On supprime TOUS les vieux matchs (Poules ET Playoffs) de la BDD !
         await supabase.from('matches').delete().eq('tournament_id', tourney.id);
 
         // 3. BULK INSERT : On insère tous les nouveaux matchs de poule
@@ -625,15 +625,14 @@ export default function TournamentManager() {
     setConfirmData({
       isOpen: true,
       title: "Supprimer l'équipe ?",
-      message: "Voulez-vous supprimer définitivement cette équipe du tournoi ?",
+      message: "Voulez-vous supprimer définitivement cette équipe du tournoi et ses matchs associés ?",
       isDanger: true,
       onConfirm: async () => {
-        // 1. On retire l'équipe de la liste des inscrits
+        // 1. On retire l'équipe de la liste JSON
         const newTeams = tourney.teams.filter(t => t.id !== teamId);
-        update({ teams: newTeams }); // On met à jour le JSON des équipes
+        update({ teams: newTeams }); 
 
-        // 2. 🧹 NETTOYAGE DANS LA NOUVELLE TABLE MATCHES
-        // On récupère tous les matchs du tournoi
+        // 2. 🧹 NETTOYAGE SQL DANS LA TABLE MATCHES
         const { data: allMatches } = await supabase.from('matches').select('id, type, team_a, team_b').eq('tournament_id', tourney.id);
         
         if (allMatches) {
@@ -643,7 +642,7 @@ export default function TournamentManager() {
              await supabase.from('matches').delete().eq('id', m.id);
           }
 
-          // B. Playoffs : On ne supprime pas le match, on vide juste la place (team passe à null)
+          // B. Playoffs : On ne supprime pas le match, on vide juste la place
           const playoffMatches = allMatches.filter(m => m.type === 'playoff' && (m.team_a?.id === teamId || m.team_b?.id === teamId));
           for (const m of playoffMatches) {
              const payload = {};
@@ -653,7 +652,7 @@ export default function TournamentManager() {
           }
         }
 
-        toast.success("Équipe supprimée et matchs mis à jour ! 🧹");
+        toast.success("Équipe et matchs supprimés ! 🧹");
       }
     });
   };

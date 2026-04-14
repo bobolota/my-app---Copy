@@ -10,6 +10,9 @@ export default function InfoTab({ tourney }) {
   const s = tourney?.matchsettings || {};
   const courtSize = parseInt(s.courtSize) || 5;
 
+  // 👇 NOUVEAU : Par défaut, un tournoi est public (sauf si explicitement mis à false)
+  const isPublic = s.isPublic !== false;
+
   // Détecte si l'utilisateur est le créateur du tournoi
   const isOwnerOrAdmin = session?.user?.id === tourney?.organizer_id;
 
@@ -25,6 +28,9 @@ export default function InfoTab({ tourney }) {
   const [editTeamFoulBonus, setEditTeamFoulBonus] = useState(s.teamFoulBonus || 4);
   const [editTimeoutsHalf1, setEditTimeoutsHalf1] = useState(s.timeoutsHalf1 || 2);
   const [editTimeoutsHalf2, setEditTimeoutsHalf2] = useState(s.timeoutsHalf2 || 3);
+  
+  // 👇 NOUVEAU : État pour le bouton public/privé
+  const [editIsPublic, setEditIsPublic] = useState(isPublic); 
 
   // Fonction de sauvegarde
   const handleUpdateTourney = async (e) => {
@@ -32,9 +38,11 @@ export default function InfoTab({ tourney }) {
     setIsSaving(true);
     
     const updatedSettings = {
+      ...s, // On garde les anciens paramètres par sécurité
       courtSize: editCourtSize, periodCount: editPeriodCount, periodDuration: editPeriodDuration,
       maxFouls: editMaxFouls, teamFoulBonus: editTeamFoulBonus,
-      timeoutsHalf1: editTimeoutsHalf1, timeoutsHalf2: editTimeoutsHalf2
+      timeoutsHalf1: editTimeoutsHalf1, timeoutsHalf2: editTimeoutsHalf2,
+      isPublic: editIsPublic // 👈 NOUVEAU : Enregistrement de la visibilité
     };
 
     const { data, error } = await supabase
@@ -54,14 +62,26 @@ export default function InfoTab({ tourney }) {
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto space-y-10 animate-in fade-in duration-500 pb-20">
       
-      {/* BOUTON MODIFIER (Organisateur uniquement) */}
+      {/* BOUTONS D'ACTIONS (Organisateur uniquement) */}
       {isOwnerOrAdmin && (
-        <div className="flex justify-end -mb-4">
+        <div className="flex justify-end gap-3 -mb-4">
+          <button 
+            onClick={() => {
+              const url = `${window.location.origin}/?t=${tourney.id}`;
+              navigator.clipboard.writeText(url);
+              // (Assure-toi d'avoir importé toast d'react-hot-toast en haut du fichier si ce n'est pas fait !)
+              import('react-hot-toast').then(m => m.default.success("Lien copié dans le presse-papier ! 📋"));
+            }}
+            className="bg-action/20 border border-action/30 text-action hover:text-white hover:bg-action px-5 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all cursor-pointer shadow-inner flex items-center gap-2"
+          >
+            🔗 Copier le lien d'invitation
+          </button>
+          
           <button 
             onClick={() => setIsEditModalOpen(true)}
             className="bg-app-input border border-muted-line text-primary hover:text-white hover:bg-primary/20 px-5 py-2.5 rounded-xl text-xs font-black tracking-widest uppercase transition-all cursor-pointer shadow-inner flex items-center gap-2"
           >
-            ⚙️ Paramètres du tournoi
+            ⚙️ Paramètres
           </button>
         </div>
       )}
@@ -78,7 +98,17 @@ export default function InfoTab({ tourney }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        {/* J'ai juste passé grid-cols-3 à grid-cols-4 pour faire de la place au badge visibilité */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          
+          {/* 👇 NOUVEAU : BADGE DE VISIBILITÉ 👇 */}
+          <div className="bg-app-card border border-muted-line p-5 rounded-2xl shadow-xl flex flex-col justify-center">
+            <span className="block text-muted text-[10px] uppercase font-black tracking-widest mb-2">Visibilité</span>
+            <span className={`text-lg font-black tracking-wide ${isPublic ? 'text-primary' : 'text-danger'}`}>
+              {isPublic ? '🌍 PUBLIQUE' : '🔒 PRIVÉE'}
+            </span>
+          </div>
+
           <div className="bg-app-card border border-muted-line p-5 rounded-2xl shadow-xl">
             <span className="block text-muted text-[10px] uppercase font-black tracking-widest mb-2">Format</span>
             <span className="text-xl text-white font-black">{courtSize}x{courtSize} </span>
@@ -170,7 +200,20 @@ export default function InfoTab({ tourney }) {
             </div>
             
             <form onSubmit={handleUpdateTourney} className="flex flex-col gap-5">
-              <div className="flex flex-col sm:flex-row gap-4">
+              
+              {/* 👇 NOUVEAU : BOUTON TOGGLE PUBLIC/PRIVÉ 👇 */}
+              <div className="flex items-center justify-between bg-app-input p-4 rounded-xl border border-muted-line shadow-inner">
+                <div>
+                  <label className="text-xs text-white font-black uppercase tracking-widest">Tournoi Publique 🌍</label>
+                  <p className="text-[10px] text-muted m-0 mt-1">S'il est désactivé, le tournoi disparaît de l'onglet Explorer.</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={editIsPublic} onChange={(e) => setEditIsPublic(e.target.checked)} />
+                  <div className="w-11 h-6 bg-app-card peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary border border-muted-line shadow-inner"></div>
+                </label>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 mt-2">
                 <div className="flex-1">
                   <label className="text-[10px] text-muted font-black uppercase tracking-widest ml-1">Nom du tournoi</label>
                   <input type="text" value={editName} onChange={e => setEditName(e.target.value)} required className="w-full p-4 mt-1 rounded-xl bg-app-input border border-muted-line text-white focus:border-primary focus:outline-none transition-colors shadow-inner" />

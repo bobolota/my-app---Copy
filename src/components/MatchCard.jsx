@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { supabase } from '../supabaseClient'; // 👈 AJOUTE CECI
 
 export default function MatchCard({ match, tourney, currentUserName, canEdit, handleLaunchMatch, isPublicScoreboard, update }) {
   const isFinished = match.status === 'finished';
@@ -52,23 +53,26 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   const [tempScoreA, setTempScoreA] = useState(match.scoreA || 0);
   const [tempScoreB, setTempScoreB] = useState(match.scoreB || 0);
 
-  const handleSaveScore = (e) => {
+  // --- GESTION MANUELLE DU SCORE (V2 BDD) ---
+  const handleSaveScore = async (e) => {
     e.stopPropagation();
     const newScoreA = parseInt(tempScoreA) || 0;
     const newScoreB = parseInt(tempScoreB) || 0;
 
-    if (match.group) {
-      const newSchedule = tourney.schedule.map(m => 
-        m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
-      );
-      update({ schedule: newSchedule });
-    } 
-    else if (tourney.playoffs) {
-      const newMatches = tourney.playoffs.matches.map(m => 
-        m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
-      );
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-    }
+    // 1. Sauvegarde directe dans la base de données
+    await supabase.from('matches').update({
+      score_a: newScoreA,
+      score_b: newScoreB,
+      status: 'finished',
+      startersValidated: true
+    }).eq('id', match.id);
+
+    // 2. Mise à jour de l'affichage
+    const newMatches = (tourney.matches || []).map(m => 
+      m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
+    );
+    update({ matches: newMatches });
+    
     setIsEditingScore(false);
     toast.success("Score validé manuellement ! ✅");
   };
@@ -78,28 +82,29 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   const dateVal = currentDateStr || '';
   const timeVal = currentTimeStr ? currentTimeStr.substring(0, 5) : '';
 
-  const handleDateTimeChange = (field, value) => {
+  // --- GESTION DE L'HEURE, DATE ET TERRAIN (V2 BDD) ---
+  const handleDateTimeChange = async (field, value) => {
     let d = dateVal;
     let t = timeVal;
+    let c = match.court || '';
     
     if (field === 'date') d = value;
     if (field === 'time') t = value;
+    if (field === 'court') c = value;
 
-    // On recombine en un seul datetime (ajoute minuit par défaut si on met juste la date)
-    const newDatetime = d ? `${d}T${t || '00:00'}` : '';
+    const newDatetime = d ? `${d}T${t || '00:00'}` : null;
     
-    if (match.group) {
-      const newSchedule = tourney.schedule.map(m => 
-        m.id === match.id ? { ...m, datetime: newDatetime } : m
-      );
-      update({ schedule: newSchedule });
-    } 
-    else if (tourney.playoffs) {
-      const newMatches = tourney.playoffs.matches.map(m => 
-        m.id === match.id ? { ...m, datetime: newDatetime } : m
-      );
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-    }
+    // 1. Sauvegarde directe dans la BDD
+    await supabase.from('matches').update({
+      datetime: newDatetime,
+      court: c
+    }).eq('id', match.id);
+
+    // 2. Mise à jour de l'affichage
+    const newMatches = (tourney.matches || []).map(m => 
+      m.id === match.id ? { ...m, datetime: newDatetime, court: c } : m
+    );
+    update({ matches: newMatches });
   };
 
   return (
@@ -133,12 +138,12 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
       {/* 📅 GESTION DE LA DATE ET L'HEURE */}
       <div className="flex justify-between items-start pb-3 border-b border-muted-line">
         {canEdit && !isFinished && !isCanceled && !isForfeit ? (
-          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-wrap items-center gap-2 w-full" onClick={(e) => e.stopPropagation()}>
             <input 
               type="date" 
               value={dateVal}
               onChange={(e) => handleDateTimeChange('date', e.target.value)}
-              className="bg-app-input border border-muted-line text-secondary text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[145px]"
+              className="bg-app-input border border-muted-line text-secondary text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[135px]"
               title="Date du match"
             />
             <input 
@@ -147,6 +152,15 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
               onChange={(e) => handleDateTimeChange('time', e.target.value)}
               className="bg-app-input border border-muted-line text-white text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[70px]"
               title="Heure du match"
+            />
+            {/* NOUVEAU : Champ pour le Terrain */}
+            <input 
+              type="text" 
+              placeholder="Terrain..."
+              value={match.court || ''}
+              onChange={(e) => handleDateTimeChange('court', e.target.value)}
+              className="bg-app-input border border-muted-line text-white text-xs p-1.5 rounded-lg focus:outline-none focus:border-action transition-colors shadow-inner flex-1 min-w-[70px]"
+              title="Terrain (ex: Court 1, Gymnase Nord...)"
             />
           </div>
         ) : match.datetime ? (

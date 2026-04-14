@@ -56,6 +56,29 @@ export default function PlayerDashboard() {
   const hasMax3x3 = count3x3 >= 3;
   const hasTeam = hasMax5x5 && hasMax3x3; // Le compte est "plein" uniquement si les DEUX jauges sont pleines
 
+  // 🪄 MAGIE : Ouverture automatique de la modale d'inscription via le lien
+  useEffect(() => {
+    // On lit l'URL (ex: ?t=id-du-tournoi)
+    const params = new URLSearchParams(window.location.search);
+    const targetTourneyId = params.get('t');
+
+    // Assure-toi d'utiliser la bonne variable qui contient tes tournois 
+    // (ça peut être "tournaments" ou "allTournaments" selon ton code)
+    const listeTournois = allTournaments; 
+
+    if (targetTourneyId && listeTournois && listeTournois.length > 0) {
+      const targetTourney = listeTournois.find(t => t.id === targetTourneyId);
+      
+      if (targetTourney && targetTourney.status === 'preparing') {
+        // 1. BOUM ! On ouvre la pop-up d'inscription avec le bon tournoi
+        setRegisterModalTourney(targetTourney);
+        
+        // 2. On nettoie l'URL silencieusement pour que ça fasse propre
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [allTournaments]); // Mets "tournaments" ici si c'est le nom de ta variable
+
   // 1. On nettoie proprement la vue SEULEMENT si on change d'onglet
   useEffect(() => {
     if (currentTab !== 'vestiaire') {

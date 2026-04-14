@@ -4,6 +4,7 @@ import TeamTagList from './TeamTagList'; // 👈 L'import magique
 
 export default function ExplorerTournois({ allTournaments, myTeams, setRegisterModalTourney, setActiveTourneyId, setView, handleLeaveTournament }) {
   const [filterFinished, setFilterFinished] = useState('all');
+  const [searchQuery, setSearchQuery] = useState(''); // 👈 NOUVEAU
   const { session } = useAuth();
   
   const [isReady, setIsReady] = useState(false);
@@ -37,16 +38,33 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
   });
 };
 
-  const activeTournaments = allTournaments.filter(t => t.status !== 'delete');
-  const publicTourneys = activeTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t));
-  const ongoingOtherTourneys = activeTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t));
+  // On filtre par statut "delete" ET par la recherche (insensible aux majuscules)
+  const activeTournaments = allTournaments.filter(t => 
+    t.status !== 'delete' && 
+    (searchQuery === '' || t.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
+  // NOUVEAU : Fonction utilitaire pour savoir si un tournoi est public
+  const isPublic = (t) => t.matchsettings?.isPublic !== false;
+
+  // On ne montre dans les colonnes 1 et 2 QUE les tournois publics (et où je ne suis pas inscrit)
+  const publicTourneys = activeTournaments.filter(t => t.status === 'preparing' && !isRegisteredIn(t) && isPublic(t));
+  const ongoingOtherTourneys = activeTournaments.filter(t => t.status === 'ongoing' && !isRegisteredIn(t) && isPublic(t));
+  
+  // "Mes engagements" n'a pas besoin de ce filtre, car si j'y suis inscrit, j'ai le droit de le voir !
   const myActiveTourneys = activeTournaments.filter(t => t.status !== 'finished' && isRegisteredIn(t));
   
   let finishedTourneys = activeTournaments.filter(t => t.status === 'finished');
-  if (filterFinished === 'mine') finishedTourneys = finishedTourneys.filter(t => isRegisteredIn(t));
+  if (filterFinished === 'mine') {
+    finishedTourneys = finishedTourneys.filter(t => isRegisteredIn(t));
+  } else {
+    // Si on regarde "Tous" les historiques, on cache les privés (sauf si j'y ai participé)
+    finishedTourneys = finishedTourneys.filter(t => isPublic(t) || isRegisteredIn(t));
+  }
 
   const handleOpenTourney = (tId) => { setActiveTourneyId(tId); setView('tournament'); };
 
+  
   return (
     <div className="w-full flex-1 flex flex-col box-border p-4 sm:p-6 max-w-[1920px] mx-auto relative">
       
@@ -60,6 +78,22 @@ export default function ExplorerTournois({ allTournaments, myTeams, setRegisterM
           Découvre les compétitions, inscris ton équipe ou suis les résultats en direct.
         </p>
       </div>
+
+      {/* NOUVEAU : BARRE DE RECHERCHE */}
+      <div className="mb-8">
+        <div className="relative max-w-md">
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl">🔍</span>
+          <input 
+            type="text" 
+            placeholder="Rechercher un tournoi par nom..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-app-input border border-muted-line text-white pl-12 pr-4 py-3.5 rounded-xl focus:outline-none focus:border-action transition-all shadow-inner font-bold placeholder:text-muted-dark"
+          />
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6"></div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         
