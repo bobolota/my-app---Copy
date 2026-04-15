@@ -19,36 +19,10 @@ export default function MaCarriere({ userProfile, tournaments }) {
     setHistoryPage(0);
   }, [activeFormat]);
 
-  // 📡 NOTRE RADAR DE DÉBOGAGE :
-  console.log("🔍 Données reçues par MaCarriere :", { 
-    id: currentUserId, 
-    nom: currentUserName, 
-    nbTournois: tournaments?.length 
-  });
-
-  // 🔬 AUDIT CHIRURGICAL : On regarde exactement pourquoi les matchs sont rejetés
+  
   useEffect(() => {
     if (!tournaments || tournaments.length === 0) return;
     
-    console.log("--- DÉBUT DE L'AUDIT ---");
-    tournaments.forEach((t, index) => {
-      console.log(`🏆 Tournoi ${index + 1} (${t.name || 'Sans nom'}) :`);
-      
-      // Test Piste 1
-      console.log(`  👉 Format en BDD :`, t.matchsettings?.courtSize, `| Attendu :`, activeFormat);
-      
-      const matches = t.matches || t.schedule || [];
-      console.log(`  👉 Nombre de matchs trouvés : ${matches.length}`);
-      
-      matches.forEach((m, mIndex) => {
-        // Test Piste 2
-        console.log(`    🏀 Match ${mIndex + 1} - Statut :`, m.status);
-        
-        // Test Piste 3
-        console.log(`    📊 Structure Stats A :`, Array.isArray(m.saved_stats_a) ? 'Tableau OK' : typeof m.saved_stats_a, m.saved_stats_a);
-      });
-    });
-    console.log("--- FIN DE L'AUDIT ---");
   }, [tournaments, activeFormat]);
 
   // ==========================================

@@ -21,7 +21,7 @@ export default function PlayerProfileModal({
   const computedStats = useMemo(() => {
     let gp = 0, pts = 0, reb = 0, ast = 0, stl = 0, blk = 0;
     let maxPts = 0, maxReb = 0, maxAst = 0, maxStl = 0, maxBlk = 0, maxEff = 0;
-    let totalEff = 0; // 👈 AJOUTE CETTE LIGNE ICI !
+    let totalEff = 0; 
     const history = [];
 
     if (!selectedProfile || !selectedProfile.full_name || !allTournaments) return { gp: 0 };
@@ -46,6 +46,14 @@ export default function PlayerProfileModal({
       const tFormat = Number(t.matchsettings?.courtSize) || 5; 
       if (tFormat !== activeFormat) return;
 
+      // 🛡️ LE BOUCLIER ANTI-FANTÔME (Synchronisé depuis Ma Carrière)
+      // Empêche de récupérer les stats d'un homonyme si le joueur n'est pas inscrit dans ce tournoi précis.
+      const isOfficiallyInTournament = t.teams?.some(team => 
+        team.players?.some(p => p.profile_id === selectedProfile.id || p.id === selectedProfile.id)
+      );
+      
+      if (!isOfficiallyInTournament) return;
+
       // 🚀 V2 : On lit la nouvelle table, avec le filet de sécurité pour les anciens
       const allMatches = [
         ...(t.matches || []),
@@ -62,15 +70,14 @@ export default function PlayerProfileModal({
         const findMe = (p) => p.profile_id === selectedProfile.id || p.id === selectedProfile.id || myAliases.includes(p.name);
         
         const pInA = m.savedStatsA?.find(findMe) || m.saved_stats_a?.find(findMe);
-        // ... la suite reste exactement pareille (if (pInA) myStats = pInA; etc...)
-        if (pInA) myStats = pInA;
-        else {
+        if (pInA) {
+            myStats = pInA;
+        } else {
             const pInB = m.savedStatsB?.find(findMe) || m.saved_stats_b?.find(findMe);
             if (pInB) myStats = pInB;
         }
 
         if (myStats) {
-          // ... la suite de tes calculs
             gp++;
             pts += myStats.points || 0;
             const matchReb = (myStats.oreb || 0) + (myStats.dreb || 0);
@@ -102,7 +109,7 @@ export default function PlayerProfileModal({
         blkAvg: (blk / gp).toFixed(1),
         effAvg: (totalEff / gp).toFixed(1)
     } : { gp: 0 };
-  }, [allTournaments, selectedProfile, activeFormat]); // 👈 Ne pas oublier activeFormat !
+  }, [allTournaments, selectedProfile, activeFormat]);
 
   if (!selectedProfile) return null;
 
