@@ -184,7 +184,7 @@ export const AppProvider = ({ children }) => {
   const finishMatch = async (scoreA, scoreB, playersA, playersB) => {
     if (!activeMatch) return;
 
-    // V2 : On cible l'ID du match dans la table matches !
+    // 1. Sauvegarde du match actuel en base de données
     const { error } = await supabase.from('matches').update({
       status: 'finished',
       score_a: scoreA,
@@ -198,17 +198,43 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
-    // Mise à jour de l'UI locale instantanée
+    // 🚀 2. TÉLÉPORTATION DU GAGNANT DANS L'ARBRE (ADVANCE WINNER)
+    let winnerId = null;
+    const getTeamId = (t) => t ? (typeof t === 'object' ? t.id : t) : null;
+
+    if (scoreA > scoreB) winnerId = getTeamId(activeMatch.teamA || activeMatch.team_a);
+    else if (scoreB > scoreA) winnerId = getTeamId(activeMatch.teamB || activeMatch.team_b);
+
+    // L'adresse de destination (même logique infaillible)
+    const nextMatchId = activeMatch.nextMatchId || activeMatch.metadata?.nextMatchId;
+    const nextSlot = activeMatch.nextSlot || activeMatch.metadata?.nextSlot;
+
+    if (winnerId && nextMatchId) {
+        const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+        await supabase.from('matches').update({ [nextSlotDb]: String(winnerId) }).eq('id', nextMatchId);
+    }
+
+    // 3. Mise à jour instantanée de l'écran (Le match + La case suivante)
     setTournaments(prev => prev.map(t => {
       if (t.id === activeMatch.tourneyId) {
-        return {
-          ...t,
-          matches: (t.matches || []).map(m => 
-            m.id === activeMatch.id 
-              ? { ...m, status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB } 
-              : m
-          )
-        };
+        const newMatches = [...(t.matches || [])];
+        
+        // A. Figer le score du match actuel
+        const mIdx = newMatches.findIndex(m => m.id === activeMatch.id);
+        if (mIdx > -1) {
+          newMatches[mIdx] = { ...newMatches[mIdx], status: 'finished', scoreA, scoreB, savedStatsA: playersA, savedStatsB: playersB };
+        }
+        
+        // B. Afficher le gagnant dans la case suivante
+        if (winnerId && nextMatchId) {
+           const nIdx = newMatches.findIndex(m => m.id === nextMatchId);
+           if (nIdx > -1) {
+             const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+             // On force la mise à jour pour React
+             newMatches[nIdx] = { ...newMatches[nIdx], [nextSlotDb]: String(winnerId), [nextSlot]: String(winnerId) };
+           }
+        }
+        return { ...t, matches: newMatches };
       }
       return t;
     }));

@@ -18,6 +18,12 @@ export default function PlayoffsTab({
   
   const playoffMatches = (tourney.matches || []).filter(m => m.type === 'playoff');
   
+  // 🔒 NOUVEAU : LE DÉTECTEUR DE PHASE (Trouve le tour le plus bas encore en cours)
+  const pendingPlayoffMatches = playoffMatches.filter(m => !['finished', 'forfeit', 'canceled'].includes(m.status));
+  const lowestPendingRound = pendingPlayoffMatches.length > 0 
+      ? Math.min(...pendingPlayoffMatches.map(m => m.round || m.metadata?.round || 1))
+      : 999;
+  
   const [draggedMatchId, setDraggedMatchId] = useState(null);
   const { setConfirmData, fetchTournaments, setTournaments } = useAppContext();
 
@@ -58,7 +64,7 @@ export default function PlayoffsTab({
     }
   };
 
-  // --- 🛠️ LA SAUVEGARDE AVEC MISE À JOUR ÉCRAN FORCÉE ---
+  // --- 🛠️ LA SAUVEGARDE ET AVANCÉE DÉFINITIVE ---
   const saveManualScore = async (matchId) => {
     const finalScoreA = parseInt(tempScoreA, 10) || 0;
     const finalScoreB = parseInt(tempScoreB, 10) || 0;
@@ -66,112 +72,51 @@ export default function PlayoffsTab({
     const currentMatch = playoffMatches.find(m => m.id === matchId);
     if (!currentMatch) return;
 
-    const meta = typeof currentMatch.metadata === 'string' ? JSON.parse(currentMatch.metadata) : (currentMatch.metadata || {});
-    
+    // 1. Extraire l'ID du gagnant
     let winnerId = null;
-    if (finalScoreA > finalScoreB) {
-        const tA = currentMatch.teamA || currentMatch.team_a;
-        winnerId = typeof tA === 'object' ? tA?.id : tA;
-    } else if (finalScoreB > finalScoreA) {
-        const tB = currentMatch.teamB || currentMatch.team_b;
-        winnerId = typeof tB === 'object' ? tB?.id : tB;
-    }
-
-    // 🚀 MAGIE VISUELLE : On force l'écran à se mettre à jour tout de suite
-    const newMatches = [...(tourney.matches || [])];
+    const getTeamId = (t) => t ? (typeof t === 'object' ? t.id : t) : null;
     
-    // Fermer le match actuel
+    if (finalScoreA > finalScoreB) winnerId = getTeamId(currentMatch.teamA || currentMatch.team_a);
+    else if (finalScoreB > finalScoreA) winnerId = getTeamId(currentMatch.teamB || currentMatch.team_b);
+
+    // 💡 L'ADRESSE DE DESTINATION (On lit directement sur le match car AppContext a étalé les données)
+    const nextMatchId = currentMatch.nextMatchId || currentMatch.metadata?.nextMatchId;
+    const nextSlot = currentMatch.nextSlot || currentMatch.metadata?.nextSlot;
+
+    const newMatches = [...(tourney.matches || [])];
+
+    // 2. Fermer le match actuel à l'écran
     const matchIdx = newMatches.findIndex(m => m.id === matchId);
     if (matchIdx > -1) {
         newMatches[matchIdx] = { ...newMatches[matchIdx], scoreA: finalScoreA, scoreB: finalScoreB, score_a: finalScoreA, score_b: finalScoreB, status: 'finished' };
     }
 
-    // Pousser le gagnant à l'écran
-    if (winnerId && meta.nextMatchId) {
-        const nextMatchIdx = newMatches.findIndex(m => m.id === meta.nextMatchId);
-        const nextSlotDb = meta.nextSlot === 'teamA' ? 'team_a' : 'team_b';
+    // 3. Pousser le gagnant au match suivant (Écran + Base de données)
+    if (winnerId && nextMatchId) {
+        const nextMatchIdx = newMatches.findIndex(m => m.id === nextMatchId);
+        const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
         
         if (nextMatchIdx > -1) {
             newMatches[nextMatchIdx] = {
                 ...newMatches[nextMatchIdx],
                 [nextSlotDb]: winnerId,
-                [meta.nextSlot]: winnerId // On blinde la mise à jour React
+                [nextSlot]: winnerId // Force l'affichage React
             };
         }
-        
-        // Ordre silencieux à Supabase
-        supabase.from('matches').update({ [nextSlotDb]: winnerId }).eq('id', meta.nextMatchId).then(({error}) => {
-            if(error) console.error("Erreur Supabase:", error);
-        });
+        // Envoi silencieux du vainqueur dans la case suivante
+        supabase.from('matches').update({ [nextSlotDb]: winnerId }).eq('id', nextMatchId);
     }
 
-    // Enregistrement du score
-    await supabase.from('matches').update({
-      score_a: finalScoreA,
-      score_b: finalScoreB,
-      status: 'finished'
-    }).eq('id', matchId);
+    // 4. Envoi du score final du match actuel
+    await supabase.from('matches').update({ score_a: finalScoreA, score_b: finalScoreB, status: 'finished' }).eq('id', matchId);
 
-    // 💥 On applique les changements à l'interface !
+    // 5. Affichage final
     update({ matches: newMatches });
     setEditingScoreId(null);
-    toast.success("Score validé et arbre mis à jour ! 🏆");
+    toast.success("Score validé et équipe avancée ! 🏆");
   };
 
- // --- 🪄 LE BOUTON MAGIQUE QUI MET À JOUR L'ÉCRAN ---
-  const syncBracket = async () => {
-    let updatedCount = 0;
-    const newMatches = [...(tourney.matches || [])];
-
-    for (const m of playoffMatches) {
-        if (m.status !== 'finished' && m.status !== 'forfeit') continue;
-        
-        const meta = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : (m.metadata || {});
-        if (!meta.nextMatchId) continue;
-
-        let winnerId = null;
-        if (meta.isByeMatch) {
-            winnerId = meta.byeWinnerId; // C'est un exempté !
-        } else {
-            const sA = m.scoreA ?? m.score_a ?? 0;
-            const sB = m.scoreB ?? m.score_b ?? 0;
-            let winnerObj = null;
-            if (sA > sB) winnerObj = m.teamA || m.team_a;
-            else if (sB > sA) winnerObj = m.teamB || m.team_b;
-            winnerId = typeof winnerObj === 'object' ? winnerObj?.id : winnerObj;
-        }
-
-        if (winnerId) {
-            const nextMatchIdx = newMatches.findIndex(x => x.id === meta.nextMatchId);
-            if (nextMatchIdx > -1) {
-                const nextMatch = newMatches[nextMatchIdx];
-                const nextSlotDb = meta.nextSlot === 'teamA' ? 'team_a' : 'team_b';
-                const currentOccupant = typeof nextMatch[meta.nextSlot] === 'object' 
-                    ? nextMatch[meta.nextSlot]?.id 
-                    : (nextMatch[nextSlotDb] || nextMatch[meta.nextSlot]);
-
-                if (currentOccupant !== winnerId) {
-                    // Force React à dessiner l'équipe dans la nouvelle case
-                    newMatches[nextMatchIdx] = {
-                        ...nextMatch,
-                        [nextSlotDb]: winnerId,
-                        [meta.nextSlot]: winnerId
-                    };
-                    await supabase.from('matches').update({ [nextSlotDb]: winnerId }).eq('id', meta.nextMatchId);
-                    updatedCount++;
-                }
-            }
-        }
-    }
-    
-    if (updatedCount > 0) {
-        // 💥 Le secret est là : on rafraîchit l'interface immédiatement !
-        update({ matches: newMatches });
-        toast.success(`${updatedCount} équipe(s) avancée(s) ! 🚀`);
-    } else {
-        toast("Tout est déjà à sa place !", { icon: "✅" });
-    }
-  };
+  
 
   // --- 🛠️ 3. GÉNÉRATION DE L'ARBRE (PERSISTANCE CORRIGÉE) ---
   const generatePlayoffs = async () => {
@@ -289,9 +234,25 @@ export default function PlayoffsTab({
         roundNum++;
       }
 
+            
+      // 🚀 NOUVEAU : On propage les Exemptés (Byes) immédiatement dans le Tour 2
+      newMatchesToInsert.forEach(m => {
+          if (m.metadata.isByeMatch && m.metadata.nextMatchId) {
+              const nextM = newMatchesToInsert.find(x => x.id === m.metadata.nextMatchId);
+              if (nextM) {
+                  const nextSlotDb = m.metadata.nextSlot === 'teamA' ? 'team_a' : 'team_b';
+                  nextM[nextSlotDb] = m.metadata.byeWinnerId;
+              }
+          }
+      });
+
+      // 1. Suppression des anciens matchs de playoff
       await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
-      // 2. Insertion des nouveaux matchs (Ceci fonctionne car la table 'matches' est OK)
+
+      // 2. Insertion des nouveaux matchs
       const { error } = await supabase.from('matches').insert(newMatchesToInsert);
+      
+      // ... suite du code
 
       if (error) {
         toast.error("Erreur de sauvegarde dans la base de données.");
@@ -349,11 +310,20 @@ export default function PlayoffsTab({
   if (playoffMatches.length > 0) {
       const maxRound = Math.max(1, ...playoffMatches.map(m => m.round || m.metadata?.round || 1));
       for (let r = 1; r <= maxRound; r++) {
-          playoffRounds.push(playoffMatches.filter(m => (m.round || m.metadata?.round || 1) === r));
+          // 1. On récupère les matchs du tour
+          const roundMatches = playoffMatches.filter(m => (m.round || m.metadata?.round || 1) === r);
+          
+          // 🛡️ LE CADENAS : On fige l'ordre des matchs grâce à leur ID (_m0, _m1, _m2...)
+          roundMatches.sort((a, b) => {
+              const getIndex = (matchId) => parseInt(matchId.split('_m')[1]) || 0;
+              return getIndex(a.id) - getIndex(b.id);
+          });
+          
+          playoffRounds.push(roundMatches);
       }
   }
 
-  // --- DÉCOUPAGE SYMÉTRIQUE DE L'ARBRE ---
+  // --- DÉCOUPAGE SYMÉTRIQUE DE L'ARBRE (Le reste ne change pas) ---
   const columns = [];
   if (playoffRounds.length > 0) {
       const maxRound = playoffRounds.length;
@@ -373,19 +343,18 @@ export default function PlayoffsTab({
   // --- LE COMPOSANT D'UN MATCH ---
       const renderMatch = (m) => {
           const resolveTeam = (t) => {
-              if (!t) return null;
-              
-              // 🪄 PHASE 1 : Détection magique des Exemptés (Byes)
-              if (typeof t === 'string' && t.startsWith('bye_')) {
-                  return { id: t, name: 'EXEMPTÉ', isBye: true };
-              }
-              if (t.isBye) return t; // Si c'est déjà un objet Bye
+          if (!t) return null;
+          // 1. Si c'est un ID de Bye (Exempté)
+          if (typeof t === 'string' && t.startsWith('bye_')) return { id: t, name: 'EXEMPTÉ', isBye: true };
+          if (t.isBye) return t; 
 
-              // Recherche classique
-              if (typeof t === 'string') return tourney?.teams?.find(team => team.id === t);
-              if (t.id) return tourney?.teams?.find(team => team.id === t.id) || t;
-              return t;
-          };
+          // 2. Recherche blindée dans la liste des équipes
+          const teamId = typeof t === 'object' ? t.id : t;
+          const found = tourney?.teams?.find(team => String(team.id) === String(teamId));
+          
+          // 3. Si on ne trouve rien, on renvoie au moins l'ID pour ne pas planter
+          return found || (typeof t === 'object' ? t : { id: t, name: "ID: " + t });
+      };
 
           const teamA = resolveTeam(m.teamA || m.team_a);
           const teamB = resolveTeam(m.teamB || m.team_b);
@@ -610,21 +579,27 @@ export default function PlayoffsTab({
         </div>
         
         {(playoffMatches.length > 0 && canEdit) && (
-          <div className="flex gap-3">
-            <button 
-              onClick={syncBracket}
-              className="bg-action/10 border border-action/30 text-action px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-action hover:text-white transition-all shadow-sm shrink-0"
-              title="Force l'avancement des équipes coincées"
-            >
-              🔄 SYNC ARBRE
-            </button>
-            <button 
-              onClick={() => { /* ... ton code existant de reset ... */ }} 
-              className="bg-danger/10 border border-danger/30 text-danger px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-danger hover:text-white transition-all shadow-sm shrink-0"
-            >
-              RESET TABLEAU ⚠️
-            </button>
-          </div>
+          <button 
+            onClick={() => {
+              setConfirmData({
+                isOpen: true,
+                title: "Réinitialiser l'arbre ? ⚠️",
+                message: "Voulez-vous vraiment supprimer toute la phase finale ?",
+                isDanger: true,
+                onConfirm: async () => {
+                  // On a supprimé les appels à "tournaments" ici !
+                  const { error } = await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
+                  
+                  if (error) toast.error("Erreur lors de la suppression");
+                  else toast.success("Arbre réinitialisé !");
+                  if (fetchTournaments) fetchTournaments();
+                }
+              });
+            }} 
+            className="bg-danger/10 border border-danger/30 text-danger px-4 py-2.5 rounded-lg text-xs font-black tracking-widest cursor-pointer hover:bg-danger hover:text-white transition-all shadow-sm shrink-0"
+          >
+            RESET TABLEAU ⚠️
+          </button>
         )}
       </div>
 

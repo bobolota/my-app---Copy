@@ -20,7 +20,7 @@ import OtmAssignModal from './OtmAssignModal';
 
 export default function TournamentManager() {
   const { session } = useAuth();
-  const { currentTourney: tourney, setTournaments, userRole, launchMatch: onLaunchMatch } = useAppContext();
+  const { currentTourney: tourney, setTournaments, userRole, launchMatch: onLaunchMatch, fetchTournaments } = useAppContext();
   
   const isOwner = tourney.organizer_id === session?.user?.id;
   const isInvitedOtm = tourney.otm_ids?.includes(session?.user?.id);
@@ -240,7 +240,22 @@ export default function TournamentManager() {
   const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
     // V2 : Recherche simplifiée
     const match = (tourney.matches || []).find(m => m.id === matchId);
+    
     if (match) {
+      // 🛡️ LE TRADUCTEUR : Transforme l'ID brut en vraie équipe avec SES JOUEURS
+      const getTeam = (teamData) => {
+        if (!teamData) return null;
+        if (typeof teamData === 'object' && teamData.name) return teamData;
+        return tourney.teams?.find(t => String(t.id) === String(teamData)) || null;
+      };
+
+      // 🚀 L'INJECTION MAGIQUE : On donne les objets complets au match
+      match.teamA = getTeam(match.teamA || match.team_a);
+      match.teamB = getTeam(match.teamB || match.team_b);
+      match.team_a = match.teamA; // On sécurise les deux orthographes
+      match.team_b = match.teamB;
+
+      // 💾 TA LOGIQUE D'ORIGINE QUI OUVRE LE SCOREBOARD
       localStorage.setItem(`canEdit_match_${matchId}`, canLaunchThisMatch ? "true" : "false");
       onLaunchMatch(matchId);
     }
@@ -252,6 +267,21 @@ export default function TournamentManager() {
     // V2 : On cherche directement dans la liste unifiée des matchs
     const match = (tourney.matches || []).find(m => m.id === matchId);
     if (!match) return;
+
+    // 🛡️ NOUVEAU : LE TRADUCTEUR BLINDÉ
+    const getTeam = (teamData) => {
+      if (!teamData) return null;
+      if (typeof teamData === 'object' && teamData.name) return teamData;
+      // Sécurité : on force en texte (String) pour être sûr que "123" === "123"
+      return tourney.teams?.find(t => String(t.id) === String(teamData)) || null;
+    };
+
+    const teamA = getTeam(match.teamA || match.team_a);
+    const teamB = getTeam(match.teamB || match.team_b);
+
+    const nameA = teamA?.name || "Équipe A";
+    const nameB = teamB?.name || "Équipe B";
+    // ------------------------------------------------
     
     if (actionType === 'cancel') {
        setConfirmData({
@@ -259,33 +289,36 @@ export default function TournamentManager() {
          title: "Annuler ce match ?",
          message: "Ce match sera considéré comme nul (0-0) et ne rapportera aucun point au classement.",
          isDanger: true,
-         onConfirm: () => {
-           updateMatchState(matchId, false, 'canceled', 0, 0); // isPlayoff n'est plus utile, on passe false
+         onConfirm: async () => {
+           updateMatchState(matchId, false, 'canceled', 0, 0); 
            toast.success("Match annulé");
+           if (fetchTournaments) fetchTournaments(); // Ajouté ici aussi !
          }
        });
     } else if (actionType === 'forfeit') {
        setChoiceData({
          isOpen: true,
          title: "Déclarer un Forfait 🏳️",
-         message: "Quelle équipe n'a pas pu se présenter ou a déclaré forfait ?",
-         optionA: match.teamA?.name || "Équipe A",
-         optionB: match.teamB?.name || "Équipe B",
-         onChoose: (choice) => {
+         message: `Quelle équipe a déclaré forfait entre ${nameA} et ${nameB} ?`,
+         optionA: nameA,
+         optionB: nameB,
+         onChoose: async (choice) => {
            if (choice === 'A') {
              updateMatchState(matchId, false, 'forfeit', 0, 20);
-             toast.success(`Forfait de ${match.teamA?.name} enregistré`);
+             toast.success(`Forfait de ${nameA} enregistré`);
            } else if (choice === 'B') {
              updateMatchState(matchId, false, 'forfeit', 20, 0);
-             toast.success(`Forfait de ${match.teamB?.name} enregistré`);
+             toast.success(`Forfait de ${nameB} enregistré`);
            }
+
+           if (fetchTournaments) fetchTournaments();
          }
        });
     }
   };
 
 
-  // V2 : Mise à jour directe et légère en BDD
+  // V2 : Mise à jour directe, légère, AVEC PROPAGATION DU GAGNANT (MÉTHODE INFAILLIBLE)
   const updateMatchState = async (matchId, isPlayoff, status, scoreA, scoreB) => {
     // 1. Sauvegarde cloud ultra-rapide
     await supabase.from('matches').update({ 
@@ -294,13 +327,44 @@ export default function TournamentManager() {
       score_b: scoreB 
     }).eq('id', matchId);
 
-    // 2. Optimistic UI : Mise à jour immédiate à l'écran sans recharger !
+    // 🚀 2. TÉLÉPORTATION DU GAGNANT SI FORFAIT EN PLAYOFFS
+    const match = (tourney.matches || []).find(m => m.id === matchId);
+    let winnerId = null;
+    const getTeamId = (t) => t ? (typeof t === 'object' ? t.id : t) : null;
+    
+    // 💡 L'ADRESSE DE DESTINATION (Comme dans PlayoffsTab et le Scoreboard)
+    const nextMatchId = match?.nextMatchId || match?.metadata?.nextMatchId;
+    const nextSlot = match?.nextSlot || match?.metadata?.nextSlot;
+    
+    // Celui qui gagne par forfait a automatiquement 20 points
+    if (status === 'forfeit' && nextMatchId) {
+        if (scoreA === 20) winnerId = getTeamId(match.teamA || match.team_a);
+        else if (scoreB === 20) winnerId = getTeamId(match.teamB || match.team_b);
+        
+        if (winnerId) {
+            const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+            await supabase.from('matches').update({ [nextSlotDb]: String(winnerId) }).eq('id', nextMatchId);
+        }
+    }
+
+    // 3. Optimistic UI : Mise à jour immédiate à l'écran sans recharger !
     setTournaments(prev => prev.map(t => {
       if (t.id === tourney.id) {
-        return { 
-          ...t, 
-          matches: (t.matches || []).map(m => m.id === matchId ? { ...m, status, scoreA, scoreB } : m) 
-        };
+         const newMatches = [...(t.matches || [])];
+         
+         // A. Mettre à jour le statut (forfait)
+         const mIdx = newMatches.findIndex(m => m.id === matchId);
+         if (mIdx > -1) newMatches[mIdx] = { ...newMatches[mIdx], status, scoreA, scoreB };
+
+         // B. Afficher le gagnant dans la case suivante
+         if (winnerId && nextMatchId) {
+             const nIdx = newMatches.findIndex(m => m.id === nextMatchId);
+             if (nIdx > -1) {
+                 const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+                 newMatches[nIdx] = { ...newMatches[nIdx], [nextSlotDb]: String(winnerId), [nextSlot]: String(winnerId) };
+             }
+         }
+         return { ...t, matches: newMatches };
       }
       return t;
     }));
