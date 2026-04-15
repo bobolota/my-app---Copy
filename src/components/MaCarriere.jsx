@@ -4,8 +4,16 @@ export default function MaCarriere({ userProfile, tournaments }) {
   const currentUserName = userProfile?.full_name || "";
   const currentUserId = userProfile?.id;
   
-  // 👉 ON DÉCLARE LE FORMAT ICI EN PREMIER ! (ET UNE SEULE FOIS)
   const [activeFormat, setActiveFormat] = useState(5); // 5 = 5x5, 3 = 3x3, 1 = 1x1
+
+  // 👇 NOUVEAU : Pagination de l'historique
+  const [historyPage, setHistoryPage] = useState(0); 
+  const matchesPerPage = 4; // 2 lignes x 2 colonnes
+
+  // Remise à zéro de la page quand on change d'onglet (5x5, 3x3...)
+  useEffect(() => {
+    setHistoryPage(0);
+  }, [activeFormat]);
 
   // 📡 NOTRE RADAR DE DÉBOGAGE :
   console.log("🔍 Données reçues par MaCarriere :", { 
@@ -80,14 +88,24 @@ export default function MaCarriere({ userProfile, tournaments }) {
       
       if (!isOfficiallyInTournament) return;
 
+      // 🛠️ LE TRADUCTEUR D'ÉQUIPES : Convertit un ID en vrai nom d'équipe
+      const getTeamName = (teamData) => {
+          if (!teamData) return 'Adversaire inconnu';
+          if (typeof teamData === 'string') {
+              // Si c'est juste un ID, on cherche l'équipe dans la liste du tournoi actuel
+              const found = t.teams?.find(team => team.id === teamData);
+              return found ? found.name : 'Adversaire inconnu';
+          }
+          // Si c'est déjà un objet (comme avant), on prend son nom
+          return teamData.name || 'Adversaire inconnu';
+      };
+
       // 🛡️ CORRECTION 2 : Le râteau absolu (On prend la V1 ET la V2)
       const allMatches = [
         ...(t.matches || []), 
         ...(t.matches ? [] : (t.schedule || [])), // Si 'matches' existe, on ignore l'ancien 'schedule'
         ...(t.matches ? [] : (t.playoffs?.matches || []))
       ];
-      
-      // ... la suite de ta boucle allMatches.forEach ...
       
       allMatches.forEach(m => {
         if (m.status !== 'finished') return;
@@ -99,7 +117,6 @@ export default function MaCarriere({ userProfile, tournaments }) {
         let finalScore = "";
 
         // 🧠 LE MOTEUR ULTIME : On cherche par ID ou par Alias
-        // 🧠 LE MOTEUR ULTIME : Adapté pour le 1v1
         const findMe = (p) => p.profile_id === currentUserId || p.id === currentUserId || myAliases.includes(p.name);
 
         // 🛡️ SÉCURITÉ ABSOLUE : On convertit en vrais nombres. 
@@ -152,17 +169,36 @@ export default function MaCarriere({ userProfile, tournaments }) {
             if ((myStats.blk || 0) > maxBlk) maxBlk = myStats.blk || 0;
             if (matchEff > maxEff) maxEff = matchEff;
 
+            // 🧠 DÉTECTION DE LA PHASE DU MATCH (Version Blindée)
+            let matchPhase = "Match";
+            const matchLabel = m.metadata?.label || m.label || "";
+            
+            // 1. Est-ce une poule ? (Soit par le type, soit par le numéro de groupe)
+            if (m.type === 'pool' || m.group) {
+                matchPhase = m.group ? `Poule ${m.group}` : "Phase de Poules";
+            } 
+            // 2. Est-ce une phase finale avec un vrai nom (Quart, Demi...) ?
+            else if (matchLabel && matchLabel.toLowerCase() !== "match" && matchLabel.toLowerCase() !== "tbd") {
+                matchPhase = matchLabel;
+            } 
+            // 3. Fallback générique pour les playoffs
+            else if (m.type === 'playoff') {
+                matchPhase = "Phase Finale";
+            }
+
             // Historique pour l'affichage
             history.push({
                 id: m.id,
                 tourneyName: t.name,
-                teamName: opponentTeam?.name || 'Adversaire inconnu', // 👈 ICI on met l'adversaire !
+                teamName: getTeamName(opponentTeam),
                 isWin,
                 finalScore,
                 pts: myStats.points || 0,
                 reb: matchReb,
                 ast: myStats.ast || 0,
-                eff: matchEff
+                eff: matchEff,
+                datetime: m.datetime || null,
+                phase: matchPhase
             });
         }
       });
@@ -306,47 +342,80 @@ export default function MaCarriere({ userProfile, tournaments }) {
                 <StatCard label="Max ÉVAL" value={careerStats.maxEff} color="#f97316" />
               </div>
 
-              {/* SECTION 3 : HISTORIQUE DES MATCHS */}
+              {/* SECTION 3 : HISTORIQUE DES MATCHS (PAGINÉ) */}
               <SectionHeader title={`Derniers matchs joués (${activeFormat}x${activeFormat})`} icon="📅" />
-              <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto custom-scrollbar pr-2 pb-4">
-                  {matchHistory.map((m, i) => (
-                      <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-app-card border border-muted-line p-4 sm:p-5 rounded-2xl hover:border-muted transition-all gap-4 group hover:-translate-y-0.5 shadow-lg">
-                          
-                          <div className="flex items-center gap-4">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-md border border-muted-line shrink-0 ${m.isWin ? 'bg-gradient-to-tr from-primary to-primary-dark shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-tr from-danger to-danger-dark shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
-                                  {m.isWin ? 'W' : 'L'}
-                              </div>
-                              <div className="flex flex-col">
-                                  <div className="text-white font-black text-lg tracking-wide group-hover:text-secondary-light transition-colors">{m.teamName}</div>
-                                  <div className="text-muted text-[10px] font-bold tracking-widest uppercase mt-1 flex flex-wrap items-center gap-2">
-                                      <span>🏆 {m.tourneyName}</span>
-                                      <span className="w-1 h-1 rounded-full bg-muted-dark hidden sm:block"></span>
-                                      <span className="bg-app-input px-2 py-0.5 rounded border border-muted-line">Score: <b className="text-muted-light">{m.finalScore}</b></span>
-                                  </div>
-                              </div>
-                          </div>
-                          
-                          <div className="flex gap-2 sm:gap-4 bg-app-input px-4 py-2.5 rounded-xl border border-muted-line w-full sm:w-auto justify-between sm:justify-start shadow-inner">
-                              <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">PTS</span>
-                                  <span className="text-white font-black text-sm">{m.pts}</span>
-                              </div>
-                              <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">REB</span>
-                                  <span className="text-white font-black text-sm">{m.reb}</span>
-                              </div>
-                              <div className="flex flex-col items-center min-w-[40px]">
-                                  <span className="text-[10px] text-muted-dark font-black tracking-widest">AST</span>
-                                  <span className="text-white font-black text-sm">{m.ast}</span>
-                              </div>
-                              <div className="flex flex-col items-center min-w-[40px] pl-2 sm:pl-4 border-l border-muted-line">
-                                  <span className="text-[10px] text-secondary font-black tracking-widest">ÉVAL</span>
-                                  <span className="text-secondary font-black text-sm drop-shadow-md">{m.eff}</span>
-                              </div>
-                          </div>
+              
+              <div className="flex flex-col gap-4 pb-4">
+                {/* LA GRILLE : 1 colonne sur mobile, 2 colonnes sur grand écran */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    {matchHistory.slice(historyPage * matchesPerPage, (historyPage + 1) * matchesPerPage).map((m, i) => (
+                        <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-app-card border border-muted-line p-4 sm:p-5 rounded-2xl hover:border-muted transition-all gap-4 group hover:-translate-y-0.5 shadow-lg">
+                            
+                            <div className="flex items-center gap-4 w-full sm:w-auto">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-md border border-muted-line shrink-0 ${m.isWin ? 'bg-gradient-to-tr from-primary to-primary-dark shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-tr from-danger to-danger-dark shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
+                                    {m.isWin ? 'W' : 'L'}
+                                </div>
+                                <div className="flex flex-col flex-1 min-w-0">
+                                    <div className="text-white font-black text-lg tracking-wide group-hover:text-secondary-light transition-colors truncate">{m.teamName}</div>
+                                    <div className="text-muted text-[10px] font-bold tracking-widest uppercase mt-1 flex flex-wrap items-center gap-2">
+                                        <span className="truncate max-w-[120px]">🏆 {m.tourneyName}</span>
+                                        <span className="bg-secondary/10 text-secondary border border-secondary/20 px-1.5 py-0.5 rounded whitespace-nowrap">{m.phase}</span>
+                                        {m.datetime && (
+                                            <span className="flex items-center gap-1 bg-app-input px-1.5 py-0.5 rounded border border-muted-line whitespace-nowrap">
+                                                📅 {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                            </span>
+                                        )}
+                                        <span className="w-1 h-1 rounded-full bg-muted-dark hidden xl:block"></span>
+                                        <span className="bg-app-input px-2 py-0.5 rounded border border-muted-line whitespace-nowrap">Score: <b className="text-white">{m.finalScore}</b></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex gap-2 bg-app-input px-4 py-2.5 rounded-xl border border-muted-line w-full sm:w-auto justify-between shadow-inner shrink-0">
+                                <div className="flex flex-col items-center min-w-[35px]">
+                                    <span className="text-[10px] text-muted-dark font-black tracking-widest">PTS</span>
+                                    <span className="text-white font-black text-sm">{m.pts}</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-[35px]">
+                                    <span className="text-[10px] text-muted-dark font-black tracking-widest">REB</span>
+                                    <span className="text-white font-black text-sm">{m.reb}</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-[35px]">
+                                    <span className="text-[10px] text-muted-dark font-black tracking-widest">AST</span>
+                                    <span className="text-white font-black text-sm">{m.ast}</span>
+                                </div>
+                                <div className="flex flex-col items-center min-w-[40px] pl-2 sm:pl-3 border-l border-muted-line">
+                                    <span className="text-[10px] text-secondary font-black tracking-widest">ÉVAL</span>
+                                    <span className="text-secondary font-black text-sm drop-shadow-md">{m.eff}</span>
+                                </div>
+                            </div>
 
-                      </div>
-                  ))}
+                        </div>
+                    ))}
+                </div>
+
+                {/* LES BOUTONS DE PAGINATION */}
+                {matchHistory.length > matchesPerPage && (
+                  <div className="flex justify-between items-center mt-4 p-1.5 bg-app-input rounded-xl border border-muted-line shadow-inner max-w-md mx-auto w-full">
+                    <button 
+                      disabled={historyPage === 0} 
+                      onClick={() => setHistoryPage(p => Math.max(0, p - 1))} 
+                      className={`bg-transparent border-none rounded-lg px-4 py-2 text-xs font-black ${historyPage === 0 ? 'text-muted-dark cursor-not-allowed' : 'text-white cursor-pointer hover:bg-white/10 transition-colors'}`}
+                    >
+                      ◀ PRÉC
+                    </button>
+                    <span className="text-[10px] text-muted font-black tracking-widest bg-black/50 px-3 py-1 rounded-md border border-muted-line">
+                      PAGE {historyPage + 1} / {Math.ceil(matchHistory.length / matchesPerPage)}
+                    </span>
+                    <button 
+                      disabled={historyPage >= Math.ceil(matchHistory.length / matchesPerPage) - 1} 
+                      onClick={() => setHistoryPage(p => p + 1)} 
+                      className={`bg-transparent border-none rounded-lg px-4 py-2 text-xs font-black ${historyPage >= Math.ceil(matchHistory.length / matchesPerPage) - 1 ? 'text-muted-dark cursor-not-allowed' : 'text-white cursor-pointer hover:bg-white/10 transition-colors'}`}
+                    >
+                      SUIV ▶
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}
