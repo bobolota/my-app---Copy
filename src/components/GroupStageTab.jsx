@@ -616,12 +616,12 @@ export default function GroupStageTab({
                                     const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
                                     const newDatetime = d ? `${d}T${t}` : null;
                                     
-                                    // 1. On sauvegarde dans la VRAIE colonne datetime
-                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
-                                    
-                                    // 2. On met à jour l'écran immédiatement !
+                                    // 1. On met à jour l'écran immédiatement (Synchro)
                                     const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match);
                                     update({ matches: newMatches });
+
+                                    // 2. On sauvegarde en BDD
+                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
                                   }}
                                   className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
                                 />
@@ -635,45 +635,62 @@ export default function GroupStageTab({
                                     const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
                                     const newDatetime = `${d}T${t}`;
                                     
-                                    // 1. On sauvegarde
-                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
-                                    
-                                    // 2. On met à jour l'écran
+                                    // 1. On met à jour l'écran immédiatement
                                     const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match);
                                     update({ matches: newMatches });
+
+                                    // 2. On sauvegarde
+                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
                                   }}
                                   className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
                                 />
                               </div>
 
-                              {/* SÉLECTEUR DE TERRAIN */}
+                              {/* SÉLECTEUR DE TERRAIN (Optimisé avec onBlur) */}
                               <input
                                 type="text"
                                 placeholder="Court 1..."
-                                value={m.court || ''}
-                                onChange={async (e) => {
+                                defaultValue={m.court || ''}
+                                key={`court-pool-${m.id}-${m.court || ''}`}
+                                onBlur={async (e) => {
                                   const newCourt = e.target.value;
+                                  if (newCourt === m.court) return; // Ne rien faire si on n'a rien tapé de nouveau
                                   
-                                  // 1. On sauvegarde dans la VRAIE colonne court
-                                  await supabase.from('matches').update({ court: newCourt }).eq('id', m.id);
-                                  
-                                  // 2. On met à jour l'écran
+                                  // 1. On met à jour l'écran
                                   const newMatches = (tourney.matches || []).map(match => match.id === m.id ? { ...match, court: newCourt } : match);
                                   update({ matches: newMatches });
+
+                                  // 2. On sauvegarde dans la BDD
+                                  await supabase.from('matches').update({ court: newCourt }).eq('id', m.id);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') e.target.blur();
                                 }}
                                 className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
                               />
                             </div>
                           )}
 
-                          {/* AFFICHAGE DE LA DATE (Pour l'organisateur après saisie, ou en lecture seule) */}
-                          {(!canEdit || isFinished || isCanceled || isForfeit) && m.datetime && (
-                             <div className="mt-3 bg-secondary/10 border border-secondary/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
-                               <span className="text-xs">📅</span>
-                               <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
-                                 {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
-                               </span>
-                             </div>
+                          {/* AFFICHAGE DE LA DATE LECTURE SEULE (Harmonisé) */}
+                          {(!canEdit || isFinished || isCanceled || isForfeit) && (m.datetime || m.court) && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2 justify-center">
+                              {m.datetime && (
+                                <div className="flex items-center gap-1 bg-secondary/10 border border-secondary/20 w-fit px-2 py-1 rounded-lg shadow-sm">
+                                  <span className="text-[10px]">📅</span>
+                                  <span className="text-secondary text-[9px] font-black uppercase tracking-widest">
+                                    {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                                  </span>
+                                  <span className="text-white text-[9px] font-black bg-secondary px-1.5 py-0.5 rounded ml-1">
+                                    {new Date(m.datetime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
+                                  </span>
+                                </div>
+                              )}
+                              {m.court && (
+                                <div className="bg-black/20 px-2 py-1 rounded-lg border border-muted-line text-muted-light text-[9px] font-black uppercase tracking-widest">
+                                  📍 {m.court}
+                                </div>
+                              )}
+                            </div>
                           )}
                                           
                           {/* BOUTONS D'ACTION (Vue Admin) */}

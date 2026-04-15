@@ -33,9 +33,12 @@ export default function PlayoffsTab({
   const [swapSource, setSwapSource] = useState(null);
 
   
-  // --- 🛠️ 1. ÉCHANGE D'ÉQUIPES RÉPARÉ ---
-  const handleSwapClick = async (match, slot) => {
-    if (!canEdit || match.status === 'finished') return;
+  // --- 🛠️ 1. ÉCHANGE D'ÉQUIPES RÉPARÉ ET VERROUILLÉ ---
+  const handleSwapClick = async (match, slot, isMatchLocked = false) => {
+    // 🔒 On bloque si le match est terminé, annulé, forfait ou verrouillé par l'arbre
+    if (!canEdit || match.status === 'finished' || match.status === 'canceled' || match.status === 'forfeit' || isMatchLocked) {
+        return;
+    }
     
     const team = match[slot];
     if (!team) return;
@@ -368,6 +371,13 @@ export default function PlayoffsTab({
       const isFinished = m.status === 'finished';
       const isCanceled = m.status === 'canceled';
       const isForfeit = m.status === 'forfeit';
+
+      // 🔒 NOUVEAU : LOGIQUE DE VERROUILLAGE STRICT
+      const matchRound = m.round || m.metadata?.round || 1;
+      const isRoundLocked = matchRound > lowestPendingRound; // Le tour d'avant n'est pas fini
+      const isMissingTeams = !teamA || !teamB; // Il manque une équipe
+      const isLocked = isRoundLocked || isMissingTeams;
+      // ------------------------------------------
       
       let hasValidatedStarters = m.startersValidated === true;
       if (!hasValidatedStarters) {
@@ -386,19 +396,25 @@ export default function PlayoffsTab({
       const isSpectator = !canLaunchThisMatch;
       const canSpectateLive = isOngoing && tourney.isPublicScoreboard;
       const canViewStats = isFinished;
-      const disableButton = isCanceled || isForfeit || (isSpectator && !canSpectateLive && !canViewStats);
+      
+      // 🔒 MODIFIÉ : On intègre `isLocked` dans la désactivation du bouton
+      const disableButton = isCanceled || isForfeit || (isSpectator && !canSpectateLive && !canViewStats) || (!isFinished && isLocked);
 
       let borderClass = 'border-l-[4px] border-l-danger';
       if (isOngoing) borderClass = 'border-l-[4px] border-l-action';
       else if (isCanceled || isForfeit) borderClass = 'border-l-[4px] border-l-muted-dark';
       else if (canLaunchThisMatch || isFinished) borderClass = 'border-l-[4px] border-l-secondary';
 
+      // 🔒 NOUVEAU : On détermine si on a le droit d'intervertir sur ce match
+      const canSwap = canEdit && !isFinished && !isCanceled && !isForfeit && !isLocked;
+
       return (
           <div 
             key={m.id} 
             className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg w-full ${borderClass} opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5 ${isCanceled ? 'opacity-60' : ''}`}
           >
-              {canEdit && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-grab transition-colors" title="Glisser pour intervertir">⠿</div>}
+              {/* On masque le bouton "Glisser" si on ne peut pas swap */}
+              {canSwap && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-pointer transition-colors" title="Cliquez sur les équipes pour intervertir">⠿</div>}
 
               {isOngoing && <div className="absolute -top-2 -left-2 bg-action text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">EN COURS</div>}
               {isFinished && <div className="absolute -top-2 -left-2 bg-muted-dark text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">TERMINÉ</div>}
@@ -424,9 +440,10 @@ export default function PlayoffsTab({
                 </div>
               ) : (
                 <>
+                  {/* 👇 MODIFIÉ : On passe isLocked à la fonction et on utilise canSwap pour le design 👇 */}
                   <div 
-                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamA'); }}
-                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && teamA && !isFinished ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamA' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamA', isLocked); }}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canSwap && teamA ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamA' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
                   >
                       <span className={`text-sm truncate ${isFinished || isForfeit ? (sA > sB ? 'text-primary font-black' : 'text-muted-dark font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
                           {teamA?.name || <span className="text-muted italic font-normal">À déterminer...</span>}
@@ -434,9 +451,10 @@ export default function PlayoffsTab({
                       {(isFinished || isCanceled || isForfeit) && <b className="text-white text-xs ml-2 bg-app-input px-2.5 py-1 rounded border border-muted-line">{sA}</b>}
                   </div>
 
+                  {/* 👇 MODIFIÉ : Pareil pour l'équipe B 👇 */}
                   <div 
-                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamB'); }}
-                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canEdit && teamB && !isFinished ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamB' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
+                    onClick={(e) => { e.stopPropagation(); handleSwapClick(m, 'teamB', isLocked); }}
+                    className={`flex justify-between items-center gap-2 mb-2 pr-6 py-1 px-2 -mx-2 rounded-lg transition-all ${canSwap && teamB ? 'cursor-pointer hover:bg-secondary/20' : ''} ${swapSource?.matchId === m.id && swapSource?.slot === 'teamB' ? 'bg-secondary text-white shadow-[0_0_10px_rgba(249,115,22,0.5)]' : ''}`}
                   >
                       <span className={`text-sm truncate ${isFinished || isForfeit ? (sB > sA ? 'text-primary font-black' : 'text-muted-dark font-bold') : 'text-white font-black'} ${isCanceled ? 'line-through opacity-50' : ''}`}>
                           {teamB?.name || <span className="text-muted italic font-normal">À déterminer...</span>}
@@ -448,64 +466,109 @@ export default function PlayoffsTab({
               
               {m.otm && <div className="text-[0.65rem] font-bold text-muted mt-2 mb-1 truncate bg-black/30 border border-muted-line inline-block px-2.5 py-1 rounded-md w-fit">📋 OTM: <span className="text-secondary">{m.otm}</span></div>}
               
-              {/* SAISIE HORAIRE ET TERRAIN */}
-                          {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
-                            <div className="flex flex-col sm:flex-row gap-2 mt-4 pt-4 border-t border-muted-line" onClick={(e) => e.stopPropagation()}>
-                              <div className="flex gap-2 flex-[3]">
-                                <input
-                                  type="date"
-                                  value={m.datetime ? m.datetime.split('T')[0] : ''}
-                                  onChange={async (e) => {
-                                    const d = e.target.value;
-                                    const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
-                                    const newDatetime = d ? `${d}T${t}` : null;
-                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
-                                    if (fetchTournaments) fetchTournaments();
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-secondary font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                />
-                                <input
-                                  type="time"
-                                  value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
-                                  onChange={async (e) => {
-                                    const t = e.target.value;
-                                    const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
-                                    const newDatetime = `${d}T${t}`;
-                                    await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
-                                    if (fetchTournaments) fetchTournaments();
-                                  }}
-                                  className="w-full p-2.5 text-[10px] sm:text-xs bg-app-input text-white font-black tracking-widest border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
-                                />
-                              </div>
-                              <input
-                                type="text"
-                                placeholder="Court 1..."
-                                value={m.court || ''}
-                                onChange={async (e) => {
-                                  const newCourt = e.target.value;
-                                  await supabase.from('matches').update({ court: newCourt }).eq('id', m.id);
-                                  if (fetchTournaments) fetchTournaments();
-                                }}
-                                className="flex-[2] p-2.5 text-xs bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner min-w-[70px]"
-                              />
-                            </div>
-                          )}
+              {/* SAISIE HORAIRE ET TERRAIN SYNCHRONISÉE GLOBALEMENT */}
+              {(canEdit && !isFinished && !isCanceled && !isForfeit) && (
+                <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-muted-line" onClick={(e) => e.stopPropagation()}>
+                  {/* Ligne 1 : Date et Heure */}
+                  <div className="flex gap-2 w-full">
+                    <input
+                      type="date"
+                      value={m.datetime ? m.datetime.split('T')[0] : ''}
+                      onChange={async (e) => {
+                        const d = e.target.value;
+                        const t = m.datetime ? (m.datetime.split('T')[1] || '00:00') : '00:00';
+                        const newDatetime = d ? `${d}T${t}` : null;
 
-                          {(!canEdit || isFinished || isCanceled || isForfeit) && m.datetime && (
-                             <div className="mt-3 bg-secondary/10 border border-secondary/20 px-3 py-2 rounded-lg flex items-center justify-center gap-2">
-                               <span className="text-xs">📅</span>
-                               <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
-                                 {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
-                               </span>
-                             </div>
-                          )}
+                        // 🚀 SYNCHRO GLOBALE (Met à jour Planning ET Arbitrages instantanément)
+                        setTournaments(prev => prev.map(tour => 
+                          tour.id === tourney.id 
+                            ? { ...tour, matches: (tour.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match) }
+                            : tour
+                        ));
+
+                        // 💾 SAUVEGARDE BDD
+                        await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
+                      }}
+                      className="w-1/2 p-2 text-[10px] bg-app-input text-secondary font-black tracking-wider border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+                    />
+                    <input
+                      type="time"
+                      value={m.datetime && m.datetime.includes('T') ? m.datetime.split('T')[1].substring(0, 5) : ''}
+                      onChange={async (e) => {
+                        const t = e.target.value;
+                        const d = m.datetime ? m.datetime.split('T')[0] : new Date().toISOString().split('T')[0];
+                        const newDatetime = `${d}T${t}`;
+
+                        // 🚀 SYNCHRO GLOBALE
+                        setTournaments(prev => prev.map(tour => 
+                          tour.id === tourney.id 
+                            ? { ...tour, matches: (tour.matches || []).map(match => match.id === m.id ? { ...match, datetime: newDatetime } : match) }
+                            : tour
+                        ));
+
+                        // 💾 SAUVEGARDE BDD
+                        await supabase.from('matches').update({ datetime: newDatetime }).eq('id', m.id);
+                      }}
+                      className="w-1/2 p-2 text-[10px] bg-app-input text-white font-black tracking-wider border border-muted-line rounded-lg focus:border-secondary outline-none transition-colors shadow-inner cursor-pointer"
+                    />
+                  </div>
+                  {/* Ligne 2 : Terrain (Correction de la frappe) */}
+                  <input
+                    type="text"
+                    placeholder="Nom du terrain..."
+                    defaultValue={m.court || ''}
+                    key={`court-${m.id}-${m.court || ''}`}
+                    onBlur={async (e) => {
+                      const newCourt = e.target.value;
+                      if (newCourt === m.court) return; // Ne rien faire si on n'a rien changé
+
+                      // 🚀 SYNCHRO GLOBALE
+                      setTournaments(prev => prev.map(tour => 
+                        tour.id === tourney.id 
+                          ? { ...tour, matches: (tour.matches || []).map(match => match.id === m.id ? { ...match, court: newCourt } : match) }
+                          : tour
+                      ));
+
+                      // 💾 SAUVEGARDE BDD
+                      await supabase.from('matches').update({ court: newCourt }).eq('id', m.id);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.target.blur(); // Sauvegarde instantanée si on tape "Entrée"
+                    }}
+                    className="w-full p-2 text-[10px] bg-app-input text-white font-bold border border-muted-line rounded-lg focus:border-action outline-none transition-colors shadow-inner"
+                  />
+                </div>
+              )}
+
+              {/* AFFICHAGE LECTURE SEULE HARMONISÉ */}
+              {(!canEdit || isFinished || isCanceled || isForfeit) && (m.datetime || m.court) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 justify-center">
+                  {m.datetime && (
+                    <div className="flex items-center gap-1 bg-secondary/10 border border-secondary/20 w-fit px-2 py-1 rounded-lg shadow-sm">
+                      <span className="text-[10px]">📅</span>
+                      <span className="text-secondary text-[9px] font-black uppercase tracking-widest">
+                        {new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                      </span>
+                      <span className="text-white text-[9px] font-black bg-secondary px-1.5 py-0.5 rounded ml-1">
+                        {new Date(m.datetime).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'H')}
+                      </span>
+                    </div>
+                  )}
+                  {m.court && (
+                    <div className="bg-black/20 px-2 py-1 rounded-lg border border-muted-line text-muted-light text-[9px] font-black uppercase tracking-widest">
+                      📍 {m.court}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {(teamA?.isBye || teamB?.isBye) ? (
-                  <div className="text-center text-[0.65rem] font-black tracking-widest text-muted mt-4 p-2 bg-app-input rounded-lg border border-dashed border-muted-line uppercase">
-                      ⏩ Qualification Directe
+                  <div className="text-center text-[0.6rem] font-black tracking-wider text-muted mt-3 p-2 bg-app-input rounded-lg border border-dashed border-muted-line uppercase">
+                      ⏩ Qualif. Directe
                   </div>
               ) : (
-                  <div className="flex gap-2 mt-4 h-10">
+                  <div className="flex gap-1.5 mt-3 h-8 sm:h-9 w-full">
+                    {/* GROS BOUTON (min-w-0 ajouté pour éviter qu'il ne pousse les autres) */}
                     <button 
                       onClick={(e) => {
                           e.stopPropagation();
@@ -518,7 +581,7 @@ export default function PlayoffsTab({
                           
                           handleLaunchMatch(m.id, canLaunchThisMatch);
                       }}
-                      className={`flex-1 rounded-lg font-black tracking-widest text-[0.65rem] transition-all shadow-md ${
+                      className={`flex-1 min-w-0 truncate px-1 rounded-md font-black tracking-wider text-[0.55rem] sm:text-[0.6rem] flex justify-center items-center text-center transition-all shadow-md ${
                           disableButton 
                               ? 'text-muted-dark bg-app-input cursor-not-allowed border border-muted-line shadow-none' 
                               : 'text-white cursor-pointer hover:-translate-y-0.5 ' + (
@@ -529,11 +592,14 @@ export default function PlayoffsTab({
                       }`}
                       disabled={disableButton}
                     >
-                        {isCanceled ? "MATCH ANNULÉ" : isForfeit ? "VICTOIRE FORFAIT" : (isFinished ? "📊 VOIR LES STATS" : (canLaunchThisMatch ? (isOngoing ? "▶️ REPRENDRE" : "🚀 LANCER MATCH") : (canSpectateLive ? "🔴 SUIVRE LE DIRECT" : "SCORE DIRECT")))}
+                        <span className="truncate">
+                          {isCanceled ? "ANNULÉ" : isForfeit ? "FORFAIT" : (isFinished ? "📊 STATS" : (isLocked ? "🔒 ATTENTE" : (canLaunchThisMatch ? (isOngoing ? "▶️ REPRENDRE" : "🚀 LANCER") : (canSpectateLive ? "🔴 DIRECT" : "SCORE"))))}
+                        </span>
                     </button>
                     
-                    {(canEdit && !isCanceled && !isForfeit) && (
-                      <div className="flex gap-1.5 shrink-0">
+                    {/* PETITS BOUTONS (Réduits à w-7 et w-8) */}
+                    {(canEdit && !isCanceled && !isForfeit && !isLocked) && (
+                      <div className="flex gap-1 shrink-0">
                         <button 
                           onClick={(e) => { 
                             e.stopPropagation(); 
@@ -541,16 +607,16 @@ export default function PlayoffsTab({
                             setTempScoreA(sA || 0); 
                             setTempScoreB(sB || 0); 
                           }} 
-                          className="w-10 h-10 rounded-lg bg-secondary/10 border border-secondary/20 text-secondary flex items-center justify-center text-sm cursor-pointer hover:bg-secondary hover:text-white transition-colors shadow-sm" 
+                          className="w-7 sm:w-8 h-full rounded-md bg-secondary/10 border border-secondary/20 text-secondary flex items-center justify-center text-xs cursor-pointer hover:bg-secondary hover:text-white transition-colors shadow-sm" 
                         >
                           ✏️
                         </button>
                         
                         {!isFinished && (
                           <>
-                            <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-10 h-10 rounded-lg bg-app-input border border-muted-line text-white flex items-center justify-center text-sm cursor-pointer hover:bg-secondary hover:border-secondary transition-colors shadow-sm">👤</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-10 h-10 rounded-lg bg-white/5 border border-muted-line text-white flex items-center justify-center text-sm cursor-pointer hover:bg-muted-dark transition-colors shadow-sm">❌</button>
-                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-10 h-10 rounded-lg bg-danger/20 border border-danger/30 text-danger flex items-center justify-center text-sm cursor-pointer hover:bg-danger hover:text-white transition-colors shadow-sm">🏳️</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleAssignOtm(m.id, true); }} className="w-7 sm:w-8 h-full rounded-md bg-app-input border border-muted-line text-white flex items-center justify-center text-xs cursor-pointer hover:bg-secondary hover:border-secondary transition-colors shadow-sm">👤</button>
+                            <button onClick={(e) => { e.stopPropagation(); handleMatchException(m.id, 'cancel', true); }} className="w-7 sm:w-8 h-full rounded-md bg-white/5 border border-muted-line text-white flex items-center justify-center text-xs cursor-pointer hover:bg-muted-dark transition-colors shadow-sm">❌</button>
+                            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleMatchException(m.id, 'forfeit', true); }} className="w-7 sm:w-8 h-full rounded-md bg-danger/20 border border-danger/30 text-danger flex items-center justify-center text-xs cursor-pointer hover:bg-danger hover:text-white transition-colors shadow-sm">🏳️</button>
                           </>
                         )}
                       </div>
@@ -651,18 +717,23 @@ export default function PlayoffsTab({
             )}
         </div>
       ) : (
-        <div className={`flex gap-8 overflow-x-auto py-8 px-4 min-h-[600px] custom-scrollbar ${columns.length <= 3 ? 'justify-center' : 'justify-start'}`}>
-            {columns.map((col) => (
-                <div key={col.id} className={`flex flex-col p-6 rounded-3xl shrink-0 border relative overflow-hidden ${col.isCenter ? 'min-w-[360px] bg-app-panel/90 backdrop-blur-md border-secondary/30 shadow-[0_0_40px_rgba(249,115,22,0.15)] z-10' : 'min-w-[320px] bg-app-panel/60 backdrop-blur-sm border-muted-line shadow-xl flex-1'}`}>
-                    {col.isCenter && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warning via-secondary to-danger"></div>}
-                    <h3 className={`text-center m-0 mb-8 pb-4 border-b ${col.isCenter ? 'text-secondary border-secondary/30 text-2xl font-black uppercase tracking-widest drop-shadow-md' : 'text-muted-light border-muted-line text-lg font-black tracking-widest uppercase'}`}>
-                        {col.title}
-                    </h3>
-                    <div className="flex flex-col justify-around gap-8 flex-1 w-full relative z-10">
-                        {col.matches.map(m => renderMatch(m))}
+        /* 🚀 CONTENEUR PLEINE LARGEUR AVEC SCROLL INTELLIGENT */
+        <div className="w-full overflow-x-auto py-8 custom-scrollbar">
+            {/* 📏 min-w-full pour prendre tout l'écran, w-max pour autoriser le scroll, justify-center pour centrer si max-w est atteint */}
+            <div className="flex gap-4 md:gap-8 px-4 pb-10 min-w-full w-max justify-center">
+                {columns.map((col) => (
+                    /* 📏 flex-1 pour s'étirer (effet accordéon), min-w pour ne pas s'écraser, max-w pour ne pas devenir géant */
+                    <div key={col.id} className={`flex flex-col p-4 sm:p-6 rounded-3xl border relative overflow-hidden flex-1 min-w-[280px] max-w-[450px] shrink-0 ${col.isCenter ? 'bg-app-panel/90 border-secondary/30 shadow-[0_0_40px_rgba(249,115,22,0.15)] z-10' : 'bg-app-panel/60 backdrop-blur-sm border-muted-line shadow-xl'}`}>
+                        {col.isCenter && <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-warning via-secondary to-danger"></div>}
+                        <h3 className={`text-center mb-8 pb-4 border-b font-black uppercase tracking-widest ${col.isCenter ? 'text-secondary border-secondary/30 text-xl drop-shadow-md' : 'text-muted-light border-muted-line text-base'}`}>
+                            {col.title}
+                        </h3>
+                        <div className="flex flex-col justify-around gap-8 flex-1 w-full">
+                            {col.matches.map(m => renderMatch(m))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
       )}
     </div>

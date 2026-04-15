@@ -80,8 +80,9 @@ export default function MesArbitrages({ allTournaments, currentUserName, setActi
             tourneyId: t.id,
             tourneyName: t.name,
             tourneyStatus: t.status,
-            displayTime: m.datetime ? new Date(m.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(':', 'H') : 'TBD',
-            displayCourt: m.court || 'TBD'
+            // 🚀 On garde les valeurs brutes, l'interface va les formater joliment !
+            datetime: m.datetime,
+            court: m.court
           });
         }
       });
@@ -97,24 +98,66 @@ export default function MesArbitrages({ allTournaments, currentUserName, setActi
     });
   }, [allTournaments, currentUserName, session]);
 
+  // --- 🛠️ SAUVEGARDE MANUELLE AVEC TÉLÉPORTATION DU GAGNANT ---
   const saveManualScore = async (matchId, tourneyId) => {
     const finalScoreA = parseInt(tempScoreA, 10) || 0;
     const finalScoreB = parseInt(tempScoreB, 10) || 0;
 
-    // 1. MISE À JOUR VISUELLE IMMÉDIATE (L'écran change tout de suite)
+    // 1. Retrouver le match pour lire sa destination
+    const tourney = allTournaments?.find(t => t.id === tourneyId);
+    if (!tourney) return;
+
+    const currentMatch = (tourney.matches || []).find(m => m.id === matchId);
+    if (!currentMatch) return;
+
+    // 2. Extraire l'ID du gagnant
+    let winnerId = null;
+    const getTeamId = (t) => t ? (typeof t === 'object' ? t.id : t) : null;
+    
+    if (finalScoreA > finalScoreB) winnerId = getTeamId(currentMatch.teamA || currentMatch.team_a);
+    else if (finalScoreB > finalScoreA) winnerId = getTeamId(currentMatch.teamB || currentMatch.team_b);
+
+    // 💡 L'ADRESSE DE DESTINATION
+    const nextMatchId = currentMatch.nextMatchId || currentMatch.metadata?.nextMatchId;
+    const nextSlot = currentMatch.nextSlot || currentMatch.metadata?.nextSlot;
+
+    // 3. MISE À JOUR VISUELLE IMMÉDIATE (Le match + La case suivante)
     setTournaments(prevTournaments => 
-      prevTournaments.map(t => t.id === tourneyId ? {
-        ...t,
-        matches: (t.matches || []).map(m => 
-          m.id === matchId ? { ...m, scoreA: finalScoreA, scoreB: finalScoreB, status: 'finished' } : m
-        )
-      } : t)
+      prevTournaments.map(t => {
+        if (t.id === tourneyId) {
+          const newMatches = [...(t.matches || [])];
+          
+          // Figer le score du match actuel
+          const mIdx = newMatches.findIndex(m => m.id === matchId);
+          if (mIdx > -1) {
+            newMatches[mIdx] = { ...newMatches[mIdx], scoreA: finalScoreA, scoreB: finalScoreB, score_a: finalScoreA, score_b: finalScoreB, status: 'finished' };
+          }
+
+          // Afficher le gagnant dans la case suivante
+          if (winnerId && nextMatchId) {
+            const nIdx = newMatches.findIndex(m => m.id === nextMatchId);
+            if (nIdx > -1) {
+              const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+              newMatches[nIdx] = { ...newMatches[nIdx], [nextSlotDb]: String(winnerId), [nextSlot]: String(winnerId) };
+            }
+          }
+          return { ...t, matches: newMatches };
+        }
+        return t;
+      })
     );
     
-    // On ferme les cases
+    // On ferme la case d'édition
     setEditingScoreId(null);
 
-    // 2. SAUVEGARDE EN ARRIÈRE-PLAN
+    // 4. SAUVEGARDE EN ARRIÈRE-PLAN
+    // Envoi silencieux du vainqueur dans la case suivante
+    if (winnerId && nextMatchId) {
+        const nextSlotDb = nextSlot === 'teamA' ? 'team_a' : 'team_b';
+        await supabase.from('matches').update({ [nextSlotDb]: String(winnerId) }).eq('id', nextMatchId);
+    }
+
+    // Envoi du score final du match actuel
     const { error } = await supabase.from('matches').update({
       score_a: finalScoreA,
       score_b: finalScoreB,
@@ -124,8 +167,7 @@ export default function MesArbitrages({ allTournaments, currentUserName, setActi
     if (error) {
       toast.error("Erreur réseau lors de la sauvegarde.");
     } else {
-      toast.success("Score validé manuellement ! ✅");
-      // On consolide discrètement avec les données du serveur
+      toast.success("Score validé et arbre mis à jour ! 🏆");
       if (fetchTournaments) fetchTournaments(); 
     }
   };

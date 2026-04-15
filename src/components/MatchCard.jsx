@@ -176,18 +176,26 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
               className="bg-app-input border border-muted-line text-white text-xs p-1.5 rounded-lg focus:outline-none focus:border-secondary transition-colors cursor-pointer font-black tracking-wider shadow-inner w-[70px]"
               title="Heure du match"
             />
-            {/* NOUVEAU : Champ pour le Terrain */}
+            {/* NOUVEAU : Champ pour le Terrain (Correction de la frappe) */}
             <input 
               type="text" 
               placeholder="Terrain..."
-              value={match.court || ''}
-              onChange={(e) => handleDateTimeChange('court', e.target.value)}
+              defaultValue={match.court || ''}
+              key={`court-card-${match.id}-${match.court || ''}`}
+              onBlur={(e) => {
+                  if (e.target.value !== match.court) {
+                      handleDateTimeChange('court', e.target.value);
+                  }
+              }}
+              onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.target.blur(); // Sauvegarde instantanée si on tape "Entrée"
+              }}
               className="bg-app-input border border-muted-line text-white text-xs p-1.5 rounded-lg focus:outline-none focus:border-action transition-colors shadow-inner flex-1 min-w-[70px]"
               title="Terrain (ex: Court 1, Gymnase Nord...)"
             />
           </div>
         ) : match.datetime ? (
-          <div className="flex items-center gap-2 bg-secondary/10 border border-secondary/20 w-fit px-3 py-1.5 rounded-lg shadow-sm">
+          <div className="flex items-center gap-1 bg-secondary/10 border border-secondary/20 w-fit px-2 py-1 rounded-lg shadow-sm">
             <span className="text-[10px]">📅</span>
             <span className="text-secondary text-[10px] font-black uppercase tracking-widest">
               {new Date(match.datetime).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
@@ -203,14 +211,16 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
         )}
       </div>
 
-      <div className="flex justify-between items-start text-xs font-bold">
-        <div className="flex flex-col gap-1.5">
+      <div className="flex justify-between items-start text-xs font-bold pt-3">
+        <div className="flex flex-col gap-2">
           <span className={`tracking-widest ${match.group ? 'text-purple-400' : 'text-action'}`}>
             🏆 {phaseLabel}
           </span>
-          <span className="text-muted truncate max-w-[120px]" title={match.court || 'Terrain à définir'}>
-            📍 {match.court || 'Terrain à définir'}
-          </span>
+          {match.court && (
+            <span className="bg-black/20 px-2 py-1 rounded-lg border border-muted-line text-muted-light text-[9px] font-black uppercase tracking-widest w-fit" title={match.court}>
+              📍 {match.court}
+            </span>
+          )}
         </div>
         <span className={`px-2.5 py-1 rounded-md text-[10px] tracking-wider ${statusBadgeClass}`}>
           {statusText}

@@ -2,10 +2,27 @@ import React, { useState } from 'react';
 import MatchCard from './MatchCard'; 
 
 export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, currentUserName, update }) {
-  // V2 : Plus besoin de fusionner, tout est déjà dans tourney.matches !
-  const allMatches = (tourney?.matches || []).filter(m => m && m.teamA && m.teamB);
+  
+  // 🛡️ LE TRADUCTEUR : Convertit les IDs en vraies équipes
+  const getTeamObj = (t) => {
+    if (!t) return null;
+    if (typeof t === 'string' && t.startsWith('bye_')) return { id: t, name: 'EXEMPTÉ', isBye: true };
+    if (t.isBye) return t; 
+    const teamId = typeof t === 'object' ? t.id : t;
+    return tourney?.teams?.find(team => String(team.id) === String(teamId)) || (typeof t === 'object' ? t : null);
+  };
 
-  const [showFinishedGroups, setShowFinishedGroups] = useState(false);
+  // V2 : On mappe TOUS les matchs pour s'assurer qu'ils ont des objets complets
+  const allMatches = (tourney?.matches || [])
+    .map(m => ({
+      ...m,
+      teamA: getTeamObj(m.teamA || m.team_a),
+      teamB: getTeamObj(m.teamB || m.team_b)
+    }))
+    // On ne garde que les matchs où les deux équipes sont connues (on masque les "TBD" et les "Exemptés" du planning)
+    .filter(m => m.teamA && m.teamB && !m.teamA.isBye && !m.teamB.isBye);
+
+  const [showFinishedMatches, setShowFinishedMatches] = useState(false);
 
   const myMatches = allMatches.filter(m => {
     const inTeamA = m.teamA?.players?.some(p => p.name === currentUserName);
@@ -30,21 +47,21 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
       return inTeamA || inTeamB;
     }
     if (selectedTeamFilter !== 'all') {
-      return m.teamA?.id === selectedTeamFilter || m.teamB?.id === selectedTeamFilter;
+      return String(m.teamA?.id) === String(selectedTeamFilter) || String(m.teamB?.id) === String(selectedTeamFilter);
     }
     return true;
   });
 
   const uniqueTeams = [...(tourney?.teams || [])].sort((a, b) => a.name.localeCompare(b.name));
   
-  // V2 : On filtre proprement sur le type 'pool' au lieu de chercher si m.group existe
-  const finishedGroupMatches = baseMatches
-    .filter(m => m.type === 'pool' && ['finished', 'canceled', 'forfeit'].includes(m.status))
+  // 🚀 V3 : On regroupe TOUS les matchs terminés (Poules + Playoffs)
+  const finishedMatches = baseMatches
+    .filter(m => ['finished', 'canceled', 'forfeit'].includes(m.status))
     .sort(sortFunction);
 
-  // V2 : Les matchs actifs sont les matchs de playoff OU les matchs de poule non terminés
+  // 🚀 V3 : On regroupe TOUS les matchs actifs (Poules + Playoffs)
   const activeMatches = baseMatches
-    .filter(m => m.type === 'playoff' || !['finished', 'canceled', 'forfeit'].includes(m.status))
+    .filter(m => !['finished', 'canceled', 'forfeit'].includes(m.status))
     .sort(sortFunction);
 
   return (
@@ -108,29 +125,29 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
       ) : (
         <div className="flex flex-col gap-8">
           
-          {/* ACCORDÉON : MATCHS TERMINÉS PREMIUM */}
-          {finishedGroupMatches.length > 0 && (
+          {/* ACCORDÉON : MATCHS TERMINÉS (GLOBAL) */}
+          {finishedMatches.length > 0 && (
             <div className="bg-app-panel/80 backdrop-blur-md rounded-2xl border border-muted-line overflow-hidden shadow-lg transition-all">
               <button 
-                onClick={() => setShowFinishedGroups(!showFinishedGroups)} 
+                onClick={() => setShowFinishedMatches(!showFinishedMatches)} 
                 className="w-full bg-transparent border-none px-6 py-4 flex justify-between items-center cursor-pointer hover:bg-white/5 transition-colors group"
               >
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] w-6 h-6 flex items-center justify-center bg-app-input rounded-full text-muted group-hover:text-white transition-colors border border-muted-line">
-                    {showFinishedGroups ? '▼' : '▶'}
+                    {showFinishedMatches ? '▼' : '▶'}
                   </span>
                   <span className="text-xs font-black tracking-widest text-muted group-hover:text-muted-light transition-colors uppercase">
-                    Matchs de poules terminés ({finishedGroupMatches.length})
+                    Matchs terminés ({finishedMatches.length})
                   </span>
                 </div>
                 <span className="text-[10px] uppercase tracking-wider text-muted-dark group-hover:text-muted-light bg-black/30 px-2.5 py-1 rounded border border-muted-line transition-colors">
-                  {showFinishedGroups ? 'Rétracter' : 'Afficher'}
+                  {showFinishedMatches ? 'Rétracter' : 'Afficher'}
                 </span>
               </button>
               
-              {showFinishedGroups && (
+              {showFinishedMatches && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6 border-t border-muted-line bg-black/20">
-                  {finishedGroupMatches.map(match => (
+                  {finishedMatches.map(match => (
                     <MatchCard 
                       key={match.id} 
                       match={match} 
@@ -163,12 +180,12 @@ export default function PlanningTab({ tourney, handleLaunchMatch, canEdit, curre
             ))}
             
             {/* MESSAGE : TOUS LES MATCHS SONT FINIS */}
-            {activeMatches.length === 0 && !showFinishedGroups && (
+            {activeMatches.length === 0 && !showFinishedMatches && (
               <div className="col-span-full py-12 px-6 border border-dashed border-muted-line rounded-2xl bg-white/5 flex flex-col items-center justify-center text-center shadow-inner">
                 <span className="text-4xl mb-3 opacity-80">🏁</span>
                 <p className="text-muted-light font-medium text-sm m-0 leading-relaxed max-w-md">
-                  Tous les matchs de poules sont terminés. <br/>
-                  <span className="text-muted text-xs">Déroulez le tiroir ci-dessus pour les consulter, ou allez voir l'onglet Phase Finale !</span>
+                  Tous les matchs sont actuellement terminés. <br/>
+                  <span className="text-muted text-xs">Déroulez le tiroir ci-dessus pour consulter l'historique, ou allez voir l'onglet Phase Finale !</span>
                 </p>
               </div>
             )}

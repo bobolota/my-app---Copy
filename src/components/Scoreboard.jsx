@@ -296,7 +296,7 @@ export default function Scoreboard() {
       const safeMetadata = { ...currentMatch };
       
       // On supprime les grosses colonnes SQL pour ne garder que la "metadata" pure
-      const nativeColumns = ['id', 'tourneyId', 'tournament_id', 'type', 'status', 'teamA', 'teamB', 'scoreA', 'scoreB', 'savedStatsA', 'savedStatsB', 'liveHistory', 'team_a', 'team_b', 'score_a', 'score_b', 'saved_stats_a', 'saved_stats_b', 'live_history'];
+      const nativeColumns = ['id', 'tourneyId', 'tournament_id', 'type', 'status', 'scoreA', 'scoreB', 'savedStatsA', 'savedStatsB', 'liveHistory', 'team_a', 'team_b', 'score_a', 'score_b', 'saved_stats_a', 'saved_stats_b', 'live_history'];
       nativeColumns.forEach(col => delete safeMetadata[col]);
 
       // On injecte les infos du direct
