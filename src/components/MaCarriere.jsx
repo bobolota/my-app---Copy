@@ -1,10 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useAppContext } from '../context/AppContext'; // 👈 1. NOUVEL IMPORT
 
 export default function MaCarriere({ userProfile, tournaments }) {
   const currentUserName = userProfile?.full_name || "";
   const currentUserId = userProfile?.id;
   
-  const [activeFormat, setActiveFormat] = useState(5); // 5 = 5x5, 3 = 3x3, 1 = 1x1
+  // 👈 2. ON RÉCUPÈRE LES FONCTIONS DE TÉLÉPORTATION
+  const { setActiveTourneyId, launchMatch, setView } = useAppContext(); 
+
+  const [activeFormat, setActiveFormat] = useState(5);
 
   // 👇 NOUVEAU : Pagination de l'historique
   const [historyPage, setHistoryPage] = useState(0); 
@@ -189,6 +193,7 @@ export default function MaCarriere({ userProfile, tournaments }) {
             // Historique pour l'affichage
             history.push({
                 id: m.id,
+                tourneyId: t.id, // 👈 NOUVEAU : Indispensable pour la navigation
                 tourneyName: t.name,
                 teamName: getTeamName(opponentTeam),
                 isWin,
@@ -349,8 +354,17 @@ export default function MaCarriere({ userProfile, tournaments }) {
                 {/* LA GRILLE : 1 colonne sur mobile, 2 colonnes sur grand écran */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {matchHistory.slice(historyPage * matchesPerPage, (historyPage + 1) * matchesPerPage).map((m, i) => (
-                        <div key={i} className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-app-card border border-muted-line p-4 sm:p-5 rounded-2xl hover:border-muted transition-all gap-4 group hover:-translate-y-0.5 shadow-lg">
-                            
+                        <div 
+                          key={i} 
+                          onClick={() => {
+                            // 🚀 TÉLÉPORTATION VERS LA FEUILLE DE STATS
+                            if (setActiveTourneyId) setActiveTourneyId(m.tourneyId);
+                            if (launchMatch) launchMatch(m.id);
+                            if (setView) setView('match');
+                          }}
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-app-card border border-muted-line p-4 sm:p-5 rounded-2xl hover:border-secondary/50 transition-all gap-4 group hover:-translate-y-1 shadow-lg cursor-pointer relative overflow-hidden"
+                        >
+                                                        
                             <div className="flex items-center gap-4 w-full sm:w-auto">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-white text-xl shadow-md border border-muted-line shrink-0 ${m.isWin ? 'bg-gradient-to-tr from-primary to-primary-dark shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-gradient-to-tr from-danger to-danger-dark shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
                                     {m.isWin ? 'W' : 'L'}

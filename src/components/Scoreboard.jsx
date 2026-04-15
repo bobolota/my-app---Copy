@@ -20,19 +20,31 @@ export default function Scoreboard() {
     finishMatch: onMatchFinished, syncLiveScore: onLiveUpdate, 
     userRole, currentTourney: tourney, 
     setConfirmData, setPromptData, update 
-    
   } = useAppContext();
 
   const matchId = activeMatch?.id;
-  const teamA = activeMatch?.teamA;
-  const teamB = activeMatch?.teamB;
-  const savedStatsA = activeMatch?.savedStatsA;
-  const savedStatsB = activeMatch?.savedStatsB;
+
+  // 🛠️ LE TRADUCTEUR D'ÉQUIPES (Spécial Phase Finale)
+  const getTeamObj = (teamData, fallbackName) => {
+      if (!teamData) return { name: fallbackName };
+      // Si c'est un simple ID (Texte) envoyé par l'arbre des playoffs
+      if (typeof teamData === 'string') {
+          return tourney?.teams?.find(t => t.id === teamData) || { name: fallbackName };
+      }
+      // Si c'est un objet partiel, on s'assure d'avoir la version complète
+      return tourney?.teams?.find(t => t.id === teamData.id) || teamData;
+  };
+
+  // On applique le traducteur aux deux équipes
+  const teamA = getTeamObj(activeMatch?.teamA || activeMatch?.team_a, 'Équipe A');
+  const teamB = getTeamObj(activeMatch?.teamB || activeMatch?.team_b, 'Équipe B');
+
+  const savedStatsA = activeMatch?.savedStatsA || activeMatch?.saved_stats_a;
+  const savedStatsB = activeMatch?.savedStatsB || activeMatch?.saved_stats_b;
   const isFinished = activeMatch?.status === 'finished';
 
   const onExit = () => { 
     setView('tournament'); 
-    setActiveMatch(null); 
   };
 
   // 1. Récupération des paramètres (avec 5 fautes perso et 4 fautes d'équipe par défaut)
