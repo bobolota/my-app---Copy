@@ -260,9 +260,15 @@ export default function MesArbitrages({ allTournaments, currentUserName, setActi
                       )}
                     </div>
                     
-                    <div className="bg-black/40 p-4 rounded-xl border border-muted-line flex justify-between items-center text-xs font-black tracking-widest uppercase shadow-inner text-muted-light">
-                      <span className="flex items-center gap-1.5"><span className="text-sm">⏰</span> {m.displayTime}</span>
-                      <span className="flex items-center gap-1.5"><span className="text-sm">📍</span> {m.displayCourt}</span>
+                    <div className="bg-black/40 p-4 rounded-xl border border-muted-line flex justify-between items-center text-[10px] sm:text-xs font-black tracking-widest uppercase shadow-inner text-muted-light">
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-sm">⏰</span> 
+                        {m.datetime ? new Date(m.datetime).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).replace(':', 'H') : 'À DÉFINIR'}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-sm">📍</span> 
+                        {m.court || 'À DÉFINIR'}
+                      </span>
                     </div>
 
                     {/* 👇 BOUTON SÉCURISÉ SELON L'EFFECTIF + BOUTON CRAYON 👇 */}
