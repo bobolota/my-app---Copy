@@ -24,25 +24,18 @@ export default function Sidebar({ isSidebarCollapsed, setIsSidebarCollapsed, isS
     fetchMyName();
   }, [session]);
 
+  // 🏀 Vérifie si je suis dans le staff d'au moins un tournoi
   const isOtm = useMemo(() => {
-    if (!myName || !tournaments) return false;
-    const cleanMyName = myName.trim();
-    if (!cleanMyName) return false;
+    // Si on n'a pas ton ID ou pas de tournois, on arrête
+    if (!session?.user?.id || !tournaments) return false;
 
-    return tournaments.some(t => {
-      const allMatches = [...(t.schedule || []), ...(t.playoffs?.matches || [])];
-      return allMatches.some(m => {
-        if (!m.otm) return false;
-        if (Array.isArray(m.otm)) {
-          return m.otm.some(name => typeof name === 'string' && name.trim() === cleanMyName);
-        } else if (typeof m.otm === 'string') {
-          const otmList = m.otm.split(',').map(name => name.trim());
-          return otmList.includes(cleanMyName);
-        }
-        return false;
-      });
+    // On regarde si ton ID secret est dans la liste otm_ids d'un tournoi
+    const isStaff = tournaments.some(t => {
+      return t.otm_ids && t.otm_ids.includes(session.user.id);
     });
-  }, [tournaments, myName]);
+
+    return isStaff;
+  }, [tournaments, session]);
 
   const handleMenuClick = (menuName) => {
     setActiveMenu(menuName);

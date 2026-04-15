@@ -66,33 +66,37 @@ export const AppProvider = ({ children }) => {
 
   const fetchTournaments = async () => {
     try {
-      // V2 : On demande les tournois ET leurs matchs associés
       const { data, error } = await supabase
         .from('tournaments')
         .select('*, matches(*)')
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        // On convertit le snake_case de la BDD en camelCase pour React
         const mappedData = data.map(t => ({
-  ...t,
-  matches: (t.matches || []).map(m => ({
-    ...(m.metadata || {}), // 👈 LA LIGNE MAGIQUE : déverse group, datetime, etc.
-    id: m.id,
-    tourneyId: m.tournament_id,
-    type: m.type,
-    status: m.status,
-    teamA: m.team_a,
-    teamB: m.team_b,
-    scoreA: m.score_a,
-    scoreB: m.score_b,
-    savedStatsA: m.saved_stats_a,
-    savedStatsB: m.saved_stats_b,
-    liveHistory: m.live_history
-  }))
-}));
+          ...t,
+          matches: (t.matches || []).map(m => ({
+            ...(m.metadata || {}), 
+            id: m.id,
+            tourneyId: m.tournament_id,
+            type: m.type,
+            status: m.status,
+            teamA: m.team_a,
+            teamB: m.team_b,
+            scoreA: m.score_a,
+            scoreB: m.score_b,
+            savedStatsA: m.saved_stats_a,
+            savedStatsB: m.saved_stats_b,
+            liveHistory: m.live_history,
+            
+            // 👇 C'EST ICI QU'IL FAUT L'AJOUTER POUR QUE ÇA SURVIVE AU F5 !
+            otm: m.otm,           
+            datetime: m.datetime, 
+            court: m.court        
+          }))
+        }));
         setTournaments(mappedData);
       }
+    
     } catch (error) {
       console.error("Erreur de chargement des tournois:", error);
     }
@@ -134,7 +138,10 @@ export const AppProvider = ({ children }) => {
                 teamA: payload.new.team_a, teamB: payload.new.team_b,
                 scoreA: payload.new.score_a, scoreB: payload.new.score_b,
                 savedStatsA: payload.new.saved_stats_a, savedStatsB: payload.new.saved_stats_b,
-                liveHistory: payload.new.live_history
+                liveHistory: payload.new.live_history,
+                otm: payload.new.otm,           // 👈 AJOUTE CECI
+                datetime: payload.new.datetime, // 👈 AJOUTE CECI
+                court: payload.new.court        // 👈 AJOUTE CECI
               };
 
               if (matchIndex > -1) updatedMatches[matchIndex] = mappedMatch;

@@ -236,39 +236,7 @@ export default function TournamentManager() {
     });
   };
 
-  useEffect(() => {
-    if (!canEdit) return; 
-    if (!tourney.playoffs || !tourney.playoffs.matches) return;
-    
-    let updated = false;
-    const newMatches = [...tourney.playoffs.matches];
-
-    newMatches.forEach(m => {
-      if ((m.status === 'finished' || m.status === 'forfeit') && m.nextMatchId) {
-        let winner = null;
-        if (m.teamB?.isBye) winner = m.teamA;
-        else if (m.teamA?.isBye) winner = m.teamB;
-        else if (m.scoreA > m.scoreB) winner = m.teamA;
-        else if (m.scoreB > m.scoreA) winner = m.teamB;
-
-        if (!winner) return;
-
-        const nextMatchIndex = newMatches.findIndex(x => x.id === m.nextMatchId);
-        if (nextMatchIndex !== -1) {
-          const nextMatch = newMatches[nextMatchIndex];
-          if (nextMatch[m.nextSlot]?.id !== winner.id) {
-            newMatches[nextMatchIndex] = { ...nextMatch, [m.nextSlot]: winner };
-            updated = true;
-          }
-        }
-      }
-    });
-
-    if (updated) {
-      update({ playoffs: { ...tourney.playoffs, matches: newMatches } });
-    }
-  }, [tourney.playoffs]);
-
+  
   const handleLaunchMatch = (matchId, canLaunchThisMatch) => {
     // V2 : Recherche simplifiée
     const match = (tourney.matches || []).find(m => m.id === matchId);
@@ -422,152 +390,6 @@ export default function TournamentManager() {
     });
   };
 
-  // 👇 V2 : La fonction devient asynchrone pour interroger la base de données
-  const generatePlayoffs = async () => {
-    if (!canEdit) return;
-
-    // V2 : On récupère uniquement les matchs de poule
-    const poolMatches = (tourney.matches || []).filter(m => m.type === 'pool');
-
-    if (poolMatches.length === 0) {
-      toast.error("Impossible : Aucun match de poule n'a été généré. Veuillez d'abord créer le planning des poules.");
-      return;
-    }
-
-    const resolvedMatches = poolMatches.filter(m => ['finished', 'forfeit', 'canceled'].includes(m.status)).length;
-    const totalMatches = poolMatches.length;
-
-    if (resolvedMatches < totalMatches) {
-      const remaining = totalMatches - resolvedMatches;
-      toast.error(`Impossible de générer la phase finale 🛑\n\nTous les matchs de poule doivent être terminés (ou annulés/forfaits).\nIl reste actuellement ${remaining} match(s) en attente.`);
-      return;
-    }
-
-    const executeGeneration = async () => {
-      // 🚀 OPTIMISTIC UI : On vide l'arbre instantanément
-      setTournaments(prev => prev.map(t => 
-        t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.type !== 'playoff') } : t
-      ));
-
-      const qualifiedTeams = [];
-      const savedGroupIds = [...new Set((tourney.teams || []).map(t => t.groupId).filter(g => g !== null))].sort((a,b) => a-b);
-      
-      let maxLimit = 0;
-      savedGroupIds.forEach(gNum => {
-        const limit = getGroupLimit(tourney, gNum);
-        if(limit > maxLimit) maxLimit = limit;
-      });
-
-      for(let rank = 0; rank < maxLimit; rank++) {
-        savedGroupIds.forEach(gNum => {
-          const limit = getGroupLimit(tourney, gNum);
-          if (rank < limit) {
-            const standings = getGroupStandings(gNum);
-            if (standings[rank]) qualifiedTeams.push(standings[rank]);
-          }
-        });
-      }
-
-      const totalTeams = qualifiedTeams.length;
-      if (totalTeams < 2) { toast.error("Il faut au moins 2 équipes qualifiées."); return; }
-
-      let size = 2;
-      while (size < totalTeams && size <= 1024) size *= 2;
-
-      const seeded = new Array(size).fill(null);
-      for(let i=0; i<totalTeams; i++) seeded[i] = qualifiedTeams[i];
-      for(let i=totalTeams; i<size; i++) seeded[i] = { id: `bye_${i}`, name: 'EXEMPTÉ', isBye: true };
-
-      const getRoundLabel = (matchesCount, matchIdx) => {
-        if (matchesCount === 1) return "FINALE";
-        if (matchesCount === 2) return `DEMI-FINALE ${matchIdx + 1}`;
-        if (matchesCount === 4) return `QUART DE FINALE ${matchIdx + 1}`;
-        if (matchesCount === 8) return `8ÈME DE FINALE ${matchIdx + 1}`;
-        if (matchesCount === 16) return `16ÈME DE FINALE ${matchIdx + 1}`;
-        return `MATCH ${matchIdx + 1}`;
-      };
-
-      const newMatchesToInsert = [];
-      let numMatchesInRound = size / 2;
-      let roundNum = 1;
-      const ts = Date.now();
-
-      for (let i = 0; i < numMatchesInRound; i++) {
-        const tA = seeded[i];
-        const tB = seeded[size - 1 - i];
-        const hasBye = tA.isBye || tB.isBye;
-
-        newMatchesToInsert.push({
-          id: `p_${ts}_r${roundNum}_m${i}`,
-          tournament_id: tourney.id,
-          type: 'playoff', // 👈 Type playoff
-          team_a: tA, team_b: tB, 
-          score_a: 0, score_b: 0, 
-          status: hasBye ? 'finished' : 'pending',
-          metadata: { // 👈 Métadonnées de l'arbre
-            round: roundNum,
-            label: getRoundLabel(numMatchesInRound, i),
-            nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-            nextSlot: i % 2 === 0 ? 'teamA' : 'teamB' 
-          }
-        });
-      }
-
-      numMatchesInRound /= 2;
-      roundNum++;
-
-      while (numMatchesInRound >= 1) {
-        for (let i = 0; i < numMatchesInRound; i++) {
-          newMatchesToInsert.push({
-            id: `p_${ts}_r${roundNum}_m${i}`,
-            tournament_id: tourney.id,
-            type: 'playoff',
-            team_a: null, team_b: null, 
-            score_a: 0, score_b: 0, status: 'pending',
-            metadata: {
-              round: roundNum,
-              label: getRoundLabel(numMatchesInRound, i),
-              nextMatchId: numMatchesInRound === 1 ? null : `p_${ts}_r${roundNum+1}_m${Math.floor(i/2)}`,
-              nextSlot: i % 2 === 0 ? 'teamA' : 'teamB'
-            }
-          });
-        }
-        numMatchesInRound /= 2;
-        roundNum++;
-      }
-
-      // 1. Suppression des anciens matchs de playoff
-      await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
-
-      // 2. Insertion des nouveaux matchs
-      const { error } = await supabase.from('matches').insert(newMatchesToInsert);
-
-      if (error) {
-        console.error("Erreur d'insertion des playoffs :", error);
-        toast.error("Erreur de sauvegarde dans la base de données.");
-        return;
-      }
-
-      // 3. Mise à jour de l'objet tournoi (on garde la "size" pour l'affichage visuel du bracket, on vide l'ancien tableau)
-      update({ playoffs: { size, status: 'started' } });
-      setActiveTab("finale");
-      toast.success("Phase finale générée avec succès !");
-    }; 
-
-    if (tourney.playoffs?.status === 'started') {
-       setConfirmData({
-         isOpen: true,
-         title: "Écraser la phase finale ?",
-         message: "Une phase finale existe déjà. Voulez-vous la régénérer et écraser l'actuelle ?",
-         isDanger: true,
-         onConfirm: executeGeneration
-       });
-    } else {
-       executeGeneration();
-    }
-  };
-
-
   const addTeam = () => {
     if (!canEdit || !teamName.trim()) return;
     update({ teams: [...tourney.teams, { id: "tm_" + Date.now(), name: teamName, players: [], groupId: null }] });
@@ -694,14 +516,50 @@ export default function TournamentManager() {
 
       {activeTab === "poules" && (
         <GroupStageTab 
-          tourney={tourney} canEdit={canEdit} savedGroupIds={savedGroupIds} generateMatches={generateDrawAndSchedule} currentUserName={currentUserName} handleLaunchMatch={handleLaunchMatch} handleAssignOtm={handleAssignOtm} handleMatchException={handleMatchException} teamName={teamName} setTeamName={setTeamName} addTeam={addTeam} teamSearchQuery={teamSearchQuery} setTeamSearchQuery={setTeamSearchQuery} globalTeams={globalTeams} handleDirectImport={handleDirectImport} teamPage={teamPage} setTeamPage={setTeamPage} teamsPerPage={teamsPerPage} setEditId={setEditId} deleteTeam={deleteTeam} groupCount={groupCount} setGroupCount={setGroupCount} update={update} getGroupStandings={getGroupStandings} getGroupLimit={getGroupLimit}
+          tourney={tourney} 
+          canEdit={canEdit} 
+          savedGroupIds={savedGroupIds} 
+          generateMatches={(isAllerRetour) => generateDrawAndSchedule(isAllerRetour)} 
+          currentUserName={currentUserName} 
+          handleLaunchMatch={handleLaunchMatch} 
+          handleAssignOtm={handleAssignOtm} 
+          handleMatchException={handleMatchException} 
+          teamName={teamName} 
+          setTeamName={setTeamName} 
+          addTeam={addTeam} 
+          teamSearchQuery={teamSearchQuery || ""} 
+          setTeamSearchQuery={setTeamSearchQuery} 
+          globalTeams={globalTeams} 
+          handleDirectImport={handleDirectImport} 
+          teamPage={teamPage} 
+          setTeamPage={setTeamPage} 
+          teamsPerPage={teamsPerPage} 
+          setEditId={setEditId} 
+          deleteTeam={deleteTeam} 
+          groupCount={groupCount} 
+          setGroupCount={setGroupCount} 
+          update={update} 
+          getGroupStandings={getGroupStandings} 
+          getGroupLimit={getGroupLimit}
         />
       )}
           
       {activeTab === "finale" && (
         <PlayoffsTab 
-          tourney={tourney} canEdit={canEdit} update={update} generatePlayoffs={generatePlayoffs} currentUserName={currentUserName} handleLaunchMatch={handleLaunchMatch} handleAssignOtm={handleAssignOtm} handleMatchException={handleMatchException} getGroupLimit={getGroupLimit}
-        />
+  tourney={tourney}
+  canEdit={canEdit}
+  update={update}
+  currentUserName={currentUserName}
+  handleLaunchMatch={handleLaunchMatch}
+  handleAssignOtm={handleAssignOtm}
+  handleMatchException={handleMatchException}
+  getGroupLimit={getGroupLimit}
+  
+  // 👇 AJOUTE CES DEUX LIGNES ICI 👇
+  getGroupStandings={getGroupStandings}
+  setActiveTab={setActiveTab}
+  // 👆----------------------------👆
+/>
       )}
 
       {activeTab === "stats" && (

@@ -2,7 +2,13 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { supabase } from '../supabaseClient'; // 👈 AJOUTE CECI
 
+// En haut du fichier
+import { useAppContext } from '../context/AppContext';
+
 export default function MatchCard({ match, tourney, currentUserName, canEdit, handleLaunchMatch, isPublicScoreboard, update }) {
+  
+  // 👇 AJOUTE CETTE LIGNE AU TOUT DÉBUT DU COMPOSANT 👇
+  const { fetchTournaments, setTournaments } = useAppContext();
   const isFinished = match.status === 'finished';
   const isCanceled = match.status === 'canceled';
   const isForfeit = match.status === 'forfeit';
@@ -53,28 +59,45 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
   const [tempScoreA, setTempScoreA] = useState(match.scoreA || 0);
   const [tempScoreB, setTempScoreB] = useState(match.scoreB || 0);
 
-  // --- GESTION MANUELLE DU SCORE (V2 BDD) ---
+  // --- GESTION MANUELLE DU SCORE (VERSION BLINDÉE) ---
   const handleSaveScore = async (e) => {
     e.stopPropagation();
-    const newScoreA = parseInt(tempScoreA) || 0;
-    const newScoreB = parseInt(tempScoreB) || 0;
+    
+    // 1. On sécurise les chiffres
+    const finalScoreA = parseInt(tempScoreA, 10) || 0;
+    const finalScoreB = parseInt(tempScoreB, 10) || 0;
 
-    // 1. Sauvegarde directe dans la base de données
-    await supabase.from('matches').update({
-      score_a: newScoreA,
-      score_b: newScoreB,
-      status: 'finished',
-      startersValidated: true
+    // 2. Sauvegarde directe dans la base de données
+    const { error } = await supabase.from('matches').update({
+      score_a: finalScoreA,
+      score_b: finalScoreB,
+      status: 'finished'
+      // 🚨 On a supprimé 'startersValidated: true' qui faisait planter la BDD
     }).eq('id', match.id);
 
-    // 2. Mise à jour de l'affichage
-    const newMatches = (tourney.matches || []).map(m => 
-      m.id === match.id ? { ...m, scoreA: newScoreA, scoreB: newScoreB, status: 'finished', startersValidated: true } : m
-    );
-    update({ matches: newMatches });
+    if (error) {
+      toast.error("Erreur réseau lors de la sauvegarde !");
+      return;
+    }
+
+    // 3. Mise à jour de l'affichage instantané (Optimistic UI)
+    if (update && tourney) {
+      const newMatches = (tourney.matches || []).map(m => 
+        m.id === match.id ? { ...m, scoreA: finalScoreA, scoreB: finalScoreB, score_a: finalScoreA, score_b: finalScoreB, status: 'finished' } : m
+      );
+      update({ matches: newMatches });
+    }
+
+    // 4. LA FRAPPE ATOMIQUE : On force l'app entière à se synchroniser
+    if (fetchTournaments) {
+      await fetchTournaments();
+    } else if (setTournaments) {
+      setTournaments(prev => [...prev]);
+    }
     
+    // On ferme les cases
     setIsEditingScore(false);
-    toast.success("Score validé manuellement ! ✅");
+    toast.success("Score validé sur le planning ! ✅");
   };
 
   const currentDt = match.datetime ? match.datetime.replace(' ', 'T') : '';
@@ -205,7 +228,13 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
                 {match.teamA?.name || 'Équipe A'}
               </span>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <input type="number" min="0" value={tempScoreA} onChange={e => setTempScoreA(parseInt(e.target.value) || 0)} className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" />
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={tempScoreA} 
+                  onChange={e => setTempScoreA(e.target.value)} 
+                  className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" 
+                />
               </div>
             </div>
             
@@ -217,7 +246,13 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
                 {match.teamB?.name || 'Équipe B'}
               </span>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <input type="number" min="0" value={tempScoreB} onChange={e => setTempScoreB(parseInt(e.target.value) || 0)} className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" />
+                <input 
+                  type="number" 
+                  min="0" 
+                  value={tempScoreB} 
+                  onChange={e => setTempScoreB(e.target.value)} 
+                  className="w-12 sm:w-14 p-2 text-center bg-app-panel text-white font-black border border-muted-line rounded-lg focus:outline-none focus:border-secondary shadow-inner text-lg" 
+                />
               </div>
             </div>
 
@@ -225,6 +260,7 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
 
           <div className="flex gap-2 mt-2 pt-3 border-t border-muted-line">
             <button onClick={(e) => { e.stopPropagation(); setIsEditingScore(false); }} className="flex-1 text-[10px] font-bold text-muted hover:text-white py-2.5 transition-colors uppercase tracking-widest cursor-pointer border border-transparent bg-transparent">Annuler</button>
+            {/* Note: Assure-toi que ton handleSaveScore dans MatchCard fait bien le parseInt avant d'envoyer à Supabase ! */}
             <button onClick={handleSaveScore} className="flex-1 text-[10px] font-black bg-secondary/20 text-secondary hover:bg-secondary hover:text-white rounded-lg py-2.5 transition-all shadow-md uppercase tracking-widest cursor-pointer border border-secondary/30">Valider</button>
           </div>
         </div>
@@ -234,14 +270,14 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
           {/* ÉQUIPE A ET SON SCORE */}
           <div className="flex-1 flex items-center justify-end gap-3 pr-2 min-w-0">
             <span 
-              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && match.scoreA > match.scoreB ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
+              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && (match.scoreA ?? match.score_a ?? 0) > (match.scoreB ?? match.score_b ?? 0) ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
               title={match.teamA?.name || 'TBD'}
             >
               {match.teamA?.name || 'TBD'}
             </span>
             {!isUpcoming && (
-              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && match.scoreA > match.scoreB ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
-                {match.scoreA || 0}
+              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && (match.scoreA ?? match.score_a ?? 0) > (match.scoreB ?? match.score_b ?? 0) ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
+                {match.scoreA ?? match.score_a ?? 0}
               </span>
             )}
           </div>
@@ -254,8 +290,8 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
                   e.preventDefault();
                   e.stopPropagation(); 
                   setIsEditingScore(true); 
-                  setTempScoreA(match.scoreA || 0); 
-                  setTempScoreB(match.scoreB || 0); 
+                  setTempScoreA(match.scoreA ?? match.score_a ?? 0); 
+                  setTempScoreB(match.scoreB ?? match.score_b ?? 0); 
                 }}
                 className="p-3 sm:p-4 cursor-pointer z-20 group/btn absolute"
                 title="Modifier le score manuellement"
@@ -277,12 +313,12 @@ export default function MatchCard({ match, tourney, currentUserName, canEdit, ha
           {/* SCORE ÉQUIPE B ET SON NOM */}
           <div className="flex-1 flex items-center justify-start gap-3 pl-2 min-w-0">
             {!isUpcoming && (
-              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && match.scoreB > match.scoreA ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
-                {match.scoreB || 0}
+              <span className={`text-xl sm:text-2xl font-black ${!isCanceled && (match.scoreB ?? match.score_b ?? 0) > (match.scoreA ?? match.score_a ?? 0) ? 'text-primary' : 'text-white'} ${isCanceled ? 'opacity-50' : ''}`}>
+                {match.scoreB ?? match.score_b ?? 0}
               </span>
             )}
             <span 
-              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && match.scoreB > match.scoreA ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
+              className={`text-base sm:text-lg truncate font-black ${isUpcoming ? 'text-white' : (!isCanceled && (match.scoreB ?? match.score_b ?? 0) > (match.scoreA ?? match.score_a ?? 0) ? 'text-primary' : 'text-white')} ${isCanceled ? 'line-through opacity-50' : ''}`}
               title={match.teamB?.name || 'TBD'}
             >
               {match.teamB?.name || 'TBD'}
