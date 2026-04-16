@@ -17,9 +17,19 @@ export default function PlayoffsTab({
 }) {
   
   const playoffMatches = (tourney.matches || []).filter(m => m.type === 'playoff');
+
+  // 🚀 NOUVEAU : SÉPARATION 100% INFAILLIBLE (Basée sur le mot "manual" dans l'ID)
+  const bracketMatches = playoffMatches.filter(m => !String(m.id).includes('manual'));
+  const customMatches = playoffMatches.filter(m => String(m.id).includes('manual'));
+
+  // 🛠️ NOUVEAUX ÉTATS POUR LA MODALE
+  const [manualMatchModal, setManualMatchModal] = useState(false);
+  const [manualTeamA, setManualTeamA] = useState('');
+  const [manualTeamB, setManualTeamB] = useState('');
+  const [manualMatchLabel, setManualMatchLabel] = useState('Match de Classement');
   
   // 🔒 NOUVEAU : LE DÉTECTEUR DE PHASE (Trouve le tour le plus bas encore en cours)
-  const pendingPlayoffMatches = playoffMatches.filter(m => !['finished', 'forfeit', 'canceled'].includes(m.status));
+  const pendingPlayoffMatches = bracketMatches.filter(m => !['finished', 'forfeit', 'canceled'].includes(m.status));
   const lowestPendingRound = pendingPlayoffMatches.length > 0 
       ? Math.min(...pendingPlayoffMatches.map(m => m.round || m.metadata?.round || 1))
       : 999;
@@ -119,7 +129,68 @@ export default function PlayoffsTab({
     toast.success("Score validé et équipe avancée ! 🏆");
   };
 
+  // 🗑️ SUPPRIMER UN MATCH (Poule ou Playoff)
+  const handleDeleteMatch = async (matchId) => {
+    if (!window.confirm("⚠️ Voulez-vous vraiment supprimer ce match définitivement ?")) return;
+
+    // 1. Disparition instantanée à l'écran (Optimistic UI)
+    update({ matches: (tourney.matches || []).filter(m => m.id !== matchId) });
+
+    // 2. Suppression dans la base de données
+    const { error } = await supabase.from('matches').delete().eq('id', matchId);
+
+    if (error) {
+      toast.error("Erreur réseau lors de la suppression.");
+      console.error(error);
+    } else {
+      toast.success("Match pulvérisé ! 🗑️");
+    }
+  };
   
+  // --- 🛠️ CRÉATION MANUELLE D'UN MATCH SUR-MESURE ---
+  const handleCreateManualMatch = async () => {
+    if (!manualTeamA || !manualTeamB) {
+      toast.error("Veuillez sélectionner deux équipes. 🏀");
+      return;
+    }
+    if (manualTeamA === manualTeamB) {
+      toast.error("Une équipe ne peut pas s'affronter elle-même ! ❌");
+      return;
+    }
+
+    const fullTeamA = tourney.teams?.find(t => String(t.id) === String(manualTeamA));
+    const fullTeamB = tourney.teams?.find(t => String(t.id) === String(manualTeamB));
+
+    const newMatchData = {
+      id: `p_manual_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      tournament_id: tourney.id,
+      type: 'playoff',
+      team_a: fullTeamA,
+      team_b: fullTeamB,
+      status: 'pending',
+      score_a: 0,
+      score_b: 0,
+      metadata: { 
+        isCustom: true, 
+        label: manualMatchLabel || "Match Sur-Mesure" 
+      }
+    };
+
+    const { data, error } = await supabase.from('matches').insert([newMatchData]).select().single();
+
+    if (error) {
+      toast.error("Erreur réseau lors de la création.");
+    } else {
+      const localMatch = { ...data, teamA: fullTeamA, teamB: fullTeamB };
+      update({ matches: [...(tourney.matches || []), localMatch] });
+      
+      toast.success("Match sur-mesure créé avec succès ! ✅");
+      setManualMatchModal(false);
+      setManualTeamA('');
+      setManualTeamB('');
+      setManualMatchLabel('Match de Classement');
+    }
+  };
 
   // --- 🛠️ 3. GÉNÉRATION DE L'ARBRE (PERSISTANCE CORRIGÉE) ---
   const generatePlayoffs = async () => {
@@ -144,7 +215,7 @@ export default function PlayoffsTab({
     const executeGeneration = async () => {
       // 🚀 OPTIMISTIC UI
       setTournaments(prev => prev.map(t => 
-        t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.type !== 'playoff') } : t
+        t.id === tourney.id ? { ...t, matches: (t.matches || []).filter(m => m.metadata?.isCustom || m.type !== 'playoff') } : t
       ));
 
       const qualifiedTeams = [];
@@ -249,8 +320,11 @@ export default function PlayoffsTab({
           }
       });
 
-      // 1. Suppression des anciens matchs de playoff
-      await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'playoff');
+      // On ne supprime QUE les matchs de l'arbre principal (on protège les Custom)
+      const oldBracketIds = bracketMatches.map(m => m.id);
+      if (oldBracketIds.length > 0) {
+        await supabase.from('matches').delete().in('id', oldBracketIds);
+      }
 
       // 2. Insertion des nouveaux matchs
       const { error } = await supabase.from('matches').insert(newMatchesToInsert);
@@ -310,13 +384,13 @@ export default function PlayoffsTab({
   };
 
   const playoffRounds = [];
-  if (playoffMatches.length > 0) {
-      const maxRound = Math.max(1, ...playoffMatches.map(m => m.round || m.metadata?.round || 1));
+  if (bracketMatches.length > 0) {
+      const maxRound = Math.max(1, ...bracketMatches.map(m => m.round || m.metadata?.round || 1));
       for (let r = 1; r <= maxRound; r++) {
-          // 1. On récupère les matchs du tour
-          const roundMatches = playoffMatches.filter(m => (m.round || m.metadata?.round || 1) === r);
+          // 1. On récupère UNIQUEMENT les matchs de l'arbre principal
+          const roundMatches = bracketMatches.filter(m => (m.round || m.metadata?.round || 1) === r);
           
-          // 🛡️ LE CADENAS : On fige l'ordre des matchs grâce à leur ID (_m0, _m1, _m2...)
+          // 🛡️ LE CADENAS : On fige l'ordre des matchs
           roundMatches.sort((a, b) => {
               const getIndex = (matchId) => parseInt(matchId.split('_m')[1]) || 0;
               return getIndex(a.id) - getIndex(b.id);
@@ -414,7 +488,16 @@ export default function PlayoffsTab({
             className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg w-full ${borderClass} opacity-100 scale-100 hover:border-white/20 hover:-translate-y-0.5 ${isCanceled ? 'opacity-60' : ''}`}
           >
               {/* On masque le bouton "Glisser" si on ne peut pas swap */}
-              {canSwap && <div className="absolute top-2.5 right-3 text-muted-dark text-lg hover:text-white cursor-pointer transition-colors" title="Cliquez sur les équipes pour intervertir">⠿</div>}
+              {/* 👇 LA CONDITION EST MODIFIÉE : canEdit ET ID contenant "manual" 👇 */}
+  {(canEdit && String(m.id).includes('manual')) && (
+    <button 
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteMatch(m.id); }} 
+      className="absolute top-2.5 right-2.5 w-6 h-6 rounded bg-danger/10 text-danger flex items-center justify-center text-xs cursor-pointer hover:bg-danger hover:text-white transition-colors border border-danger/20 z-20"
+      title="Supprimer ce match"
+    >
+      🗑️
+    </button>
+  )}
 
               {isOngoing && <div className="absolute -top-2 -left-2 bg-action text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">EN COURS</div>}
               {isFinished && <div className="absolute -top-2 -left-2 bg-muted-dark text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">TERMINÉ</div>}
@@ -682,7 +765,7 @@ export default function PlayoffsTab({
         </div>
       )}
       
-      {playoffMatches.length === 0 ? (
+      {bracketMatches.length === 0 ? (
         <div className="bg-app-panel/60 backdrop-blur-md border border-muted-line rounded-3xl p-10 sm:p-14 text-center shadow-2xl relative overflow-hidden flex flex-col items-center mt-4">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-secondary/10 rounded-full blur-[80px] pointer-events-none"></div>
             <div className="text-6xl mb-6 drop-shadow-2xl relative z-10">⏳</div>
@@ -734,6 +817,98 @@ export default function PlayoffsTab({
                     </div>
                 ))}
             </div>
+
+            {/* 🛠️ NOUVEAU : SECTION DES MATCHS SUR-MESURE */}
+      <div className="mt-12 pt-8 border-t border-muted-line w-full">
+        <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+                <span>⚔️</span> Matchs de Classement & Sur-Mesure
+            </h3>
+            {canEdit && (
+                <button onClick={() => setManualMatchModal(true)} className="bg-app-input border border-dashed border-muted-line text-muted-light px-4 py-2.5 rounded-xl font-black tracking-widest text-[10px] sm:text-xs hover:text-white hover:border-secondary transition-all cursor-pointer">
+                    ➕ NOUVEAU MATCH
+                </button>
+            )}
+        </div>
+        
+        {customMatches.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+                {customMatches.map(m => renderMatch(m))}
+            </div>
+        ) : (
+            <div className="bg-app-panel/40 border border-muted-line rounded-2xl p-8 text-center text-muted text-sm font-bold">
+                Aucun match sur-mesure pour le moment.
+            </div>
+        )}
+      </div>
+
+      {/* 🛠️ MODALE DE CRÉATION DE MATCH MANUEL */}
+      {manualMatchModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4" onClick={() => setManualMatchModal(false)}>
+          <div className="bg-app-panel border border-muted-line rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-5" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center mb-2 border-b border-muted-line pb-4">
+              <h3 className="text-white font-black tracking-widest uppercase m-0 flex items-center gap-2">
+                <span>⚔️</span> Match Sur-Mesure
+              </h3>
+              <button onClick={() => setManualMatchModal(false)} className="bg-transparent border-none text-muted-dark hover:text-white cursor-pointer text-xl">✕</button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-muted font-black tracking-widest uppercase">Nom du match (Optionnel)</label>
+                <input 
+                  type="text" 
+                  value={manualMatchLabel} 
+                  onChange={(e) => setManualMatchLabel(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-secondary transition-colors shadow-inner"
+                  placeholder="Ex: Match pour la 3ème place..."
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-muted font-black tracking-widest uppercase">Équipe Domicile (A)</label>
+                <select 
+                  value={manualTeamA} 
+                  onChange={(e) => setManualTeamA(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-secondary transition-colors shadow-inner cursor-pointer"
+                >
+                  <option value="">-- Sélectionner une équipe --</option>
+                  {(tourney.teams || []).map(t => (
+                    <option key={`A-${t.id}`} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-center -my-2 relative z-10 pointer-events-none">
+                <span className="bg-app-panel text-muted-dark font-black text-xs px-3 py-1 rounded-full border border-muted-line">VS</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-muted font-black tracking-widest uppercase">Équipe Extérieur (B)</label>
+                <select 
+                  value={manualTeamB} 
+                  onChange={(e) => setManualTeamB(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-secondary transition-colors shadow-inner cursor-pointer"
+                >
+                  <option value="">-- Sélectionner une équipe --</option>
+                  {(tourney.teams || []).map(t => (
+                    <option key={`B-${t.id}`} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleCreateManualMatch}
+              className="w-full mt-2 bg-gradient-to-r from-secondary to-danger text-white border-none py-3.5 rounded-xl font-black tracking-widest cursor-pointer text-xs hover:shadow-[0_4px_15px_rgba(249,115,22,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
+            >
+              VALIDER LA CONFRONTATION ✅
+            </button>
+          </div>
+        </div>
+      )}
+
         </div>
       )}
     </div>

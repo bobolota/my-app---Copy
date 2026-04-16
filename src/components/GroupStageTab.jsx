@@ -12,6 +12,15 @@ export default function GroupStageTab({
   
   // État pour mémoriser quel match tu es en train de glisser
   const [draggedMatchId, setDraggedMatchId] = useState(null);
+  // NOUVEAU : États pour la création de match manuel
+  const [manualMatchModal, setManualMatchModal] = useState({ isOpen: false, group: null });
+  // NOUVEAU : Mémoire des poules créées à vide
+  const [manualGroups, setManualGroups] = useState([]);
+  
+  // On fusionne les poules de la BDD et les poules manuelles
+  const allGroups = [...new Set([...savedGroupIds.map(Number), ...manualGroups])].sort((a,b) => a - b);
+  const [manualTeamA, setManualTeamA] = useState('');
+  const [manualTeamB, setManualTeamB] = useState('');
   const [isAllerRetour, setIsAllerRetour] = useState(false);
 
   // FONCTION DE TRI PAR DATE/HEURE
@@ -237,7 +246,120 @@ export default function GroupStageTab({
       toast.success("Équipe déliée avec succès !");
     }
   };
+
+  // 👇 ========================================== 👇
+  // 👇 INSERE LA NOUVELLE FONCTION JUSTE ICI !    👇
+  // 👇 ========================================== 👇
+
+  // 🗑️ SUPPRIMER UN MATCH (Poule ou Playoff)
+  const handleDeleteMatch = async (matchId) => {
+    if (!window.confirm("⚠️ Voulez-vous vraiment supprimer ce match définitivement ?")) return;
+
+    // 1. Disparition instantanée à l'écran (Optimistic UI)
+    update({ matches: (tourney.matches || []).filter(m => m.id !== matchId) });
+
+    // 2. Suppression dans la base de données
+    const { error } = await supabase.from('matches').delete().eq('id', matchId);
+
+    if (error) {
+      toast.error("Erreur réseau lors de la suppression.");
+      console.error(error);
+    } else {
+      toast.success("Match pulvérisé ! 🗑️");
+    }
+  };
   
+  // 🛠️ CRÉATION MANUELLE D'UN MATCH DE POULE
+  const handleCreateManualMatch = async () => {
+    if (!manualTeamA || !manualTeamB) {
+      toast.error("Veuillez sélectionner deux équipes. 🏀");
+      return;
+    }
+    if (manualTeamA === manualTeamB) {
+      toast.error("Une équipe ne peut pas s'affronter elle-même ! ❌");
+      return;
+    }
+
+    // 1. On récupère les objets équipes COMPLETS
+    const fullTeamA = tourney.teams?.find(t => t.id === manualTeamA);
+    const fullTeamB = tourney.teams?.find(t => t.id === manualTeamB);
+
+    const newMatchData = {
+      id: `m_manual_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      tournament_id: tourney.id,
+      type: 'pool',
+      metadata: { group: manualMatchModal.group },
+      // 👇 LA SOLUTION EST ICI : On envoie l'OBJET COMPLET en base de données
+      team_a: fullTeamA, 
+      team_b: fullTeamB, 
+      status: 'pending',
+      score_a: 0,
+      score_b: 0
+    };
+
+    // 2. Sauvegarde en base de données
+    const { data, error } = await supabase.from('matches').insert([newMatchData]).select().single();
+
+    if (error) {
+      toast.error("Erreur réseau lors de la création.");
+      console.error(error);
+    } else {
+      // 3. Mise à jour instantanée de l'écran (Blindée en camelCase et snake_case)
+      const localMatch = {
+        ...data,
+        teamA: fullTeamA, // Pour que React trouve direct ".name"
+        teamB: fullTeamB
+      };
+
+      update({ matches: [...(tourney.matches || []), localMatch] });
+      
+      toast.success("Match créé avec les vrais noms ! ✅");
+      setManualMatchModal({ isOpen: false, group: null });
+      setManualTeamA('');
+      setManualTeamB('');
+    }
+  };
+
+  // 🧹 RÉINITIALISER TOUTES LES POULES
+  const handleResetPools = async () => {
+    if (!window.confirm("⚠️ ATTENTION ! Voulez-vous vraiment TOUT supprimer (matchs et poules) pour recommencer ?")) return;
+
+    // 1. Libérer TOUTES les équipes de leurs poules (CORRECTION : on vide groupId)
+    const resetTeams = (tourney.teams || []).map(t => ({ ...t, groupId: null, group: null }));
+
+    update({ 
+      matches: (tourney.matches || []).filter(m => m.type !== 'pool'),
+      teams: resetTeams, 
+      qualifiedSettings: {}
+    });
+
+    setManualGroups([]); 
+    if (setGroupCount) setGroupCount(0);
+
+    const { error } = await supabase.from('matches').delete().eq('tournament_id', tourney.id).eq('type', 'pool');
+    if (error) toast.error("Erreur lors de la suppression en BDD.");
+    else toast.success("Tout a été nettoyé ! L'ardoise est vierge. 🧹");
+  };
+
+  // 🏗️ ASSIGNER UNE ÉQUIPE À UNE POULE MANUELLEMENT
+  const handleAssignTeamToGroup = (teamId, groupNum) => {
+    if (!teamId) return;
+    const newTeams = (tourney.teams || []).map(t => 
+      t.id === teamId ? { ...t, groupId: parseInt(groupNum) } : t
+    );
+    update({ teams: newTeams });
+    toast.success(`Équipe ajoutée à la Poule ${groupNum} ! 📥`);
+  };
+
+  // ✂️ RETIRER UNE ÉQUIPE D'UNE POULE
+  const handleRemoveTeamFromGroup = (teamId) => {
+    const newTeams = (tourney.teams || []).map(t => 
+      t.id === teamId ? { ...t, groupId: null } : t
+    );
+    update({ teams: newTeams });
+    toast.success("Équipe retirée de la poule. 📤");
+  };
+
   return (
     <div className="flex flex-col xl:flex-row gap-8 items-start w-full mt-4">
       
@@ -464,29 +586,72 @@ export default function GroupStageTab({
                   <label className="text-xs text-muted font-black tracking-widest uppercase">Nombre de poules</label>
                   <input type="number" min="1" value={groupCount} onChange={(e) => setGroupCount(e.target.value)} className="w-16 p-2 rounded-lg bg-app-card border border-muted-line text-white text-center font-bold focus:outline-none focus:border-secondary transition-colors shadow-inner" />
                 </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => generateMatches(isAllerRetour)} 
+                    className="flex-[2] p-4 bg-gradient-to-r from-secondary to-danger text-white font-black tracking-widest rounded-xl text-[10px] sm:text-xs transition-all shadow-[0_4px_15px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.5)] hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span className="text-sm">🎲</span> GÉNÉRER AUTO
+                  </button>
+                  
+                  <button 
+                    onClick={handleResetPools} 
+                    className="flex-1 p-4 bg-app-card text-danger border border-danger/30 font-black tracking-widest rounded-xl text-[10px] sm:text-xs transition-all hover:bg-danger hover:text-white hover:-translate-y-0.5 cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                    title="Tout effacer pour recommencer manuellement"
+                  >
+                    <span className="text-sm">🗑️</span> RESET
+                  </button>
+                </div>
+                
+                {/* 👇 LE NOUVEAU BOUTON POUR CRÉER UNE POULE VIDE 👇 */}
                 <button 
-  onClick={() => generateMatches(isAllerRetour)} 
-  className="w-full p-4 bg-gradient-to-r from-secondary to-danger text-white font-black tracking-widest rounded-xl text-xs transition-all shadow-[0_4px_15px_rgba(249,115,22,0.3)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.5)] hover:-translate-y-0.5 cursor-pointer"
->
-  🎲 GÉNÉRER LE PLANNING AUTO
-</button>
+                  onClick={() => {
+                    const nextGroup = allGroups.length > 0 ? Math.max(...allGroups) + 1 : 1;
+                    setManualGroups(prev => [...prev, nextGroup]);
+                    toast.success(`Poule ${nextGroup} créée ! Prête à recevoir des équipes. 🏗️`);
+                  }}
+                  className="w-full p-3 bg-transparent border border-dashed border-secondary text-secondary font-black tracking-widest rounded-xl text-[10px] sm:text-xs transition-all hover:bg-secondary/10 cursor-pointer flex items-center justify-center gap-2 mt-2"
+                >
+                  <span className="text-sm">➕</span> CRÉER UNE POULE VIDE
+                </button>
+
             </div>
           )}
         </div>
       </div>
 
+
+
       {/* COLONNE DROITE : POULES ET PLANNING */}
       <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6 items-start pb-5 w-full">
-        {savedGroupIds.map(gNum => {
+        {allGroups.map(gNum => {
             const standings = getGroupStandings(gNum);
             const limit = getGroupLimit(tourney, gNum);
             return (
               <div key={gNum} className="bg-app-panel/80 backdrop-blur-md p-5 rounded-2xl border border-muted-line shadow-xl min-w-0 flex flex-col">
                 <div className="flex justify-between items-center mb-5 pb-4 border-b border-muted-line">
-                  <h4 className="m-0 text-base font-black text-secondary tracking-widest flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                    POULE {gNum}
-                  </h4>
+                  <div className="flex flex-col gap-2">
+                    <h4 className="m-0 text-base font-black text-secondary tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-secondary"></span>
+                      POULE {gNum}
+                    </h4>
+                    {canEdit && (
+                      <select 
+                        onChange={(e) => {
+                          handleAssignTeamToGroup(e.target.value, gNum);
+                          e.target.value = ""; // Remet le select à zéro
+                        }}
+                        className="bg-app-input border border-muted-line text-muted-light text-[9px] uppercase tracking-widest font-bold rounded-lg p-1.5 outline-none cursor-pointer hover:border-secondary transition-colors w-full sm:w-auto shadow-inner"
+                      >
+                        <option value="">➕ Ajouter équipe...</option>
+                        {(tourney.teams || []).filter(t => String(t.groupId) !== String(gNum)).map(t => (
+                          <option key={`assign-${t.id}`} value={t.id}>
+                            {t.name} {t.groupId ? `(Poule ${t.groupId})` : '(Sans poule)'}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                   <div className="text-[10px] flex items-center gap-2 text-muted font-black tracking-widest bg-app-input px-2 py-1.5 rounded-lg border border-muted-line">
                     <span>QUALIFIÉS:</span>
                     <input type="number" disabled={!canEdit} value={tourney.qualifiedSettings?.[gNum] ?? 2} onChange={(e) => update({ qualifiedSettings: { ...(tourney.qualifiedSettings || {}), [gNum]: parseInt(e.target.value) || 0 } })} className="w-8 p-0.5 text-center bg-transparent border-b border-muted-dark text-white font-bold focus:outline-none focus:border-secondary disabled:opacity-100 disabled:border-transparent" />
@@ -506,8 +671,17 @@ export default function GroupStageTab({
                   <tbody>
                     {standings.map((team, idx) => (
                       <tr key={team.id} className={`border-t border-muted-line ${idx < limit ? 'text-white' : 'text-muted-dark'}`}>
-                        <td className="py-3 px-2 truncate max-w-[120px] font-bold">
+                        <td className="py-3 px-2 truncate max-w-[120px] font-bold relative group/team">
                           {idx + 1}. {team.name} {idx < limit && <span className="ml-1 text-[9px]" title="Qualifié">⭐</span>}
+                          {canEdit && (
+                            <button 
+                              onClick={() => handleRemoveTeamFromGroup(team.id)}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/team:opacity-100 bg-danger/20 text-danger hover:bg-danger hover:text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] transition-all cursor-pointer border border-danger/30 shadow-md"
+                              title="Retirer de la poule"
+                            >
+                              ✕
+                            </button>
+                          )}
                         </td>
                         <td className="text-center font-bold text-primary/90">{team.won || 0}</td>
                         <td className="text-center font-bold text-danger/90">{team.lost || 0}</td>
@@ -556,11 +730,24 @@ export default function GroupStageTab({
                     else if (canClick) borderClass = 'border-l-[4px] border-l-primary';
 
                     return (
-                      // NOUVEAU CODE ÉPURÉ
-<div 
+                      <div 
   key={m.id} 
   className={`bg-app-card p-4 rounded-xl relative transition-all border border-muted-line shadow-lg ${borderClass} opacity-100 scale-100 hover:border-white/20`}
 >
+  {/* 👇 NOUVEAU : LE BOUTON POUBELLE (Placé en haut à droite) 👇 */}
+  {canEdit && (
+    <button 
+      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteMatch(m.id); }} 
+      className="absolute top-2.5 right-2.5 w-6 h-6 rounded bg-danger/10 text-danger flex items-center justify-center text-xs cursor-pointer hover:bg-danger hover:text-white transition-colors border border-danger/20 z-20"
+      title="Supprimer ce match"
+    >
+      🗑️
+    </button>
+  )}
+  {/* 👆 FIN DU BOUTON POUBELLE 👆 */}
+
+  {/* RUBANS VISUELS */}
+  {isOngoing && <div className="absolute -top-2 -left-2 bg-action text-white text-[0.6rem] font-black tracking-widest px-2.5 py-1 rounded shadow-md z-10 border border-app-bg">EN COURS</div>}
   {/* ON A SUPPRIMÉ LE DRAG AND DROP CAR L'ORDRE SE FAIT PAR L'HEURE MAINTENANT */}
                           
                           {/* RUBANS VISUELS */}
@@ -739,14 +926,85 @@ export default function GroupStageTab({
                             )}
                           </div>
                       </div>
-                    );
+                   );
                   })}
+
+                  {/* 👇👇👇 COLLE LE BOUTON EXACTEMENT ICI 👇👇👇 */}
+                  {canEdit && (
+                    <button 
+                      onClick={() => {
+                        setManualMatchModal({ isOpen: true, group: gNum });
+                        setManualTeamA('');
+                        setManualTeamB('');
+                      }}
+                      className="w-full mt-4 p-3 border border-dashed border-muted-line text-muted font-black tracking-widest text-[10px] sm:text-xs rounded-xl hover:bg-white/5 hover:text-white hover:border-muted transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span className="text-sm">➕</span> CRÉER UN MATCH SUR-MESURE
+                    </button>
+                  )}
+                  {/* 👆👆👆 FIN DU BOUTON 👆👆👆 */}
 
                 </div>
               </div>
             );
         })}
       </div>
+    {/* 🛠️ MODALE DE CRÉATION DE MATCH MANUEL */}
+      {manualMatchModal.isOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center z-[100] p-4" onClick={() => setManualMatchModal({ isOpen: false, group: null })}>
+          <div className="bg-app-panel border border-muted-line rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col gap-5" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center mb-2 border-b border-muted-line pb-4">
+              <h3 className="text-white font-black tracking-widest uppercase m-0 flex items-center gap-2">
+                <span>⚔️</span> Nouveau Match - Poule {manualMatchModal.group}
+              </h3>
+              <button onClick={() => setManualMatchModal({ isOpen: false, group: null })} className="bg-transparent border-none text-muted-dark hover:text-white cursor-pointer text-xl">✕</button>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-muted font-black tracking-widest uppercase">Équipe Domicile (A)</label>
+                <select 
+                  value={manualTeamA} 
+                  onChange={(e) => setManualTeamA(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-action transition-colors shadow-inner cursor-pointer"
+                >
+                  <option value="">-- Sélectionner une équipe --</option>
+                  {getGroupStandings(manualMatchModal.group).map(t => (
+                    <option key={`A-${t.id}`} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-center -my-2 relative z-10 pointer-events-none">
+                <span className="bg-app-panel text-muted-dark font-black text-xs px-3 py-1 rounded-full border border-muted-line">VS</span>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] text-muted font-black tracking-widest uppercase">Équipe Extérieur (B)</label>
+                <select 
+                  value={manualTeamB} 
+                  onChange={(e) => setManualTeamB(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-app-input border border-muted-line text-white font-bold focus:outline-none focus:border-action transition-colors shadow-inner cursor-pointer"
+                >
+                  <option value="">-- Sélectionner une équipe --</option>
+                  {getGroupStandings(manualMatchModal.group).map(t => (
+                    <option key={`B-${t.id}`} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button 
+              onClick={handleCreateManualMatch}
+              className="w-full mt-2 bg-gradient-to-r from-action to-action-light text-white border-none py-3.5 rounded-xl font-black tracking-widest cursor-pointer text-xs hover:shadow-[0_4px_15px_rgba(59,130,246,0.4)] hover:-translate-y-0.5 transition-all shadow-lg"
+            >
+              VALIDER LA CONFRONTATION ✅
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
