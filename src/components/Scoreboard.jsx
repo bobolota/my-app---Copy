@@ -12,9 +12,30 @@ import PdfScoreSheet from './PdfScoreSheet';
 import ScoreBanner from './ScoreBanner';
 import ActionPanel from './ActionPanel';
 
-// --- COMPOSANT PRINCIPAL ---
-
+// 🛡️ --- LE BOUCLIER DE CHARGEMENT (WRAPPER) --- 🛡️
 export default function Scoreboard() {
+  const { activeMatch, currentTourney } = useAppContext();
+  const matchData = (currentTourney?.matches || []).find(m => m.id === activeMatch?.id);
+
+  // Le videur : si on n'a pas les données, on affiche le chargement. 
+  // AUCUN Hook React complexe n'est lu ici, donc aucune erreur possible !
+  if (!currentTourney || !currentTourney.teams || !matchData) {
+    return (
+      <div className="w-full h-screen flex flex-col items-center justify-center bg-app-bg text-white font-mono tracking-widest">
+        <div className="w-8 h-8 border-4 border-secondary border-t-transparent rounded-full animate-spin mb-4"></div>
+        CHARGEMENT DU MATCH...
+      </div>
+    );
+  }
+
+  // Si on a les données, on laisse entrer dans le vrai Scoreboard !
+  return <ScoreboardInner />;
+}
+
+
+// 🏀 --- LE VRAI COMPOSANT SCOREBOARD --- 🏀
+function ScoreboardInner() {
+  // 1. On récupère le contexte
   const { 
     activeMatch, setActiveMatch, setView, 
     finishMatch: onMatchFinished, syncLiveScore: onLiveUpdate, 
@@ -23,6 +44,10 @@ export default function Scoreboard() {
   } = useAppContext();
 
   const matchId = activeMatch?.id;
+
+  // 2. On est sûrs à 100% que matchData existe grâce au videur au-dessus !
+  const matchData = (tourney?.matches || []).find(m => m.id === matchId);
+  const matchDataRef = useRef(matchData);
 
   // 🛠️ LE TRADUCTEUR D'ÉQUIPES (Spécial Phase Finale)
   const getTeamObj = (teamData, fallbackName) => {
@@ -46,6 +71,8 @@ export default function Scoreboard() {
   const onExit = () => { 
     setView('tournament'); 
   };
+  
+  // ... (la suite avec tes useState)
 
   // 1. Récupération des paramètres (avec 5 fautes perso et 4 fautes d'équipe par défaut)
   const settings = tourney?.matchsettings || { 
@@ -105,8 +132,7 @@ export default function Scoreboard() {
   };
 
   const safeSave = getSafeSave();
- // 👇 V2 : On cherche simplement dans la liste unifiée
-  const matchData = (tourney?.matches || []).find(m => m.id === matchId);
+
   const isAlreadyValidated = Boolean(
     isFinished || 
     courtSize === 1 ||
@@ -199,23 +225,27 @@ export default function Scoreboard() {
   const [editSec, setEditSec] = useState(0);
 
 
+  // 👇 ON AJOUTE CETTE LIGNE JUSTE AVANT LE USE-EFFECT
+  const isFirstRender = useRef(true);
+
   // 💾 SAUVEGARDE LOCALE INSTANTANÉE (Le bouclier anti-F5 absolu)
   useEffect(() => {
+    // 🛡️ NOUVEAU BOUCLIER : On interdit formellement de sauvegarder au tout premier affichage
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return; 
+    }
+
     // On ne sauvegarde pas si le match est fini, si on n'a pas les droits, ou si l'écran est vide
     if (!canEdit || isMatchOver) return;
     if (playersA.length === 0 && playersB.length === 0) return; 
 
     // On crée une copie de survie de l'écran actuel
     const emergencyBackup = {
-        playersA,
-        playersB,
-        history,
-        time,
-        period,
-        possession
+        playersA, playersB, history, time, period, possession
     };
     
-    // On l'écrit dans le disque dur du navigateur instantanément (0 milliseconde de délai)
+    // On l'écrit dans le disque dur du navigateur
     localStorage.setItem(`basketMatchSave_${matchId}`, JSON.stringify(emergencyBackup));
 
   }, [playersA, playersB, history, time, period, possession, matchId, canEdit, isMatchOver]);
@@ -287,8 +317,11 @@ export default function Scoreboard() {
 
   
   useEffect(() => {
-    // 👇 LE BOUCLIER : On refuse de sauvegarder si les joueurs sont vides (évite d'écraser la sauvegarde au rafraîchissement)
+    // On garde ton if des joueurs
     if (!playersA || playersA.length === 0 || !playersB || playersB.length === 0) return;
+    
+    // 🛡️ CORRECTION : Empêche la sauvegarde accidentelle au chargement
+    if (!history || history.length === 0 && !startersValidated) return;
 
     if (!isFinished && canEdit) { 
       const gameState = { playersA, playersB, time, period, history, isMatchOver, possession, startersValidated };
@@ -297,28 +330,47 @@ export default function Scoreboard() {
   }, [playersA, playersB, time, period, history, isMatchOver, possession, startersValidated, isFinished, saveKey, canEdit]);
 
   // 🛡️ 1. LA SÉCURITÉ : On garde toujours une trace "fraîche" du match
-  const matchDataRef = useRef(matchData);
   useEffect(() => {
       matchDataRef.current = matchData;
   }, [matchData]);
-
-  // 🛡️ 2. LE NETTOYEUR : Protège ton 'group', ta 'date', etc.
+  
+  // 🛡️ 2. LE NETTOYEUR : Blindage Ultime (Poules ET Phase Finale)
   const getCleanMetadata = () => {
+      // 1. On récupère le match tel qu'il est en mémoire
       const currentMatch = matchDataRef.current || {};
-      const safeMetadata = { ...currentMatch };
       
-      // On supprime les grosses colonnes SQL pour ne garder que la "metadata" pure
-      const nativeColumns = ['id', 'tourneyId', 'tournament_id', 'type', 'status', 'scoreA', 'scoreB', 'savedStatsA', 'savedStatsB', 'liveHistory', 'team_a', 'team_b', 'score_a', 'score_b', 'saved_stats_a', 'saved_stats_b', 'live_history'];
-      nativeColumns.forEach(col => delete safeMetadata[col]);
+      // 2. On traque TOUTES les identités possibles du match (Poule ou Playoff)
+      // On cherche à la racine, ou dans le metadata (au cas où)
+      const groupFound = currentMatch.group || currentMatch.metadata?.group || currentMatch.metadata?.metadata?.group;
+      const roundFound = currentMatch.round || currentMatch.metadata?.round || currentMatch.metadata?.metadata?.round;
+      const stepFound = currentMatch.step || currentMatch.metadata?.step || currentMatch.metadata?.metadata?.step;
+      const labelFound = currentMatch.label || currentMatch.metadata?.label || currentMatch.metadata?.metadata?.label;
 
-      // On injecte les infos du direct
+      let safeMetadata = { ...(currentMatch.metadata || {}) }; 
+
+      // 🚑 Réparation de la "poupée russe"
+      if (safeMetadata.metadata) {
+          safeMetadata = { ...safeMetadata, ...safeMetadata.metadata };
+          delete safeMetadata.metadata;
+      }
+
+      // 🔒 VERROUILLAGE ABSOLU DE L'IDENTITÉ : On ré-injecte toutes les étiquettes trouvées !
+      if (groupFound) safeMetadata.group = groupFound;
+      if (roundFound) safeMetadata.round = roundFound;
+      if (stepFound) safeMetadata.step = stepFound;
+      if (labelFound) safeMetadata.label = labelFound;
+
+      // 3. On injecte les infos du chronomètre et du direct
       safeMetadata.liveTime = time;
       safeMetadata.livePeriod = period;
       safeMetadata.livePossession = possession;
       safeMetadata.startersValidated = startersValidated;
 
-      // Nettoyage de sécurité pour Postgres
+      // 4. Nettoyage final pour la base de données
       Object.keys(safeMetadata).forEach(key => safeMetadata[key] === undefined && delete safeMetadata[key]);
+      
+      const trash = ['id', 'tourneyId', 'type', 'status', 'scoreA', 'scoreB', 'team_a', 'team_b', 'savedStatsA', 'savedStatsB'];
+      trash.forEach(col => delete safeMetadata[col]);
 
       return safeMetadata;
   };

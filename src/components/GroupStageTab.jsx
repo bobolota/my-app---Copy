@@ -80,10 +80,10 @@ export default function GroupStageTab({
               const limit = getGroupLimit(tourney, gNum);
               
               // V2 : On filtre sur tourney.matches et on s'assure que c'est un match de poule
-  const groupMatches = (tourney.matches || []).filter(m => 
+ const groupMatches = (tourney.matches || []).filter(m => 
     m.type === 'pool' && 
-    m.group === gNum && 
-    (['finished', 'canceled', 'forfeit'].includes(m.status) || m.startersValidated || m.liveHistory?.length > 0)
+    (m.group === gNum || m.metadata?.group === gNum) && 
+    (['finished', 'canceled', 'forfeit', 'ongoing'].includes(m.status) || m.startersValidated || m.metadata?.startersValidated || m.liveHistory?.length > 0 || m.live_history?.length > 0)
   ).sort(sortMatchesByDate);
 
               return (
@@ -696,7 +696,7 @@ export default function GroupStageTab({
 
                 <div className="flex flex-col gap-3 mt-auto">
                   {/* V2 : Affichage des matchs de poule de l'organisateur */}
-                  {(tourney.matches || []).filter(m => m.type === 'pool' && m.group === gNum).sort(sortMatchesByDate).map(m => {
+                  {(tourney.matches || []).filter(m => m.type === 'pool' && (m.group === gNum || m.metadata?.group === gNum)).sort(sortMatchesByDate).map(m => {
                     // NOUVEAU : On récupère l'équipe fraîche pour avoir les joueurs à jour
                     const teamA = tourney?.teams?.find(t => t.id === m.teamA?.id) || m.teamA;
                     const teamB = tourney?.teams?.find(t => t.id === m.teamB?.id) || m.teamB;
